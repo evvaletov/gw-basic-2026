@@ -732,6 +732,36 @@ void gw_exec_stmt(void)
             gw_stmt_get();
             return;
         }
+        if (xstmt == XSTMT_KILL) {
+            gw_chrget();
+            gw_value_t fname = gw_eval_str();
+            char *path = gw_str_to_cstr(&fname.sval);
+            gw_str_free(&fname.sval);
+            if (remove(path) != 0) { free(path); gw_error(ERR_FF); }
+            free(path);
+            return;
+        }
+        if (xstmt == XSTMT_NAME) {
+            gw_chrget();
+            gw_value_t old = gw_eval_str();
+            char *oldpath = gw_str_to_cstr(&old.sval);
+            gw_str_free(&old.sval);
+            gw_skip_spaces();
+            /* Skip AS */
+            if (gw_is_letter(gw_chrgot()) && toupper(gw_chrgot()) == 'A') {
+                gw_chrget();
+                if (gw_is_letter(gw_chrgot()) && toupper(gw_chrgot()) == 'S')
+                    gw_chrget();
+            }
+            gw_value_t new_val = gw_eval_str();
+            char *newpath = gw_str_to_cstr(&new_val.sval);
+            gw_str_free(&new_val.sval);
+            if (rename(oldpath, newpath) != 0) {
+                free(oldpath); free(newpath); gw_error(ERR_FF);
+            }
+            free(oldpath); free(newpath);
+            return;
+        }
         /* Graphics/sound stubs - parse and discard arguments */
         if (xstmt == XSTMT_CIRCLE || xstmt == XSTMT_DRAW ||
             xstmt == XSTMT_PAINT  || xstmt == XSTMT_PLAY ||

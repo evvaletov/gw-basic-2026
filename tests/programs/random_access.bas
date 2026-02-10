@@ -1,5 +1,5 @@
 10 REM Random-access file I/O test
-20 OPEN "R", #1, "/tmp/gwbasic_random.dat", 32
+20 OPEN "R", #1, "gwbasic_random.dat", 32
 30 FIELD #1, 20 AS N$, 4 AS A$, 8 AS S$
 40 LSET N$ = "Alice"
 50 LSET A$ = MKI$(25) + "  "
@@ -14,3 +14,4 @@
 140 GET #1, 2
 150 PRINT LEFT$(N$, 3); CVI(A$)
 160 CLOSE #1
+170 KILL "gwbasic_random.dat"

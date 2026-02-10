@@ -1,3 +1,7 @@
 build/
 *.o
 *.d
+gwbasic_*.txt
+gwbasic_*.dat
+gwbasic_*.bas
+!tests/programs/*.bas
