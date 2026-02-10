@@ -44,6 +44,48 @@ typedef struct {
     gw_value_t val;
 } var_entry_t;
 
+/* Array entry */
+typedef struct {
+    char name[2];
+    gw_valtype_t type;
+    int ndims;
+    int dims[8];        /* max dimensions per DIM */
+    int total_elements;
+    gw_value_t *data;   /* malloc'd flat array */
+} array_entry_t;
+
+/* FOR stack entry */
+typedef struct {
+    var_entry_t *var;
+    gw_value_t limit, step;
+    uint8_t *loop_text;
+    struct program_line *loop_line;
+    uint16_t line_num;
+} for_entry_t;
+
+/* GOSUB stack entry */
+typedef struct {
+    uint8_t *ret_text;
+    struct program_line *ret_line;
+    uint16_t line_num;
+} gosub_entry_t;
+
+/* WHILE stack entry */
+typedef struct {
+    uint8_t *while_text;
+    struct program_line *while_line;
+    uint16_t line_num;
+} while_entry_t;
+
+/* DEF FN entry */
+typedef struct {
+    bool defined;
+    char param_name[2];
+    gw_valtype_t param_type, ret_type;
+    uint8_t *body_text;
+    struct program_line *body_line;
+} fn_def_t;
+
 /* MBF (Microsoft Binary Format) types for file compatibility */
 typedef struct {
     uint8_t mantissa[3];

@@ -1,0 +1,18 @@
+10 REM Sieve of Eratosthenes
+20 N = 100
+30 DIM P(100)
+40 FOR I = 2 TO N
+50 P(I) = 1
+60 NEXT I
+70 FOR I = 2 TO SQR(N)
+80 IF P(I) = 0 THEN GOTO 120
+90 FOR J = I*2 TO N STEP I
+100 P(J) = 0
+110 NEXT J
+120 NEXT I
+130 C = 0
+140 FOR I = 2 TO N
+150 IF P(I) = 1 THEN PRINT I; : C = C + 1
+160 NEXT I
+170 PRINT
+180 PRINT C; "primes found"

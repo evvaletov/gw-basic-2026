@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <ctype.h>
 
 /* Global interpreter state */
 interp_state_t gw;
@@ -10,10 +11,12 @@ hal_ops_t *gw_hal = NULL;
 
 void gw_init(void)
 {
+    gw_free_program();
+    gw_vars_clear();
+    gw_arrays_clear();
     memset(&gw, 0, sizeof(gw));
     gw.cur_line_num = LINE_DIRECT;
 
-    /* Default types: all single precision (like GW-BASIC) */
     for (int i = 0; i < 26; i++)
         gw.def_type[i] = VT_SNG;
 }
@@ -57,90 +60,87 @@ void gw_expect(uint8_t tok)
     gw_chrget();
 }
 
-/* Execute a tokenized line from the text pointer */
-void gw_exec_line(uint8_t *tokens)
+/* Check if tokenized data starts with a line number */
+static int parse_line_number(uint8_t *tokens, uint16_t *num)
 {
-    gw.text_ptr = tokens;
-    gw_skip_spaces();
+    uint8_t *p = tokens;
+    while (*p == ' ') p++;
 
-    uint8_t tok = gw_chrgot();
+    uint8_t tok = *p;
 
-    /* Empty line */
-    if (tok == 0)
-        return;
-
-    /* PRINT / ? */
-    if (tok == TOK_PRINT || tok == '?') {
-        gw_chrget();
-        gw_stmt_print();
-        return;
+    /* Literal 0-9 */
+    if (tok >= 0x11 && tok <= 0x1A) {
+        *num = tok - 0x11;
+        return (p - tokens) + 1;
+    }
+    /* One-byte int */
+    if (tok == TOK_INT1) {
+        *num = p[1];
+        return (p - tokens) + 2;
+    }
+    /* Two-byte int */
+    if (tok == TOK_INT2) {
+        *num = (uint16_t)(p[1] | (p[2] << 8));
+        return (p - tokens) + 3;
     }
 
-    /* LPRINT */
-    if (tok == TOK_LPRINT) {
-        gw_chrget();
-        gw_stmt_print();
-        return;
-    }
-
-    /* LET (explicit or implicit) */
-    if (tok == TOK_LET) {
-        gw_chrget();
-        /* Fall through to implicit LET */
-    }
-
-    /* REM / single-quote - skip rest */
-    if (tok == TOK_REM || tok == TOK_SQUOTE)
-        return;
-
-    /* CLS */
-    if (tok == TOK_CLS) {
-        gw_chrget();
-        if (gw_hal) gw_hal->cls();
-        return;
-    }
-
-    /* NEW */
-    if (tok == TOK_NEW) {
-        gw_init();
-        return;
-    }
-
-    /* SYSTEM - exit */
-    if (tok == TOK_PREFIX_FE) {
-        uint8_t *save = gw.text_ptr;
-        gw_chrget();
-        if (gw_chrgot() == XSTMT_SYSTEM) {
-            if (gw_hal) gw_hal->shutdown();
-            exit(0);
-        }
-        gw.text_ptr = save;
-    }
-
-    /* END / STOP */
-    if (tok == TOK_END || tok == TOK_STOP)
-        return;
-
-    /* For Phase 1, anything else is a syntax error */
-    gw_error(ERR_SN);
+    return 0;
 }
 
-/* Execute a raw text line (crunch + dispatch) */
+/* Execute a direct mode line: detect line numbers -> store; otherwise execute */
 void gw_exec_direct(const char *line)
 {
     gw.cur_line_num = LINE_DIRECT;
+    gw.cur_line = NULL;
     int len = gw_crunch(line, gw.kbuf, sizeof(gw.kbuf));
-    (void)len;
-    gw_exec_line(gw.kbuf);
+
+    /* Check for line number -> program storage */
+    uint16_t num;
+    int skip = parse_line_number(gw.kbuf, &num);
+    if (skip > 0) {
+        int data_len = len - skip;
+        /* Skip spaces after line number */
+        uint8_t *data = gw.kbuf + skip;
+        while (*data == ' ' && data_len > 0) { data++; data_len--; }
+
+        /* Invalidate CONT when editing program */
+        gw.cont_text = NULL;
+        gw.cont_line = NULL;
+
+        if (data_len <= 0 || *data == 0) {
+            gw_delete_line(num);
+        } else {
+            gw_store_line(num, data, data_len);
+        }
+        return;
+    }
+
+    /* Direct mode execution with multi-statement support */
+    gw.text_ptr = gw.kbuf;
+    for (;;) {
+        gw_skip_spaces();
+        if (*gw.text_ptr == 0)
+            break;
+        if (*gw.text_ptr == ':') {
+            gw.text_ptr++;
+            continue;
+        }
+        /* Skip ELSE during normal flow (IF true path continuing) */
+        if (*gw.text_ptr == TOK_ELSE) {
+            while (*gw.text_ptr) gw.text_ptr++;
+            break;
+        }
+        gw_exec_stmt();
+        if (gw.running)
+            break;  /* RUN/CONT started, loop handles it */
+    }
 }
 
-/* Read a line from stdin (returns NULL on EOF) */
 static char *read_line(void)
 {
     static char buf[256];
     if (fgets(buf, sizeof(buf), stdin) == NULL)
         return NULL;
-    /* Strip trailing newline */
     int len = strlen(buf);
     while (len > 0 && (buf[len - 1] == '\n' || buf[len - 1] == '\r'))
         buf[--len] = '\0';
@@ -169,7 +169,6 @@ int main(int argc, char **argv)
 
     int interactive = isatty(fileno(stdin));
 
-    /* Check for file argument */
     const char *filename = NULL;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
@@ -188,12 +187,43 @@ int main(int argc, char **argv)
         }
     }
 
-    /* TODO: Load and run file if specified */
-    (void)filename;
+    /* Load file: read lines, store numbered lines, then RUN */
+    if (filename) {
+        FILE *f = fopen(filename, "r");
+        if (!f) {
+            fprintf(stderr, "File not found: %s\n", filename);
+            return 1;
+        }
+        char buf[256];
+        while (fgets(buf, sizeof(buf), f)) {
+            int len = strlen(buf);
+            while (len > 0 && (buf[len - 1] == '\n' || buf[len - 1] == '\r'))
+                buf[--len] = '\0';
+            if (buf[0] == '\0') continue;
+
+            if (setjmp(gw_error_jmp) != 0)
+                continue;
+            gw_exec_direct(buf);
+        }
+        fclose(f);
+
+        /* If program was loaded but RUN wasn't in the file, auto-run */
+        if (gw.prog_head && !gw.running) {
+            if (setjmp(gw_error_jmp) != 0) {
+                /* error during auto-run */
+            } else {
+                gw_exec_direct("RUN");
+            }
+        }
+
+        if (!interactive) {
+            if (gw_hal) gw_hal->shutdown();
+            return 0;
+        }
+    }
 
     print_banner(interactive);
 
-    /* Direct mode loop */
     for (;;) {
         if (interactive) {
             fputs("Ok\n", stdout);
@@ -204,15 +234,11 @@ int main(int argc, char **argv)
         if (!line)
             break;
 
-        /* Skip empty lines */
         if (line[0] == '\0')
             continue;
 
-        /* Error recovery point */
-        if (setjmp(gw_error_jmp) != 0) {
-            /* Returned from error - continue loop */
+        if (setjmp(gw_error_jmp) != 0)
             continue;
-        }
 
         gw_exec_direct(line);
     }

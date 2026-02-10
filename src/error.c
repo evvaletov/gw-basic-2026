@@ -1,6 +1,7 @@
 #include "error.h"
 #include "hal.h"
 #include "interp.h"
+#include "gwbasic.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -66,6 +67,22 @@ const char *gw_error_msg(int errnum)
 void gw_error(int errnum)
 {
     gw_errno = errnum;
+    gw.err_line_num = gw.cur_line_num;
+
+    /* ON ERROR GOTO handler */
+    if (gw.on_error_line && gw.running && !gw.in_error_handler) {
+        program_line_t *target = gw_find_line(gw.on_error_line);
+        if (target) {
+            gw.in_error_handler = true;
+            gw.err_resume_text = gw.text_ptr;
+            gw.err_resume_line = gw.cur_line;
+            gw.cur_line = target;
+            gw.text_ptr = target->tokens;
+            gw.cur_line_num = target->num;
+            longjmp(gw_run_jmp, 1);
+        }
+    }
+
     const char *msg = gw_error_msg(errnum);
     char buf[80];
 
@@ -79,5 +96,6 @@ void gw_error(int errnum)
     else
         fputs(buf, stderr);
 
+    gw.running = false;
     longjmp(gw_error_jmp, errnum);
 }

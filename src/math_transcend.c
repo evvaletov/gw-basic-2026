@@ -3,7 +3,7 @@
 #include <stdlib.h>
 
 /* Random number state (compatible with GW-BASIC's LCG) */
-static uint32_t rnd_seed = 0x50000;  /* default seed */
+uint32_t gw_rnd_seed = 0x50000;  /* default seed */
 static int rnd_seeded = 0;
 
 double gw_sin(double x) { return sin(x); }
@@ -72,16 +72,16 @@ double gw_rnd(double x)
         /* Seed from argument */
         union { float f; uint32_t u; } conv;
         conv.f = (float)x;
-        rnd_seed = conv.u;
+        gw_rnd_seed = conv.u;
         rnd_seeded = 1;
     }
 
     if (x != 0.0 || !rnd_seeded) {
         /* Linear congruential generator matching GW-BASIC */
-        rnd_seed = rnd_seed * 0x43FD43FD + 0xC39EC3;
-        rnd_seed &= 0xFFFFFF;
+        gw_rnd_seed = gw_rnd_seed * 0x43FD43FD + 0xC39EC3;
+        gw_rnd_seed &= 0xFFFFFF;
         rnd_seeded = 1;
     }
 
-    return (double)rnd_seed / 16777216.0;
+    return (double)gw_rnd_seed / 16777216.0;
 }

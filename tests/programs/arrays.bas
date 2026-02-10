@@ -1,0 +1,15 @@
+10 REM Array test
+20 DIM A(10), B$(5)
+30 FOR I = 0 TO 10
+40 A(I) = I * I
+50 NEXT I
+60 FOR I = 0 TO 10
+70 PRINT A(I);
+80 NEXT I
+90 PRINT
+100 B$(0) = "Zero"
+110 B$(1) = "One"
+120 B$(2) = "Two"
+130 FOR I = 0 TO 2
+140 PRINT B$(I)
+150 NEXT I

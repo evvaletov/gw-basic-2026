@@ -17,6 +17,10 @@ set(SOURCES
     src/tokenizer.c
     src/error.c
     src/eval.c
+    src/interp.c
+    src/vars.c
+    src/arrays.c
+    src/input.c
     src/math_int.c
     src/math_float.c
     src/math_transcend.c

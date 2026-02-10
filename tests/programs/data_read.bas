@@ -1,0 +1,9 @@
+10 REM DATA/READ test
+20 DATA 10, 20, 30, "hello", "world"
+30 READ A, B, C
+40 PRINT A; B; C
+50 READ D$, E$
+60 PRINT D$; " "; E$
+70 RESTORE
+80 READ X
+90 PRINT "After RESTORE:"; X

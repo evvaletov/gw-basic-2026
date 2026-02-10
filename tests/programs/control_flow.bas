@@ -1,0 +1,12 @@
+10 REM Control flow: GOTO, IF, FOR, GOSUB combined
+20 GOTO 40
+30 PRINT "SKIP THIS"
+40 PRINT "Start"
+50 FOR I = 1 TO 3
+60 IF I = 2 THEN GOSUB 200
+70 PRINT "I ="; I
+80 NEXT I
+90 PRINT "End"
+100 END
+200 PRINT "  (subroutine called)";
+210 RETURN

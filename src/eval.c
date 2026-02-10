@@ -812,6 +812,35 @@ static gw_value_t eval_atom(void)
         gw.text_ptr = save;
     }
 
+    /* FN call */
+    if (tok == TOK_FN) {
+        gw_chrget();
+        return gw_eval_fn_call();
+    }
+
+    /* Variable or array element */
+    if (gw_is_letter(tok)) {
+        char name[2];
+        gw_valtype_t type = gw_parse_varname(name);
+
+        gw_skip_spaces();
+        if (gw_chrgot() == '(') {
+            /* Array element */
+            gw_value_t *elem = gw_array_element(name, type);
+            gw_value_t v = *elem;
+            if (v.type == VT_STR && v.sval.data)
+                v.sval = gw_str_copy(&elem->sval);
+            return v;
+        }
+
+        /* Scalar variable */
+        var_entry_t *var = gw_var_find_or_create(name, type);
+        gw_value_t v = var->val;
+        if (v.type == VT_STR && v.sval.data)
+            v.sval = gw_str_copy(&var->val.sval);
+        return v;
+    }
+
     /* End of expression */
     if (tok == 0 || tok == ':' || tok == ')' || tok == ','
         || tok == ';' || tok == TOK_THEN || tok == TOK_ELSE

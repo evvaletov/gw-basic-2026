@@ -1,0 +1,8 @@
+10 REM IF/THEN/ELSE test
+20 X = 5
+30 IF X > 3 THEN PRINT "X > 3" ELSE PRINT "X <= 3"
+40 IF X < 3 THEN PRINT "X < 3" ELSE PRINT "X >= 3"
+50 REM IF with GOTO
+60 IF X = 5 THEN GOTO 80
+70 PRINT "Should not print"
+80 PRINT "Jumped to 80"
