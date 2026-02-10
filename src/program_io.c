@@ -39,7 +39,9 @@ void gw_stmt_save(void)
 }
 
 /* Helper: load lines from a file into the program, optionally clearing first */
-static void load_from_file(const char *filename, bool clear)
+void gw_stmt_load_internal(const char *filename, bool clear);
+
+void gw_stmt_load_internal(const char *filename, bool clear)
 {
     FILE *fp = fopen(filename, "r");
     if (!fp)
@@ -120,7 +122,7 @@ void gw_stmt_load(void)
         }
     }
 
-    load_from_file(filename, true);
+    gw_stmt_load_internal(filename, true);
     free(filename);
 
     if (run_after && gw.prog_head) {
@@ -140,6 +142,6 @@ void gw_stmt_merge(void)
     char *filename = gw_str_to_cstr(&fname_val.sval);
     gw_str_free(&fname_val.sval);
 
-    load_from_file(filename, false);
+    gw_stmt_load_internal(filename, false);
     free(filename);
 }

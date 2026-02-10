@@ -727,12 +727,59 @@ static gw_value_t eval_atom(void)
         return eval_function(TOK_PREFIX_FF, func);
     }
 
-    /* Extended function (0xFD prefix) */
+    /* Extended function (0xFD prefix): CVI, CVS, CVD, MKI$, MKS$, MKD$ */
     if (tok == TOK_PREFIX_FD) {
         gw_chrget();
         uint8_t func = gw_chrgot();
         gw_chrget();
-        return eval_function(TOK_PREFIX_FD, func);
+
+        switch (func) {
+        case XFUNC_CVI:
+        {
+            gw_expect('(');
+            gw_value_t arg = gw_eval_str();
+            gw_expect_rparen();
+            return gw_fn_cvi(&arg);
+        }
+        case XFUNC_CVS:
+        {
+            gw_expect('(');
+            gw_value_t arg = gw_eval_str();
+            gw_expect_rparen();
+            return gw_fn_cvs(&arg);
+        }
+        case XFUNC_CVD:
+        {
+            gw_expect('(');
+            gw_value_t arg = gw_eval_str();
+            gw_expect_rparen();
+            return gw_fn_cvd(&arg);
+        }
+        case XFUNC_MKI:
+        {
+            gw_expect('(');
+            int16_t n = gw_eval_int();
+            gw_expect_rparen();
+            return gw_fn_mki(n);
+        }
+        case XFUNC_MKS:
+        {
+            gw_expect('(');
+            gw_value_t arg = gw_eval_num();
+            gw_expect_rparen();
+            return gw_fn_mks(gw_to_sng(&arg));
+        }
+        case XFUNC_MKD:
+        {
+            gw_expect('(');
+            gw_value_t arg = gw_eval_num();
+            gw_expect_rparen();
+            return gw_fn_mkd(gw_to_dbl(&arg));
+        }
+        default:
+            gw_error(ERR_SN);
+            break;
+        }
     }
 
     /* STRING$ function (single-byte token but acts like function) */

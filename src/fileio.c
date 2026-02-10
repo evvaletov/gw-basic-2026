@@ -22,6 +22,10 @@ void gw_file_close_all(void)
             gw.files[i].mode = 0;
             gw.files[i].eof_flag = false;
         }
+        free(gw.files[i].field_buf);
+        gw.files[i].field_buf = NULL;
+        gw.files[i].field_count = 0;
+        gw.files[i].record_len = 0;
     }
 }
 
@@ -172,12 +176,31 @@ void gw_stmt_open(void)
     gw.files[file_num].mode = mode;
     gw.files[file_num].file_num = file_num;
     gw.files[file_num].eof_flag = false;
+    gw.files[file_num].field_buf = NULL;
+    gw.files[file_num].field_count = 0;
 
-    /* Skip optional record length: , reclen */
+    /* Parse optional record length */
+    int reclen = 128;
     gw_skip_spaces();
-    if (gw_chrgot() == ',') {
+    /* Modern syntax: LEN = n */
+    if (gw_is_letter(gw_chrgot()) && toupper(gw_chrgot()) == 'L') {
+        /* Skip LEN */
+        while (gw_is_letter(gw_chrgot())) gw_chrget();
+        gw_skip_spaces();
+        if (gw_chrgot() == TOK_EQ) {
+            gw_chrget();
+            reclen = gw_eval_int();
+        }
+    } else if (gw_chrgot() == ',') {
+        /* Compact syntax: , reclen */
         gw_chrget();
-        gw_eval_int();  /* consume and ignore record length */
+        reclen = gw_eval_int();
+    }
+
+    gw.files[file_num].record_len = reclen;
+    if (mode == 'R') {
+        gw.files[file_num].field_buf = calloc(1, reclen);
+        if (!gw.files[file_num].field_buf) gw_error(ERR_OM);
     }
 }
 
@@ -202,6 +225,10 @@ void gw_stmt_close(void)
             gw.files[num].fp = NULL;
             gw.files[num].mode = 0;
             gw.files[num].eof_flag = false;
+            free(gw.files[num].field_buf);
+            gw.files[num].field_buf = NULL;
+            gw.files[num].field_count = 0;
+            gw.files[num].record_len = 0;
         }
         gw_skip_spaces();
         if (gw_chrgot() != ',')
@@ -471,4 +498,283 @@ void gw_stmt_line_input_file(void)
 
     if (feof(f->fp))
         f->eof_flag = true;
+}
+
+/* ================================================================
+ * Random-access file I/O: FIELD, LSET, RSET, PUT, GET
+ * ================================================================ */
+
+static void field_buf_to_vars(file_entry_t *f);
+static void vars_to_field_buf(file_entry_t *f);
+
+/* FIELD #n, width AS var$ [, width AS var$ ...] */
+void gw_stmt_field(void)
+{
+    gw_skip_spaces();
+    if (gw_chrgot() == '#')
+        gw_chrget();
+    int num = gw_eval_int();
+    file_entry_t *f = gw_file_get(num);
+    if (f->mode != 'R')
+        gw_error(ERR_BM);
+
+    gw_skip_spaces();
+    if (gw_chrgot() == ',')
+        gw_chrget();
+
+    f->field_count = 0;
+    int offset = 0;
+
+    for (;;) {
+        gw_skip_spaces();
+        if (gw_chrgot() == 0 || gw_chrgot() == ':')
+            break;
+
+        int width = gw_eval_int();
+        if (width < 0) gw_error(ERR_FC);
+        if (offset + width > f->record_len) gw_error(ERR_FO);
+
+        gw_skip_spaces();
+        /* Skip AS keyword */
+        if (gw_is_letter(gw_chrgot()) && toupper(gw_chrgot()) == 'A') {
+            gw_chrget();
+            if (gw_is_letter(gw_chrgot()) && toupper(gw_chrgot()) == 'S')
+                gw_chrget();
+        }
+
+        gw_skip_spaces();
+        char name[2];
+        gw_valtype_t type = gw_parse_varname(name);
+        if (type != VT_STR) gw_error(ERR_TM);
+
+        if (f->field_count >= 32) gw_error(ERR_FO);
+        f->fields[f->field_count].name[0] = name[0];
+        f->fields[f->field_count].name[1] = name[1];
+        f->fields[f->field_count].type = type;
+        f->fields[f->field_count].offset = offset;
+        f->fields[f->field_count].width = width;
+        f->field_count++;
+
+        offset += width;
+
+        gw_skip_spaces();
+        if (gw_chrgot() == ',') {
+            gw_chrget();
+            continue;
+        }
+        break;
+    }
+
+    /* Initialize FIELD variables with proper widths (space-filled) */
+    field_buf_to_vars(f);
+}
+
+/* Copy field buffer data into the FIELD variables */
+static void field_buf_to_vars(file_entry_t *f)
+{
+    for (int i = 0; i < f->field_count; i++) {
+        var_entry_t *var = gw_var_find_or_create(f->fields[i].name,
+                                                  f->fields[i].type);
+        gw_str_free(&var->val.sval);
+        var->val.type = VT_STR;
+        var->val.sval = gw_str_alloc(f->fields[i].width);
+        memcpy(var->val.sval.data,
+               f->field_buf + f->fields[i].offset,
+               f->fields[i].width);
+    }
+}
+
+/* Copy FIELD variables into the field buffer */
+static void vars_to_field_buf(file_entry_t *f)
+{
+    for (int i = 0; i < f->field_count; i++) {
+        var_entry_t *var = gw_var_find_or_create(f->fields[i].name,
+                                                  f->fields[i].type);
+        int width = f->fields[i].width;
+        int len = (var->val.type == VT_STR) ? var->val.sval.len : 0;
+        int copy = (len < width) ? len : width;
+        if (copy > 0)
+            memcpy(f->field_buf + f->fields[i].offset,
+                   var->val.sval.data, copy);
+        if (copy < width)
+            memset(f->field_buf + f->fields[i].offset + copy, ' ',
+                   width - copy);
+    }
+}
+
+/* LSET var$ = expr$ - left-justify into field variable */
+void gw_stmt_lset(void)
+{
+    gw_skip_spaces();
+    char name[2];
+    gw_valtype_t type = gw_parse_varname(name);
+    if (type != VT_STR) gw_error(ERR_TM);
+    var_entry_t *var = gw_var_find_or_create(name, type);
+
+    gw_skip_spaces();
+    gw_expect(TOK_EQ);
+    gw_value_t rhs = gw_eval_str();
+
+    int target_len = var->val.sval.len;
+    if (target_len == 0) {
+        gw_str_free(&rhs.sval);
+        return;
+    }
+
+    int copy = (rhs.sval.len < target_len) ? rhs.sval.len : target_len;
+    memcpy(var->val.sval.data, rhs.sval.data, copy);
+    if (copy < target_len)
+        memset(var->val.sval.data + copy, ' ', target_len - copy);
+    gw_str_free(&rhs.sval);
+}
+
+/* RSET var$ = expr$ - right-justify into field variable */
+void gw_stmt_rset(void)
+{
+    gw_skip_spaces();
+    char name[2];
+    gw_valtype_t type = gw_parse_varname(name);
+    if (type != VT_STR) gw_error(ERR_TM);
+    var_entry_t *var = gw_var_find_or_create(name, type);
+
+    gw_skip_spaces();
+    gw_expect(TOK_EQ);
+    gw_value_t rhs = gw_eval_str();
+
+    int target_len = var->val.sval.len;
+    if (target_len == 0) {
+        gw_str_free(&rhs.sval);
+        return;
+    }
+
+    int copy = (rhs.sval.len < target_len) ? rhs.sval.len : target_len;
+    int pad = target_len - copy;
+    if (pad > 0)
+        memset(var->val.sval.data, ' ', pad);
+    memcpy(var->val.sval.data + pad, rhs.sval.data, copy);
+    gw_str_free(&rhs.sval);
+}
+
+/* PUT #n [, record] - write field buffer to file */
+void gw_stmt_put(void)
+{
+    gw_skip_spaces();
+    if (gw_chrgot() == '#')
+        gw_chrget();
+    int num = gw_eval_int();
+    file_entry_t *f = gw_file_get(num);
+    if (f->mode != 'R')
+        gw_error(ERR_BM);
+
+    long record = -1;
+    gw_skip_spaces();
+    if (gw_chrgot() == ',') {
+        gw_chrget();
+        record = gw_eval_int();
+        if (record < 1) gw_error(ERR_RN);
+    }
+
+    vars_to_field_buf(f);
+
+    if (record > 0)
+        fseek(f->fp, (long)(record - 1) * f->record_len, SEEK_SET);
+
+    fwrite(f->field_buf, 1, f->record_len, f->fp);
+    fflush(f->fp);
+}
+
+/* GET #n [, record] - read record from file into field buffer */
+void gw_stmt_get(void)
+{
+    gw_skip_spaces();
+    if (gw_chrgot() == '#')
+        gw_chrget();
+    int num = gw_eval_int();
+    file_entry_t *f = gw_file_get(num);
+    if (f->mode != 'R')
+        gw_error(ERR_BM);
+
+    long record = -1;
+    gw_skip_spaces();
+    if (gw_chrgot() == ',') {
+        gw_chrget();
+        record = gw_eval_int();
+        if (record < 1) gw_error(ERR_RN);
+    }
+
+    if (record > 0)
+        fseek(f->fp, (long)(record - 1) * f->record_len, SEEK_SET);
+
+    memset(f->field_buf, 0, f->record_len);
+    size_t got = fread(f->field_buf, 1, f->record_len, f->fp);
+    if (got == 0)
+        f->eof_flag = true;
+
+    field_buf_to_vars(f);
+}
+
+/* ================================================================
+ * MBF Conversion Functions: CVI, CVS, CVD, MKI$, MKS$, MKD$
+ * ================================================================ */
+
+gw_value_t gw_fn_cvi(gw_value_t *s)
+{
+    if (s->type != VT_STR) gw_error(ERR_TM);
+    if (s->sval.len < 2) gw_error(ERR_FC);
+    gw_value_t v;
+    v.type = VT_INT;
+    v.ival = (int16_t)((uint8_t)s->sval.data[0] |
+                       ((uint8_t)s->sval.data[1] << 8));
+    gw_str_free(&s->sval);
+    return v;
+}
+
+gw_value_t gw_fn_cvs(gw_value_t *s)
+{
+    if (s->type != VT_STR) gw_error(ERR_TM);
+    if (s->sval.len < 4) gw_error(ERR_FC);
+    gw_value_t v;
+    v.type = VT_SNG;
+    memcpy(&v.fval, s->sval.data, 4);
+    gw_str_free(&s->sval);
+    return v;
+}
+
+gw_value_t gw_fn_cvd(gw_value_t *s)
+{
+    if (s->type != VT_STR) gw_error(ERR_TM);
+    if (s->sval.len < 8) gw_error(ERR_FC);
+    gw_value_t v;
+    v.type = VT_DBL;
+    memcpy(&v.dval, s->sval.data, 8);
+    gw_str_free(&s->sval);
+    return v;
+}
+
+gw_value_t gw_fn_mki(int16_t n)
+{
+    gw_value_t v;
+    v.type = VT_STR;
+    v.sval = gw_str_alloc(2);
+    v.sval.data[0] = (char)(n & 0xFF);
+    v.sval.data[1] = (char)((n >> 8) & 0xFF);
+    return v;
+}
+
+gw_value_t gw_fn_mks(float f)
+{
+    gw_value_t v;
+    v.type = VT_STR;
+    v.sval = gw_str_alloc(4);
+    memcpy(v.sval.data, &f, 4);
+    return v;
+}
+
+gw_value_t gw_fn_mkd(double d)
+{
+    gw_value_t v;
+    v.type = VT_STR;
+    v.sval = gw_str_alloc(8);
+    memcpy(v.sval.data, &d, 8);
+    return v;
 }

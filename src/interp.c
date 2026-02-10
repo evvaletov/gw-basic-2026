@@ -543,6 +543,97 @@ void gw_stmt_mid_assign(void)
 }
 
 /* ================================================================
+ * CHAIN "filename" [, linenum] [, ALL]
+ * ================================================================ */
+
+void gw_stmt_chain(void)
+{
+    gw_skip_spaces();
+
+    /* Skip optional MERGE keyword */
+    bool merge = false;
+    if (gw_is_letter(gw_chrgot()) && toupper(gw_chrgot()) == 'M') {
+        /* Could be MERGE - skip the word */
+        uint8_t *save = gw.text_ptr;
+        while (gw_is_letter(gw_chrgot()))
+            gw_chrget();
+        gw_skip_spaces();
+        merge = true;
+        /* If no string follows, this wasn't MERGE */
+        if (gw_chrgot() != '"') {
+            gw.text_ptr = save;
+            merge = false;
+        }
+    }
+
+    gw_value_t fname_val = gw_eval_str();
+    char *filename = gw_str_to_cstr(&fname_val.sval);
+    gw_str_free(&fname_val.sval);
+
+    uint16_t start_line = 0;
+    bool has_start = false;
+    bool keep_all = false;
+
+    gw_skip_spaces();
+    if (gw_chrgot() == ',') {
+        gw_chrget();
+        gw_skip_spaces();
+        /* Optional line number */
+        uint8_t ch = gw_chrgot();
+        if ((ch >= 0x11 && ch <= 0x1A) || ch == TOK_INT1 || ch == TOK_INT2
+            || ch == TOK_CONST_SNG || ch == TOK_CONST_DBL) {
+            start_line = gw_eval_uint16();
+            has_start = true;
+        }
+        gw_skip_spaces();
+        if (gw_chrgot() == ',') {
+            gw_chrget();
+            gw_skip_spaces();
+            /* ALL keyword - keep all variables */
+            if (gw_is_letter(gw_chrgot()) && toupper(gw_chrgot()) == 'A') {
+                keep_all = true;
+                while (gw_is_letter(gw_chrgot()))
+                    gw_chrget();
+            }
+        }
+    }
+
+    /* Load the new program */
+    gw_stmt_load_internal(filename, !merge);
+    free(filename);
+
+    if (!keep_all && !merge) {
+        /* Clear variables unless ALL specified */
+        gw_vars_clear();
+        gw_arrays_clear();
+    }
+
+    /* Start execution */
+    program_line_t *start = gw.prog_head;
+    if (has_start) {
+        start = gw_find_line(start_line);
+        if (!start) gw_error(ERR_UL);
+    }
+
+    if (start) {
+        gw.for_sp = 0;
+        gw.gosub_sp = 0;
+        gw.while_sp = 0;
+        gw.data_ptr = NULL;
+        gw.data_line_ptr = NULL;
+        gw.cont_text = NULL;
+        gw.cont_line = NULL;
+        gw.on_error_line = 0;
+        gw.in_error_handler = false;
+        gw.cur_line = start;
+        gw.text_ptr = start->tokens;
+        gw.cur_line_num = start->num;
+        gw.running = true;
+        gw_run_loop();
+    }
+}
+
+/* ================================================================
  * Statement Dispatcher
  * ================================================================ */
 
@@ -603,6 +694,43 @@ void gw_exec_stmt(void)
             gw_file_close_all();
             if (gw_hal) gw_hal->shutdown();
             exit(0);
+        }
+        if (xstmt == XSTMT_CHAIN) {
+            gw_chrget();
+            gw_stmt_chain();
+            return;
+        }
+        if (xstmt == XSTMT_COMMON) {
+            /* COMMON var, var... - just skip, variables already in table */
+            gw_chrget();
+            while (gw_chrgot() && gw_chrgot() != ':' && gw_chrgot() != TOK_ELSE)
+                gw.text_ptr++;
+            return;
+        }
+        if (xstmt == XSTMT_FIELD) {
+            gw_chrget();
+            gw_stmt_field();
+            return;
+        }
+        if (xstmt == XSTMT_LSET) {
+            gw_chrget();
+            gw_stmt_lset();
+            return;
+        }
+        if (xstmt == XSTMT_RSET) {
+            gw_chrget();
+            gw_stmt_rset();
+            return;
+        }
+        if (xstmt == XSTMT_PUT) {
+            gw_chrget();
+            gw_stmt_put();
+            return;
+        }
+        if (xstmt == XSTMT_GET) {
+            gw_chrget();
+            gw_stmt_get();
+            return;
         }
         /* Graphics/sound stubs - parse and discard arguments */
         if (xstmt == XSTMT_CIRCLE || xstmt == XSTMT_DRAW ||
@@ -690,10 +818,26 @@ void gw_exec_stmt(void)
         gw_chrget();
         gw_skip_spaces();
 
+        /* RUN "filename" - load and run a file */
+        if (gw_chrgot() == '"') {
+            gw_value_t fname_val = gw_eval_str();
+            char *filename = gw_str_to_cstr(&fname_val.sval);
+            gw_str_free(&fname_val.sval);
+            gw_stmt_load_internal(filename, true);
+            free(filename);
+            if (gw.prog_head) {
+                gw.cur_line = gw.prog_head;
+                gw.text_ptr = gw.prog_head->tokens;
+                gw.cur_line_num = gw.prog_head->num;
+                gw.running = true;
+                gw_run_loop();
+            }
+            return;
+        }
+
         /* RUN with line number */
         program_line_t *start = gw.prog_head;
         if (gw_chrgot() >= TOK_INT2 && gw_chrgot() <= TOK_CONST_DBL) {
-            /* has a line number arg */
             uint16_t num = gw_eval_uint16();
             start = gw_find_line(num);
             if (!start) gw_error(ERR_UL);

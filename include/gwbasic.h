@@ -10,7 +10,7 @@
 #include "gw_math.h"
 #include "strings.h"
 
-#define GW_VERSION "0.3.0"
+#define GW_VERSION "0.4.0"
 #define GW_BANNER "GW-BASIC " GW_VERSION
 
 /* Tokenizer */
@@ -59,12 +59,31 @@ int  gw_file_eof(int num);
 void gw_stmt_save(void);
 void gw_stmt_load(void);
 void gw_stmt_merge(void);
+void gw_stmt_load_internal(const char *filename, bool clear);
 
 /* PRINT USING (print_using.c) */
 void gw_print_using(FILE *fp);
 
 /* MID$ assignment (interp.c) */
 void gw_stmt_mid_assign(void);
+
+/* Random-access file I/O (fileio.c) */
+void gw_stmt_field(void);
+void gw_stmt_lset(void);
+void gw_stmt_rset(void);
+void gw_stmt_put(void);
+void gw_stmt_get(void);
+
+/* MBF conversion functions (fileio.c) */
+gw_value_t gw_fn_cvi(gw_value_t *s);
+gw_value_t gw_fn_cvs(gw_value_t *s);
+gw_value_t gw_fn_cvd(gw_value_t *s);
+gw_value_t gw_fn_mki(int16_t n);
+gw_value_t gw_fn_mks(float f);
+gw_value_t gw_fn_mkd(double d);
+
+/* CHAIN (interp.c) */
+void gw_stmt_chain(void);
 
 /* Error recovery for run loop */
 extern jmp_buf gw_run_jmp;

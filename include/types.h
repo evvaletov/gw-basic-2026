@@ -90,9 +90,18 @@ typedef struct {
 /* File entry for OPEN/CLOSE file table */
 typedef struct {
     FILE *fp;
-    int mode;       /* 0=closed, 'I'=input, 'O'=output, 'A'=append */
+    int mode;       /* 0=closed, 'I'=input, 'O'=output, 'A'=append, 'R'=random */
     int file_num;
     bool eof_flag;
+    int record_len;         /* record length for random access (default 128) */
+    uint8_t *field_buf;     /* FIELD buffer (malloc'd, record_len bytes) */
+    int field_count;        /* number of FIELDed variables */
+    struct field_var {
+        char name[2];
+        gw_valtype_t type;
+        int offset;
+        int width;
+    } fields[32];
 } file_entry_t;
 
 /* MBF (Microsoft Binary Format) types for file compatibility */
