@@ -13,8 +13,12 @@
 static char *read_input_line(void)
 {
     static char buf[256];
-    if (fgets(buf, sizeof(buf), stdin) == NULL)
+    if (gw_hal) gw_hal->disable_raw();
+    if (fgets(buf, sizeof(buf), stdin) == NULL) {
+        if (gw_hal) gw_hal->enable_raw();
         return NULL;
+    }
+    if (gw_hal) gw_hal->enable_raw();
     int len = strlen(buf);
     while (len > 0 && (buf[len - 1] == '\n' || buf[len - 1] == '\r'))
         buf[--len] = '\0';

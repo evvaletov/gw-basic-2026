@@ -17,9 +17,17 @@ typedef struct hal_ops {
     void (*cls)(void);
     void (*set_width)(int cols);
 
+    /* Raw mode for INKEY$/INPUT$ */
+    void (*enable_raw)(void);
+    void (*disable_raw)(void);
+
+    /* Write raw bytes bypassing cursor tracking (for Sixel, etc.) */
+    void (*write_raw)(const char *data, int len);
+
     /* Terminal properties */
     int  screen_width;
     int  screen_height;
+    bool is_tty;
 
     /* Lifecycle */
     void (*init)(void);

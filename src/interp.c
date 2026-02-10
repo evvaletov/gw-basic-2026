@@ -1,4 +1,5 @@
 #include "gwbasic.h"
+#include "graphics.h"
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
@@ -682,6 +683,7 @@ void gw_exec_stmt(void)
     if (tok == TOK_CLS) {
         gw_chrget();
         if (gw_hal) gw_hal->cls();
+        if (gfx_active()) { gfx_cls(); gfx_flush(); }
         return;
     }
 
@@ -762,11 +764,90 @@ void gw_exec_stmt(void)
             free(oldpath); free(newpath);
             return;
         }
-        /* Graphics/sound stubs - parse and discard arguments */
-        if (xstmt == XSTMT_CIRCLE || xstmt == XSTMT_DRAW ||
-            xstmt == XSTMT_PAINT  || xstmt == XSTMT_PLAY ||
-            xstmt == XSTMT_VIEW   || xstmt == XSTMT_WINDOW ||
-            xstmt == XSTMT_PALETTE) {
+        /* CIRCLE (cx,cy),radius[,[color][,[start][,[end][,aspect]]]] */
+        if (xstmt == XSTMT_CIRCLE) {
+            gw_chrget();
+            gw_skip_spaces();
+            gw_expect('(');
+            int cx = gw_eval_int();
+            gw_expect(',');
+            int cy = gw_eval_int();
+            gw_expect_rparen();
+            gw_expect(',');
+            int radius = gw_eval_int();
+            int color = gfx_get_color();
+            double start_a = 0, end_a = 0, aspect = 0;
+            gw_value_t tmp;
+            gw_skip_spaces();
+            if (gw_chrgot() == ',') {
+                gw_chrget();
+                gw_skip_spaces();
+                if (gw_chrgot() != ',' && gw_chrgot() != 0 && gw_chrgot() != ':')
+                    color = gw_eval_int();
+                gw_skip_spaces();
+                if (gw_chrgot() == ',') {
+                    gw_chrget();
+                    gw_skip_spaces();
+                    if (gw_chrgot() != ',' && gw_chrgot() != 0 && gw_chrgot() != ':') {
+                        tmp = gw_eval_num(); start_a = gw_to_dbl(&tmp);
+                    }
+                    gw_skip_spaces();
+                    if (gw_chrgot() == ',') {
+                        gw_chrget();
+                        gw_skip_spaces();
+                        if (gw_chrgot() != ',' && gw_chrgot() != 0 && gw_chrgot() != ':') {
+                            tmp = gw_eval_num(); end_a = gw_to_dbl(&tmp);
+                        }
+                        gw_skip_spaces();
+                        if (gw_chrgot() == ',') {
+                            gw_chrget();
+                            tmp = gw_eval_num(); aspect = gw_to_dbl(&tmp);
+                        }
+                    }
+                }
+            }
+            gfx_circle(cx, cy, radius, color, start_a, end_a, aspect);
+            gfx_flush();
+            return;
+        }
+        /* DRAW string-expr */
+        if (xstmt == XSTMT_DRAW) {
+            gw_chrget();
+            gw_value_t s = gw_eval_str();
+            char *cmd = gw_str_to_cstr(&s.sval);
+            gw_str_free(&s.sval);
+            gfx_draw(cmd);
+            free(cmd);
+            gfx_flush();
+            return;
+        }
+        /* PAINT (x,y)[,fill_color[,border_color]] */
+        if (xstmt == XSTMT_PAINT) {
+            gw_chrget();
+            gw_skip_spaces();
+            gw_expect('(');
+            int px = gw_eval_int();
+            gw_expect(',');
+            int py = gw_eval_int();
+            gw_expect_rparen();
+            int fill_c = gfx_get_color(), border_c = 0;
+            gw_skip_spaces();
+            if (gw_chrgot() == ',') {
+                gw_chrget();
+                fill_c = gw_eval_int();
+                gw_skip_spaces();
+                if (gw_chrgot() == ',') {
+                    gw_chrget();
+                    border_c = gw_eval_int();
+                }
+            }
+            gfx_paint(px, py, fill_c, border_c);
+            gfx_flush();
+            return;
+        }
+        /* Stubs: PLAY, VIEW, WINDOW, PALETTE */
+        if (xstmt == XSTMT_PLAY  || xstmt == XSTMT_VIEW ||
+            xstmt == XSTMT_WINDOW || xstmt == XSTMT_PALETTE) {
             gw_chrget();
             while (gw_chrgot() && gw_chrgot() != ':' && gw_chrgot() != TOK_ELSE)
                 gw.text_ptr++;
@@ -802,6 +883,7 @@ void gw_exec_stmt(void)
     /* NEW */
     if (tok == TOK_NEW) {
         gw_chrget();
+        gfx_shutdown();
         gw_free_program();
         gw_vars_clear();
         gw_arrays_clear();
@@ -1381,11 +1463,55 @@ void gw_exec_stmt(void)
             gw_stmt_line_input();
             return;
         }
-        /* LINE (x1,y1)-(x2,y2) [,[color][,B[F]]] - graphics stub */
-        if (gw_chrgot() == '(' || gw_chrgot() == TOK_MINUS) {
-            /* Parse and discard all arguments */
-            while (gw_chrgot() && gw_chrgot() != ':' && gw_chrgot() != TOK_ELSE)
-                gw.text_ptr++;
+        /* LINE (x1,y1)-(x2,y2) [,[color][,B[F]]] */
+        if (gw_chrgot() == '(' || gw_chrgot() == TOK_MINUS || gw_chrgot() == TOK_STEP) {
+            int x1, y1, x2, y2;
+            /* First point is optional (uses last point) */
+            gw_skip_spaces();
+            if (gw_chrgot() == '(') {
+                gw_chrget();
+                x1 = gw_eval_int();
+                gw_expect(',');
+                y1 = gw_eval_int();
+                gw_expect_rparen();
+            } else {
+                gfx_get_last(&x1, &y1);
+            }
+            gw_skip_spaces();
+            gw_expect(TOK_MINUS);
+            gw_expect('(');
+            x2 = gw_eval_int();
+            gw_expect(',');
+            y2 = gw_eval_int();
+            gw_expect_rparen();
+            int color = gfx_get_color();
+            int style = GFX_LINE;
+            gw_skip_spaces();
+            if (gw_chrgot() == ',') {
+                gw_chrget();
+                gw_skip_spaces();
+                if (gw_chrgot() != ',' && gw_chrgot() != 0 && gw_chrgot() != ':' &&
+                    gw_chrgot() != 'B' && gw_chrgot() != 'b' &&
+                    !gw_is_letter(gw_chrgot()))
+                    color = gw_eval_int();
+                gw_skip_spaces();
+                if (gw_chrgot() == ',') {
+                    gw_chrget();
+                    gw_skip_spaces();
+                    if (gw_chrgot() == 'B' || gw_chrgot() == 'b') {
+                        gw_chrget();
+                        gw_skip_spaces();
+                        if (gw_chrgot() == 'F' || gw_chrgot() == 'f') {
+                            style = GFX_BOXF;
+                            gw_chrget();
+                        } else {
+                            style = GFX_BOX;
+                        }
+                    }
+                }
+            }
+            gfx_line(x1, y1, x2, y2, color, style);
+            gfx_flush();
             return;
         }
         gw_error(ERR_SN);
@@ -1553,38 +1679,83 @@ void gw_exec_stmt(void)
         return;
     }
 
-    /* COLOR - parse and ignore */
+    /* COLOR */
     if (tok == TOK_COLOR) {
         gw_chrget();
-        gw_eval_int();
-        while (gw_chrgot() == ',') {
+        int fg = gw_eval_int();
+        int bg = -1;
+        gw_skip_spaces();
+        if (gw_chrgot() == ',') {
             gw_chrget();
             gw_skip_spaces();
             if (gw_chrgot() != ',' && gw_chrgot() != 0 && gw_chrgot() != ':')
-                gw_eval_int();
+                bg = gw_eval_int();
+            /* Skip optional border parameter */
+            gw_skip_spaces();
+            if (gw_chrgot() == ',') {
+                gw_chrget();
+                gw_skip_spaces();
+                if (gw_chrgot() != 0 && gw_chrgot() != ':')
+                    gw_eval_int();
+            }
+        }
+        if (gfx_active()) {
+            gfx_set_color(fg);
+        } else if (gw_hal) {
+            /* Text mode: emit ANSI color codes */
+            char ansi[32];
+            /* Map GW-BASIC colors to ANSI (simplified) */
+            static const int ansi_fg[] = {30,34,32,36,31,35,33,37,90,94,92,96,91,95,93,97};
+            static const int ansi_bg[] = {40,44,42,46,41,45,43,47};
+            if (fg >= 0 && fg < 16) {
+                snprintf(ansi, sizeof(ansi), "\033[%dm", ansi_fg[fg]);
+                gw_hal->puts(ansi);
+            }
+            if (bg >= 0 && bg < 8) {
+                snprintf(ansi, sizeof(ansi), "\033[%dm", ansi_bg[bg]);
+                gw_hal->puts(ansi);
+            }
         }
         return;
     }
 
-    /* SCREEN - graphics stub */
+    /* SCREEN mode [,[colorswitch][,[apage][,vpage]]] */
     if (tok == TOK_SCREEN) {
         gw_chrget();
-        gw_eval_int();  /* screen mode */
+        int mode = gw_eval_int();
+        /* Skip optional args */
         while (gw_chrgot() == ',') {
             gw_chrget();
             gw_skip_spaces();
             if (gw_chrgot() != ',' && gw_chrgot() != 0 && gw_chrgot() != ':')
                 gw_eval_int();
         }
+        if (mode == 0) {
+            gfx_shutdown();
+        } else {
+            gfx_init(mode);
+        }
         return;
     }
 
-    /* PSET / PRESET - graphics stub */
+    /* PSET (x,y)[,color] / PRESET (x,y)[,color] */
     if (tok == TOK_PSET || tok == TOK_PRESET) {
+        int is_preset = (tok == TOK_PRESET);
         gw_chrget();
-        /* Parse (x,y) [,color] and discard */
-        while (gw_chrgot() && gw_chrgot() != ':' && gw_chrgot() != TOK_ELSE)
-            gw.text_ptr++;
+        gw_skip_spaces();
+        gw_expect('(');
+        int px = gw_eval_int();
+        gw_expect(',');
+        int py = gw_eval_int();
+        gw_expect_rparen();
+        int color = is_preset ? 0 : gfx_get_color();
+        gw_skip_spaces();
+        if (gw_chrgot() == ',') {
+            gw_chrget();
+            color = gw_eval_int();
+        }
+        gfx_pset(px, py, color);
+        gfx_flush();
         return;
     }
 
@@ -1762,9 +1933,14 @@ void gw_exec_stmt(void)
 
 void gw_run_loop(void)
 {
+    if (gw_hal) gw_hal->enable_raw();
+
     if (setjmp(gw_run_jmp) != 0) {
         /* Error handler redirected here via ON ERROR GOTO */
-        if (!gw.running) return;
+        if (!gw.running) {
+            if (gw_hal) gw_hal->disable_raw();
+            return;
+        }
     }
 
     while (gw.running) {
@@ -1799,4 +1975,6 @@ void gw_run_loop(void)
 
         if (!gw.running) break;
     }
+
+    if (gw_hal) gw_hal->disable_raw();
 }

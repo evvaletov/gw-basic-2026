@@ -29,6 +29,7 @@ set(SOURCES
     src/fileio.c
     src/program_io.c
     src/print_using.c
+    src/graphics.c
     platform/hal_posix.c
 )
 

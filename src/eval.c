@@ -1,4 +1,5 @@
 #include "gwbasic.h"
+#include "graphics.h"
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
@@ -37,10 +38,10 @@ static int op_prec(uint8_t tok)
 {
     switch (tok) {
     case TOK_IMP:   return 40;
-    case TOK_EQV:   return 40;
-    case TOK_XOR:   return 50;
-    case TOK_OR:    return 60;
-    case TOK_AND:   return 70;
+    case TOK_EQV:   return 42;
+    case TOK_XOR:   return 44;
+    case TOK_OR:    return 46;
+    case TOK_AND:   return 48;
     case TOK_GT:
     case TOK_EQ:
     case TOK_LT:    return 64;
@@ -287,7 +288,7 @@ static gw_value_t eval_unary(void)
 
     if (tok == TOK_NOT) {
         gw_chrget();
-        gw_value_t v = eval_expr(90);
+        gw_value_t v = eval_expr(50);
         int16_t i = gw_to_int(&v);
         gw_value_t result;
         result.type = VT_INT;
@@ -843,6 +844,20 @@ static gw_value_t eval_atom(void)
         return v;
     }
 
+    /* POINT(x,y) function */
+    if (tok == TOK_POINT) {
+        gw_chrget();
+        gw_expect('(');
+        int px = gw_eval_int();
+        gw_expect(',');
+        int py = gw_eval_int();
+        gw_expect_rparen();
+        gw_value_t v;
+        v.type = VT_INT;
+        v.ival = gfx_point(px, py);
+        return v;
+    }
+
     /* CSRLIN pseudo-variable */
     if (tok == TOK_CSRLIN) {
         gw_chrget();
@@ -865,6 +880,43 @@ static gw_value_t eval_atom(void)
             v.sval = gw_str_alloc(0);
         }
         return v;
+    }
+
+    /* INPUT$ function: INPUT$(n [,#filenum]) */
+    if (tok == TOK_INPUT) {
+        uint8_t *save = gw.text_ptr;
+        gw_chrget();
+        if (gw_chrgot() == '$') {
+            gw_chrget();
+            gw_expect('(');
+            int n = gw_eval_int();
+            if (n < 1 || n > 255) gw_error(ERR_FC);
+            int filenum = 0;
+            gw_skip_spaces();
+            if (gw_chrgot() == ',') {
+                gw_chrget();
+                gw_skip_spaces();
+                if (gw_chrgot() == '#') gw_chrget();
+                filenum = gw_eval_int();
+            }
+            gw_expect_rparen();
+            gw_value_t v;
+            v.type = VT_STR;
+            v.sval = gw_str_alloc(n);
+            if (filenum > 0) {
+                file_entry_t *fe = gw_file_get(filenum);
+                for (int i = 0; i < n; i++) {
+                    int ch = fgetc(fe->fp);
+                    if (ch == EOF) { v.sval.len = i; break; }
+                    v.sval.data[i] = ch;
+                }
+            } else {
+                for (int i = 0; i < n; i++)
+                    v.sval.data[i] = gw_hal ? gw_hal->getch() : getchar();
+            }
+            return v;
+        }
+        gw.text_ptr = save;
     }
 
     /* Extended statement tokens that work as functions (DATE$, TIME$) */
