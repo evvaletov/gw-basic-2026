@@ -10,6 +10,10 @@ add_compile_options(-Wall -Wextra -Wno-unused-parameter)
 # Include paths
 include_directories(include)
 
+# Optional PulseAudio support
+include(FindPkgConfig)
+pkg_check_modules(PULSEAUDIO libpulse-simple)
+
 # Source files
 set(SOURCES
     src/main.c
@@ -30,8 +34,15 @@ set(SOURCES
     src/program_io.c
     src/print_using.c
     src/graphics.c
+    src/sound.c
     platform/hal_posix.c
 )
 
 add_executable(gwbasic ${SOURCES})
 target_link_libraries(gwbasic m)
+
+if(PULSEAUDIO_FOUND)
+    target_compile_definitions(gwbasic PRIVATE HAVE_PULSEAUDIO)
+    target_include_directories(gwbasic PRIVATE ${PULSEAUDIO_INCLUDE_DIRS})
+    target_link_libraries(gwbasic ${PULSEAUDIO_LIBRARIES})
+endif()

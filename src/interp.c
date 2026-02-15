@@ -1,5 +1,6 @@
 #include "gwbasic.h"
 #include "graphics.h"
+#include "sound.h"
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
@@ -845,8 +846,18 @@ void gw_exec_stmt(void)
             gfx_flush();
             return;
         }
-        /* Stubs: PLAY, VIEW, WINDOW, PALETTE */
-        if (xstmt == XSTMT_PLAY  || xstmt == XSTMT_VIEW ||
+        /* PLAY mml-string */
+        if (xstmt == XSTMT_PLAY) {
+            gw_chrget();
+            gw_value_t s = gw_eval_str();
+            char *cmd = gw_str_to_cstr(&s.sval);
+            gw_str_free(&s.sval);
+            snd_play(cmd);
+            free(cmd);
+            return;
+        }
+        /* Stubs: VIEW, WINDOW, PALETTE */
+        if (xstmt == XSTMT_VIEW ||
             xstmt == XSTMT_WINDOW || xstmt == XSTMT_PALETTE) {
             gw_chrget();
             while (gw_chrgot() && gw_chrgot() != ':' && gw_chrgot() != TOK_ELSE)
@@ -1762,17 +1773,22 @@ void gw_exec_stmt(void)
     /* BEEP */
     if (tok == TOK_BEEP) {
         gw_chrget();
-        if (gw_hal) gw_hal->putch('\a');
+        snd_beep();
         return;
     }
 
-    /* SOUND - parse and ignore */
+    /* SOUND freq, duration */
     if (tok == TOK_SOUND) {
         gw_chrget();
-        gw_eval_num();
+        int freq = gw_eval_int();
         gw_skip_spaces();
         gw_expect(',');
-        gw_eval_num();
+        int dur = gw_eval_int();
+        if (freq < 37 || freq > 32767)
+            gw_error(ERR_FC);
+        if (dur < 0 || dur > 65535)
+            gw_error(ERR_FC);
+        snd_tone_sync(freq, dur);
         return;
     }
 

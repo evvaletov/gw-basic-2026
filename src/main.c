@@ -1,4 +1,5 @@
 #include "gwbasic.h"
+#include "sound.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -166,6 +167,7 @@ int main(int argc, char **argv)
     gw_hal = hal_posix_create();
     gw_hal->init();
     gw_init();
+    snd_init();
 
     int interactive = isatty(fileno(stdin));
 
@@ -217,6 +219,7 @@ int main(int argc, char **argv)
         }
 
         if (!interactive) {
+            snd_shutdown();
             if (gw_hal) gw_hal->shutdown();
             return 0;
         }
@@ -243,6 +246,7 @@ int main(int argc, char **argv)
         gw_exec_direct(line);
     }
 
+    snd_shutdown();
     if (gw_hal)
         gw_hal->shutdown();
     return 0;

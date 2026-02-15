@@ -1,0 +1,6 @@
+10 REM Test SOUND and BEEP statements
+20 SOUND 440, 9
+30 SOUND 880, 5
+40 BEEP
+50 PRINT "sound_test OK"
+60 SYSTEM
