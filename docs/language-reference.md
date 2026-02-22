@@ -19,6 +19,8 @@
 `SGN`, `INT`, `ABS`, `SQR`, `SIN`, `COS`, `TAN`, `ATN`, `LOG`, `EXP`, `RND`,
 `FIX`, `CINT`, `CSNG`, `CDBL`
 
+`RND` can be called with or without parentheses: `RND` is equivalent to `RND(1)`.
+
 ## String Functions
 
 `LEN`, `ASC`, `CHR$`, `VAL`, `STR$`, `LEFT$`, `RIGHT$`, `MID$`, `SPACE$`,
@@ -30,7 +32,7 @@
 
 ## Pseudo-variables
 
-`ERL`, `ERR`, `CSRLIN`, `INKEY$`, `DATE$`, `TIME$`
+`ERL`, `ERR`, `CSRLIN`, `INKEY$`, `DATE$`, `TIME$`, `TIMER`, `POS(0)`
 
 ## Literals
 
@@ -41,22 +43,36 @@ type suffixes (`%`, `!`, `#`)
 
 | Category | Statements |
 |----------|------------|
-| Output | `PRINT`, `LPRINT`, `PRINT USING`, `WRITE`, `CLS` |
+| Output | `PRINT`, `LPRINT`, `LLIST`, `PRINT USING`, `WRITE`, `CLS` |
 | Variables | `LET`, `DIM`, `ERASE`, `SWAP`, `DEFINT`, `DEFSNG`, `DEFDBL`, `DEFSTR` |
 | Control flow | `GOTO`, `GOSUB`/`RETURN`, `FOR`/`NEXT`, `IF`/`THEN`/`ELSE`, `WHILE`/`WEND`, `ON...GOTO`, `ON...GOSUB` |
 | Input | `INPUT`, `LINE INPUT`, `DATA`/`READ`/`RESTORE`, `INKEY$` |
-| Program control | `RUN`, `RUN "file"`, `CONT`, `STOP`, `END`, `NEW`, `LIST`, `CLEAR` |
+| Program control | `RUN`, `RUN "file"`, `CONT`, `STOP`, `END`, `NEW`, `LIST`, `CLEAR`, `AUTO`, `RENUM`, `DELETE` |
 | Sequential I/O | `OPEN`, `CLOSE`, `PRINT#`, `WRITE#`, `INPUT#`, `LINE INPUT#` |
 | Random-access I/O | `FIELD`, `LSET`, `RSET`, `PUT`, `GET`, `CVI`/`CVS`/`CVD`, `MKI$`/`MKS$`/`MKD$` |
-| Program I/O | `SAVE`, `LOAD`, `MERGE`, `CHAIN` |
+| Program I/O | `SAVE`, `LOAD`, `MERGE`, `CHAIN`, `COMMON` |
 | Error handling | `ON ERROR GOTO`, `RESUME`, `RESUME NEXT`, `RESUME n`, `ERROR`, `ERR`, `ERL` |
 | User functions | `DEF FN`, `RANDOMIZE` |
-| File management | `KILL`, `NAME` |
+| File management | `KILL`, `NAME`, `FILES`, `MKDIR`, `RMDIR`, `CHDIR`, `SHELL` |
+| Date/time | `DATE$`, `TIME$`, `TIMER` |
 | Screen | `LOCATE`, `COLOR`, `WIDTH`, `SCREEN`, `KEY ON`/`OFF`/`LIST`, `KEY n,"string"` |
 | Graphics | `PSET`, `PRESET`, `LINE`, `CIRCLE`, `DRAW`, `PAINT` |
 | Sound | `SOUND`, `BEEP`, `PLAY` (MML parser, PulseAudio backend) |
-| Misc | `POKE`, `KEY`, `TRON`/`TROFF`, `OPTION BASE`, `MID$` assignment, `COMMON` |
+| Misc | `POKE`, `KEY`, `TRON`/`TROFF`, `OPTION BASE`, `MID$` assignment |
 | System | `SYSTEM` |
+
+## Printer Output (LPRINT / LLIST)
+
+`LPRINT` works identically to `PRINT` but sends output to the printer:
+
+- **Default:** output is appended to `LPT1.TXT` in the current directory
+- **`--lpt /dev/lp0`** (Linux) or **`--lpt LPT1`** (FreeDOS): send to real hardware
+- **`--lpt report.txt`**: redirect to a custom file
+
+`LLIST` lists the program to the printer, with optional line number ranges
+(`LLIST`, `LLIST 10-50`, `LLIST -100`).
+
+Both support `PRINT USING`, semicolons, commas, `TAB()`, and `SPC()`.
 
 ## Graphics
 
@@ -97,7 +113,7 @@ Sound output uses PulseAudio when available; commands are silently ignored other
 When running interactively, GW-BASIC 2026 presents the authentic full-screen
 editor:
 
-- 25×80 screen buffer with free cursor movement (arrow keys)
+- 25×80 screen buffer by default, or full terminal size with `--full`
 - Press Enter on any screen line to re-enter it as BASIC input
 - Insert/Overwrite toggle (Insert key)
 - Home/End/Delete/Backspace/Escape for line editing
@@ -126,3 +142,9 @@ Default F1-F10 bindings match the original GW-BASIC:
 When stdin is not a terminal (piped input), the TUI is not activated.
 The interpreter reads lines from stdin and writes output directly to stdout,
 suitable for scripting and test harnesses.
+
+### Program Editing
+
+- `AUTO [start][,increment]` — automatic line numbering mode
+- `RENUM [new][,[old][,increment]]` — renumber program lines (patches all GOTO/GOSUB references)
+- `DELETE range` — delete program lines (`DELETE 10-50`, `DELETE -100`, `DELETE 200-`)

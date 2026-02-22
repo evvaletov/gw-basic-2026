@@ -20,9 +20,9 @@ each statement, calling FRMEVL for expression evaluation. All platform I/O goes
 through a HAL vtable (`hal_ops_t`), keeping the core interpreter portable.
 
 When running interactively, the TUI layer intercepts HAL output calls
-(`putch`, `puts`, `cls`, `locate`) and routes them through a 25×80 screen
-buffer rendered via ANSI escape sequences. In piped mode the TUI is not
-activated and the HAL writes directly to stdout.
+(`putch`, `puts`, `cls`, `locate`) and routes them through a dynamically
+allocated screen buffer rendered via ANSI escape sequences. In piped mode the
+TUI is not activated and the HAL writes directly to stdout.
 
 ## Module Map
 
@@ -39,7 +39,7 @@ activated and the HAL writes directly to stdout.
 | Float ops + MBF conversion | `math_float.c` | MATH2.ASM |
 | Transcendentals | `math_transcend.c` | MATH1.ASM |
 | String functions | `strings.c` | BISTRS.ASM |
-| PRINT statement | `print.c` | BINTRP.ASM |
+| PRINT / LPRINT | `print.c` | BINTRP.ASM |
 | PRINT USING | `print_using.c` | BIPRTU.ASM |
 | Variables + arrays | `vars.c`, `arrays.c` | GWMAIN.ASM |
 | File I/O + random access | `fileio.c` | BIPTRG.ASM |
@@ -54,15 +54,17 @@ activated and the HAL writes directly to stdout.
 src/         — core interpreter (20 files)
 include/     — headers (12 files)
 platform/    — HAL backends (1 file)
-tests/       — test programs (50 .BAS files), compat test harness
+tests/       — test programs (54 .BAS files), compat test harness
+docs/        — Sphinx documentation
 ```
 
 ## TUI Architecture
 
 The TUI (`tui.c`) implements the classic GW-BASIC full-screen editor:
 
-- **Screen buffer** — `tui_cell_t screen[25][80]` stores character + attribute
-  per cell, matching the original CGA text mode layout.
+- **Screen buffer** — `tui_cell_t *screen` is dynamically allocated at
+  `rows × cols` (default 25×80, or full terminal size with `--full`).
+  Each cell stores a character and color attribute, accessed via `TUI_CELL(r, c)`.
 - **HAL interception** — `tui_init()` swaps HAL function pointers so all
   existing PRINT/LIST/error output automatically goes through the screen buffer.
   No changes needed to `print.c`, `error.c`, or most of `interp.c`.
@@ -70,7 +72,7 @@ The TUI (`tui.c`) implements the classic GW-BASIC full-screen editor:
   free cursor movement with arrow keys, and pressing Enter on any screen line
   re-enters that line's content as BASIC input.
 - **Function keys** — F1-F10 with default GW-BASIC bindings, configurable via
-  the `KEY n, "string"` statement. `KEY ON` shows the bar on row 25.
+  the `KEY n, "string"` statement. `KEY ON` shows the bar on the bottom row.
 - **Break handling** — SIGINT sets a flag checked each statement in the run loop.
 
 ## Design Decisions
@@ -93,3 +95,5 @@ algorithms in idiomatic C with modern data structures.
   behavior
 - **ANSI terminal** — TUI uses ANSI escape sequences and alternate screen buffer
   instead of direct CGA memory access
+- **Dynamic screen buffer** — allocated at runtime based on terminal size, rather
+  than hardcoded to 25×80

@@ -37,7 +37,7 @@ Running `./gwbasic` with no arguments launches the full-screen editor:
 
 ```
 $ ./gwbasic
-GW-BASIC 2026 0.5.0
+GW-BASIC 2026 0.8.0
 (C) Eremey Valetov 2026. MIT License.
 Based on Microsoft GW-BASIC assembly source.
 Ok
@@ -73,4 +73,16 @@ PRINT SIN(3.14159/2)
  1
 A$="HELLO WORLD":MID$(A$,7,5)="BASIC":PRINT A$
 HELLO BASIC
+```
+
+### Command-Line Options
+
+```
+Usage: gwbasic [options] [file.bas]
+Options:
+  -f, --full         Use full terminal size (default: 25x80)
+  -h, --help         Show this help
+  --lpt DEVICE|FILE  Printer output destination (default: LPT1.TXT)
+                     Use LPT1 or /dev/lp0 for real hardware
+  -v, --version      Show version
 ```

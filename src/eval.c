@@ -495,13 +495,19 @@ static gw_value_t eval_function(uint8_t prefix, uint8_t func_tok)
         if (arg.type != VT_DBL) { v.type = VT_SNG; v.fval = (float)v.dval; }
         return v;
 
-    case FUNC_RND:
-        gw_expect('(');
-        arg = gw_eval_num();
-        gw_expect_rparen();
+    case FUNC_RND: {
+        double rnd_arg = 1.0;
+        gw_skip_spaces();
+        if (gw_chrgot() == '(') {
+            gw_chrget();
+            arg = gw_eval_num();
+            gw_expect_rparen();
+            rnd_arg = gw_to_dbl(&arg);
+        }
         v.type = VT_SNG;
-        v.fval = (float)gw_rnd(gw_to_dbl(&arg));
+        v.fval = (float)gw_rnd(rnd_arg);
         return v;
+    }
 
     case FUNC_FIX:
         gw_expect('(');
