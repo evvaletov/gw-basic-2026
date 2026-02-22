@@ -4,8 +4,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define TUI_ROWS 25
-#define TUI_COLS 80
+#define TUI_DEFAULT_ROWS 25
+#define TUI_DEFAULT_COLS 80
+#define TUI_MAX_ROWS 200
+#define TUI_MAX_COLS 300
 #define TUI_MAX_LINE 255
 
 /* Screen cell: character + color attribute */
@@ -45,7 +47,9 @@ typedef struct {
 
 /* TUI state */
 typedef struct {
-    tui_cell_t screen[TUI_ROWS][TUI_COLS];
+    tui_cell_t *screen;             /* dynamically allocated [rows * cols] */
+    int rows;                       /* screen height (default 25) */
+    int cols;                       /* screen width (default 80) */
     int cursor_row;
     int cursor_col;
     bool insert_mode;
@@ -54,15 +58,18 @@ typedef struct {
     char fkey_defs[10][16];         /* F1-F10 definitions */
     bool active;
     volatile bool break_flag;       /* set by SIGINT handler */
-    int view_top;                   /* top of scrollable area (0 for key bar OFF, 0 for key bar ON) */
-    int view_bottom;                /* bottom row (24 normally, 23 with key bar) */
+    int view_top;                   /* top of scrollable area */
+    int view_bottom;                /* bottom row (rows-1 normally, rows-2 with key bar) */
 } tui_state_t;
 
 extern tui_state_t tui;
 
 /* Lifecycle */
-void tui_init(void);
+void tui_init(bool fullscreen);
 void tui_shutdown(void);
+
+/* Screen cell access macro */
+#define TUI_CELL(r, c) tui.screen[(r) * tui.cols + (c)]
 
 /* Screen buffer operations (these replace HAL ops when TUI is active) */
 void tui_putch(int ch);

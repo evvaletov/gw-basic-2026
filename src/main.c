@@ -173,10 +173,12 @@ int main(int argc, char **argv)
     int interactive = isatty(fileno(stdin));
 
     const char *filename = NULL;
+    bool fullscreen = false;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             printf("Usage: gwbasic [options] [file.bas]\n"
                    "Options:\n"
+                   "  -f, --full     Use full terminal size (default: 25x80)\n"
                    "  -h, --help     Show this help\n"
                    "  -v, --version  Show version\n");
             return 0;
@@ -184,6 +186,10 @@ int main(int argc, char **argv)
         if (strcmp(argv[i], "--version") == 0 || strcmp(argv[i], "-v") == 0) {
             printf("GW-BASIC %s\n", GW_VERSION);
             return 0;
+        }
+        if (strcmp(argv[i], "--full") == 0 || strcmp(argv[i], "-f") == 0) {
+            fullscreen = true;
+            continue;
         }
         if (argv[i][0] != '-') {
             filename = argv[i];
@@ -228,7 +234,7 @@ int main(int argc, char **argv)
 
     /* Initialize TUI for interactive sessions */
     if (interactive)
-        tui_init();
+        tui_init(fullscreen);
 
     print_banner(interactive);
 

@@ -23,7 +23,7 @@ Interactive mode launches the authentic GW-BASIC full-screen editor:
 
 ```
 $ ./gwbasic
-GW-BASIC 2026 0.7.0
+GW-BASIC 2026 0.8.0
 (C) Eremey Valetov 2026. MIT License.
 Based on Microsoft GW-BASIC assembly source.
 Ok
@@ -91,6 +91,7 @@ editor that people remember from the 1980s:
 - Default F1-F10 bindings (F1=LIST, F2=RUN, F3=LOAD", etc.)
 - Ctrl+C interrupts running programs
 - Piped input bypasses the TUI entirely — scripts and test harnesses work unchanged
+- `--full` flag adapts to the full terminal size instead of the classic 25×80
 
 ### Graphics
 
