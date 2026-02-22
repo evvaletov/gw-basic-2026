@@ -96,6 +96,30 @@ void gw_free_program(void)
     gw.prog_head = NULL;
 }
 
+/* Read a tokenized line number literal without expression evaluation.
+ * Returns true if a number was read, advances gw.text_ptr. */
+static bool read_linenum(uint16_t *out)
+{
+    gw_skip_spaces();
+    uint8_t tok = gw_chrgot();
+    if (tok >= 0x11 && tok <= 0x1A) {
+        *out = tok - 0x11;
+        gw_chrget();
+        return true;
+    }
+    if (tok == TOK_INT1) {
+        *out = gw.text_ptr[1];
+        gw.text_ptr += 2;
+        return true;
+    }
+    if (tok == TOK_INT2) {
+        *out = (uint16_t)(gw.text_ptr[1] | (gw.text_ptr[2] << 8));
+        gw.text_ptr += 3;
+        return true;
+    }
+    return false;
+}
+
 /* ================================================================
  * LIST
  * ================================================================ */
@@ -106,21 +130,21 @@ static void stmt_list(void)
     uint16_t start = 0, end = 65535;
 
     if (gw_chrgot() != 0 && gw_chrgot() != ':') {
-        /* Check for -end */
         if (gw_chrgot() == TOK_MINUS) {
             gw_chrget();
-            end = gw_eval_uint16();
+            if (!read_linenum(&end)) gw_error(ERR_SN);
         } else {
-            start = gw_eval_uint16();
+            if (!read_linenum(&start)) gw_error(ERR_SN);
             end = start;
             gw_skip_spaces();
             if (gw_chrgot() == TOK_MINUS) {
                 gw_chrget();
                 gw_skip_spaces();
-                if (gw_chrgot() != 0 && gw_chrgot() != ':')
-                    end = gw_eval_uint16();
-                else
+                if (gw_chrgot() != 0 && gw_chrgot() != ':') {
+                    if (!read_linenum(&end)) gw_error(ERR_SN);
+                } else {
                     end = 65535;
+                }
             }
         }
     }
@@ -629,15 +653,48 @@ void gw_stmt_chain(void)
         }
     }
 
-    /* Load the new program */
-    gw_stmt_load_internal(filename, !merge);
+    /* Save COMMON state before load clears things */
+    int saved_common_count = gw.common_count;
+
+    if (!merge) {
+        /* Clear program but not variables — CHAIN manages variables below */
+        gw_free_program();
+        gw_file_close_all();
+        memset(gw.fn_defs, 0, sizeof(gw.fn_defs));
+    }
+
+    /* Load the new program without clearing */
+    gw_stmt_load_internal(filename, false);
     free(filename);
 
     if (!keep_all && !merge) {
-        /* Clear variables unless ALL specified */
-        gw_vars_clear();
-        gw_arrays_clear();
+        if (saved_common_count > 0) {
+            /* Preserve only COMMON variables, clear the rest */
+            for (int i = gw.var_count - 1; i >= 0; i--) {
+                bool keep = false;
+                for (int j = 0; j < saved_common_count; j++) {
+                    if (gw.vars[i].name[0] == gw.common_vars[j].name[0] &&
+                        gw.vars[i].name[1] == gw.common_vars[j].name[1] &&
+                        gw.vars[i].type == gw.common_vars[j].type) {
+                        keep = true;
+                        break;
+                    }
+                }
+                if (!keep) {
+                    if (gw.vars[i].type == VT_STR)
+                        gw_str_free(&gw.vars[i].val.sval);
+                    if (i < gw.var_count - 1)
+                        gw.vars[i] = gw.vars[gw.var_count - 1];
+                    gw.var_count--;
+                }
+            }
+            gw_arrays_clear();
+        } else {
+            gw_vars_clear();
+            gw_arrays_clear();
+        }
     }
+    gw.common_count = 0;
 
     /* Start execution */
     program_line_t *start = gw.prog_head;
@@ -733,10 +790,30 @@ void gw_exec_stmt(void)
             return;
         }
         if (xstmt == XSTMT_COMMON) {
-            /* COMMON var, var... - just skip, variables already in table */
             gw_chrget();
-            while (gw_chrgot() && gw_chrgot() != ':' && gw_chrgot() != TOK_ELSE)
-                gw.text_ptr++;
+            for (;;) {
+                gw_skip_spaces();
+                if (!gw_chrgot() || gw_chrgot() == ':' || gw_chrgot() == TOK_ELSE)
+                    break;
+                char name[2];
+                gw_valtype_t type = gw_parse_varname(name);
+                /* Skip array parens if present: COMMON A() */
+                gw_skip_spaces();
+                if (gw_chrgot() == '(') {
+                    gw_chrget();
+                    gw_skip_spaces();
+                    if (gw_chrgot() == ')') gw_chrget();
+                }
+                if (gw.common_count < 64) {
+                    gw.common_vars[gw.common_count].name[0] = name[0];
+                    gw.common_vars[gw.common_count].name[1] = name[1];
+                    gw.common_vars[gw.common_count].type = type;
+                    gw.common_count++;
+                }
+                gw_skip_spaces();
+                if (gw_chrgot() == ',') { gw_chrget(); continue; }
+                break;
+            }
             return;
         }
         if (xstmt == XSTMT_FIELD) {
@@ -1160,6 +1237,256 @@ void gw_exec_stmt(void)
     if (tok == TOK_LIST) {
         gw_chrget();
         stmt_list();
+        return;
+    }
+
+    /* DELETE [start]-[end] */
+    if (tok == TOK_DELETE) {
+        gw_chrget();
+        gw_skip_spaces();
+        uint16_t start = 0, end = 65535;
+        if (gw_chrgot() == TOK_MINUS) {
+            gw_chrget();
+            if (!read_linenum(&end)) gw_error(ERR_SN);
+        } else {
+            if (!read_linenum(&start)) gw_error(ERR_SN);
+            end = start;
+            gw_skip_spaces();
+            if (gw_chrgot() == TOK_MINUS) {
+                gw_chrget();
+                gw_skip_spaces();
+                if (gw_chrgot() != 0 && gw_chrgot() != ':') {
+                    if (!read_linenum(&end)) gw_error(ERR_SN);
+                } else {
+                    end = 65535;
+                }
+            }
+        }
+        if (!gw_find_line(start) && start == end)
+            gw_error(ERR_FC);
+        program_line_t **pp = &gw.prog_head;
+        while (*pp) {
+            if ((*pp)->num >= start && (*pp)->num <= end) {
+                program_line_t *del = *pp;
+                *pp = del->next;
+                free(del->tokens);
+                free(del);
+            } else {
+                pp = &(*pp)->next;
+            }
+        }
+        gw.cont_text = NULL;
+        gw.cont_line = NULL;
+        return;
+    }
+
+    /* AUTO [start[,increment]] */
+    if (tok == TOK_AUTO) {
+        gw_chrget();
+        gw_skip_spaces();
+        uint16_t start = 10, inc = 10;
+        if (gw_chrgot() && gw_chrgot() != ':' && gw_chrgot() != ',' && gw_chrgot() != TOK_ELSE) {
+            if (!read_linenum(&start)) gw_error(ERR_SN);
+        }
+        gw_skip_spaces();
+        if (gw_chrgot() == ',') {
+            gw_chrget();
+            if (!read_linenum(&inc)) gw_error(ERR_SN);
+        }
+        if (inc == 0) gw_error(ERR_FC);
+        gw.auto_mode = true;
+        gw.auto_line = start;
+        gw.auto_inc = inc;
+        return;
+    }
+
+    /* RENUM [new[,old[,increment]]] */
+    if (tok == TOK_RENUM) {
+        gw_chrget();
+        gw_skip_spaces();
+        uint16_t new_start = 10, old_start = 0, inc = 10;
+        if (gw_chrgot() && gw_chrgot() != ':' && gw_chrgot() != TOK_ELSE &&
+            gw_chrgot() != ',') {
+            if (!read_linenum(&new_start)) gw_error(ERR_SN);
+        }
+        gw_skip_spaces();
+        if (gw_chrgot() == ',') {
+            gw_chrget();
+            gw_skip_spaces();
+            if (gw_chrgot() != ',' && gw_chrgot() != 0 && gw_chrgot() != ':')
+                if (!read_linenum(&old_start)) gw_error(ERR_SN);
+            gw_skip_spaces();
+            if (gw_chrgot() == ',') {
+                gw_chrget();
+                if (!read_linenum(&inc)) gw_error(ERR_SN);
+            }
+        }
+        if (inc == 0) gw_error(ERR_FC);
+
+        /* Count lines to renumber and build mapping table */
+        int count = 0;
+        for (program_line_t *p = gw.prog_head; p; p = p->next)
+            if (p->num >= old_start) count++;
+        if (count == 0) return;
+
+        /* Check if new numbers would overflow */
+        uint32_t last = (uint32_t)new_start + (uint32_t)(count - 1) * inc;
+        if (last > 65529) gw_error(ERR_FC);
+
+        /* Build old->new mapping */
+        uint16_t *old_nums = malloc(count * sizeof(uint16_t));
+        uint16_t *new_nums = malloc(count * sizeof(uint16_t));
+        if (!old_nums || !new_nums) { free(old_nums); free(new_nums); gw_error(ERR_OM); }
+
+        int idx = 0;
+        uint16_t nn = new_start;
+        for (program_line_t *p = gw.prog_head; p; p = p->next) {
+            if (p->num >= old_start) {
+                old_nums[idx] = p->num;
+                new_nums[idx] = nn;
+                nn += inc;
+                idx++;
+            }
+        }
+
+        /* Patch line number references in all program lines */
+        for (program_line_t *p = gw.prog_head; p; p = p->next) {
+            uint8_t *t = p->tokens;
+            while (*t) {
+                uint8_t tok_b = *t;
+                /* Tokens that take a line number argument */
+                if (tok_b == TOK_GOTO || tok_b == TOK_GOSUB ||
+                    tok_b == TOK_THEN || tok_b == TOK_RESTORE ||
+                    tok_b == TOK_RUN || tok_b == TOK_RESUME) {
+                    t++;
+                    while (*t == ' ') t++;
+                    /* Read the encoded line number */
+                    uint16_t ref = 0;
+                    uint8_t *numpos = t;
+                    int numlen = 0;
+                    if (*t >= 0x11 && *t <= 0x1A) {
+                        ref = *t - 0x11;
+                        numlen = 1;
+                    } else if (*t == TOK_INT1) {
+                        ref = t[1];
+                        numlen = 2;
+                    } else if (*t == TOK_INT2) {
+                        ref = (uint16_t)(t[1] | (t[2] << 8));
+                        numlen = 3;
+                    } else {
+                        continue;
+                    }
+                    /* Look up in mapping */
+                    for (int i = 0; i < count; i++) {
+                        if (old_nums[i] == ref) {
+                            /* Rewrite the number in the token stream */
+                            uint16_t nv = new_nums[i];
+                            int new_numlen;
+                            uint8_t nbuf[3];
+                            if (nv <= 9) {
+                                nbuf[0] = 0x11 + nv;
+                                new_numlen = 1;
+                            } else if (nv <= 255) {
+                                nbuf[0] = TOK_INT1;
+                                nbuf[1] = nv;
+                                new_numlen = 2;
+                            } else {
+                                nbuf[0] = TOK_INT2;
+                                nbuf[1] = nv & 0xFF;
+                                nbuf[2] = (nv >> 8) & 0xFF;
+                                new_numlen = 3;
+                            }
+                            if (new_numlen == numlen) {
+                                memcpy(numpos, nbuf, new_numlen);
+                            } else {
+                                /* Need to resize the token buffer */
+                                int old_len = p->len;
+                                int diff = new_numlen - numlen;
+                                int offset = numpos - p->tokens;
+                                uint8_t *newbuf = malloc(old_len + diff + 1);
+                                if (!newbuf) { free(old_nums); free(new_nums); gw_error(ERR_OM); }
+                                memcpy(newbuf, p->tokens, offset);
+                                memcpy(newbuf + offset, nbuf, new_numlen);
+                                memcpy(newbuf + offset + new_numlen,
+                                       p->tokens + offset + numlen,
+                                       old_len - offset - numlen + 1);
+                                free(p->tokens);
+                                p->tokens = newbuf;
+                                p->len = old_len + diff;
+                                t = p->tokens + offset + new_numlen;
+                                continue;
+                            }
+                            break;
+                        }
+                    }
+                    t = numpos + numlen;
+                    /* ON x GOTO/GOSUB can have comma-separated line numbers */
+                    while (*t == ' ') t++;
+                    while (*t == ',') {
+                        t++;
+                        while (*t == ' ') t++;
+                        numpos = t;
+                        numlen = 0;
+                        ref = 0;
+                        if (*t >= 0x11 && *t <= 0x1A) {
+                            ref = *t - 0x11; numlen = 1;
+                        } else if (*t == TOK_INT1) {
+                            ref = t[1]; numlen = 2;
+                        } else if (*t == TOK_INT2) {
+                            ref = (uint16_t)(t[1] | (t[2] << 8)); numlen = 3;
+                        } else break;
+                        for (int i = 0; i < count; i++) {
+                            if (old_nums[i] == ref) {
+                                uint16_t nv = new_nums[i];
+                                int new_numlen;
+                                uint8_t nbuf[3];
+                                if (nv <= 9) { nbuf[0] = 0x11 + nv; new_numlen = 1; }
+                                else if (nv <= 255) { nbuf[0] = TOK_INT1; nbuf[1] = nv; new_numlen = 2; }
+                                else { nbuf[0] = TOK_INT2; nbuf[1] = nv & 0xFF; nbuf[2] = (nv >> 8) & 0xFF; new_numlen = 3; }
+                                if (new_numlen == numlen) {
+                                    memcpy(numpos, nbuf, new_numlen);
+                                } else {
+                                    int old_len = p->len;
+                                    int diff = new_numlen - numlen;
+                                    int offset = numpos - p->tokens;
+                                    uint8_t *newbuf = malloc(old_len + diff + 1);
+                                    if (!newbuf) { free(old_nums); free(new_nums); gw_error(ERR_OM); }
+                                    memcpy(newbuf, p->tokens, offset);
+                                    memcpy(newbuf + offset, nbuf, new_numlen);
+                                    memcpy(newbuf + offset + new_numlen,
+                                           p->tokens + offset + numlen,
+                                           old_len - offset - numlen + 1);
+                                    free(p->tokens);
+                                    p->tokens = newbuf;
+                                    p->len = old_len + diff;
+                                    t = p->tokens + offset + new_numlen;
+                                    numpos = t - new_numlen;
+                                    numlen = new_numlen;
+                                }
+                                break;
+                            }
+                        }
+                        t = numpos + numlen;
+                        while (*t == ' ') t++;
+                    }
+                    continue;
+                }
+                t++;
+            }
+        }
+
+        /* Assign new line numbers */
+        idx = 0;
+        for (program_line_t *p = gw.prog_head; p; p = p->next) {
+            if (p->num >= old_start) {
+                p->num = new_nums[idx++];
+            }
+        }
+
+        free(old_nums);
+        free(new_nums);
+        gw.cont_text = NULL;
+        gw.cont_line = NULL;
         return;
     }
 

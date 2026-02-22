@@ -21,8 +21,9 @@ compat_fail=0
 for bas in "$SCRIPT_DIR"/programs/*.bas; do
     name="$(basename "$bas")"
     stem="${name%.bas}"
-    # chain_target.bas is not standalone
+    # chain/common targets are not standalone
     [ "$name" = "chain_target.bas" ] && continue
+    [ "$name" = "common_target.bas" ] && continue
 
     actual=$(mktemp)
     if timeout 5 "$GWBASIC" "$bas" > "$actual" 2>&1; then

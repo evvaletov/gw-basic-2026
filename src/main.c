@@ -233,12 +233,47 @@ int main(int argc, char **argv)
     print_banner(interactive);
 
     for (;;) {
-        if (interactive) {
+        if (interactive && !gw.auto_mode) {
             gw_hal->puts("Ok\n");
         }
 
-        if (setjmp(gw_error_jmp) != 0)
+        if (setjmp(gw_error_jmp) != 0) {
+            gw.auto_mode = false;
             continue;
+        }
+
+        /* AUTO mode: display line number prompt and prepend it to input */
+        if (gw.auto_mode && interactive) {
+            char prompt[16];
+            bool exists = gw_find_line(gw.auto_line) != NULL;
+            snprintf(prompt, sizeof(prompt), "%u%s", gw.auto_line,
+                     exists ? "*" : " ");
+            gw_hal->puts(prompt);
+
+            char *line = tui_read_line();
+            if (!line || tui.break_flag) {
+                gw.auto_mode = false;
+                tui.break_flag = false;
+                continue;
+            }
+            /* Empty input exits AUTO mode */
+            if (line[0] == '\0') {
+                gw.auto_mode = false;
+                continue;
+            }
+
+            char full[300];
+            snprintf(full, sizeof(full), "%u %s", gw.auto_line, line);
+            gw_exec_direct(full);
+
+            uint32_t next = (uint32_t)gw.auto_line + gw.auto_inc;
+            if (next > 65529) {
+                gw.auto_mode = false;
+            } else {
+                gw.auto_line = (uint16_t)next;
+            }
+            continue;
+        }
 
         char *line = interactive ? tui_read_line() : read_line();
         if (!line)

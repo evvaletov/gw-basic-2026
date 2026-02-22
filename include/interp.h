@@ -64,6 +64,15 @@ typedef struct {
     uint8_t *err_resume_text;
     program_line_t *err_resume_line;
     uint16_t err_line_num;
+
+    /* AUTO mode */
+    bool auto_mode;
+    uint16_t auto_line;
+    uint16_t auto_inc;
+
+    /* COMMON variable list for CHAIN */
+    int common_count;
+    struct { char name[2]; gw_valtype_t type; } common_vars[64];
 } interp_state_t;
 
 extern interp_state_t gw;
