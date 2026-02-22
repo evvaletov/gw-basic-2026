@@ -63,7 +63,7 @@ SPACE$, STRING$, HEX$, OCT$, INSTR, INPUT$
 
 | Category | Statements |
 |----------|------------|
-| Output | PRINT, LPRINT, PRINT USING, WRITE, CLS |
+| Output | PRINT, LPRINT, LLIST, PRINT USING, WRITE, CLS |
 | Variables | LET, DIM, ERASE, SWAP, DEFINT/SNG/DBL/STR |
 | Control flow | GOTO, GOSUB/RETURN, FOR/NEXT, IF/THEN/ELSE, WHILE/WEND, ON...GOTO/GOSUB |
 | Input | INPUT, LINE INPUT, DATA/READ/RESTORE, INKEY$ |
@@ -92,6 +92,19 @@ editor that people remember from the 1980s:
 - Ctrl+C interrupts running programs
 - Piped input bypasses the TUI entirely — scripts and test harnesses work unchanged
 - `--full` flag adapts to the full terminal size instead of the classic 25×80
+
+### Printer Output (LPRINT/LLIST)
+
+`LPRINT` and `LLIST` send output to a printer device or file:
+
+- **Modern systems (default):** output is appended to `LPT1.TXT` in the current directory
+- **Real hardware:** use `--lpt /dev/lp0` (Linux) or `--lpt LPT1` (FreeDOS) to send output to a physical parallel port printer
+
+```bash
+./gwbasic --lpt /dev/lp0 myprogram.bas   # print to hardware
+./gwbasic --lpt report.txt myprogram.bas  # print to file
+./gwbasic myprogram.bas                   # default: LPT1.TXT
+```
 
 ### Graphics
 
@@ -147,7 +160,7 @@ Key design differences from the original:
 
 ## Tests
 
-53 test programs in `tests/programs/`, with CI via GitHub Actions:
+54 test programs in `tests/programs/`, with CI via GitHub Actions:
 
 ```bash
 bash tests/run_tests.sh

@@ -98,7 +98,7 @@ void gw_free_program(void)
 
 /* Read a tokenized line number literal without expression evaluation.
  * Returns true if a number was read, advances gw.text_ptr. */
-static bool read_linenum(uint16_t *out)
+bool read_linenum(uint16_t *out)
 {
     gw_skip_spaces();
     uint8_t tok = gw_chrgot();
@@ -756,7 +756,14 @@ void gw_exec_stmt(void)
     /* LPRINT */
     if (tok == TOK_LPRINT) {
         gw_chrget();
-        gw_stmt_print();
+        gw_stmt_lprint();
+        return;
+    }
+
+    /* LLIST */
+    if (tok == TOK_LLIST) {
+        gw_chrget();
+        gw_stmt_llist();
         return;
     }
 

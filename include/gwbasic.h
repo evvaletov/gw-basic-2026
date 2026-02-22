@@ -22,6 +22,15 @@ void gw_stmt_print(void);
 void gw_print_value(gw_value_t *v);
 void gw_print_newline(void);
 
+/* LPRINT / LLIST (print.c) */
+void gw_stmt_lprint(void);
+void gw_stmt_llist(void);
+void gw_lpt_set_path(const char *path);
+void gw_lpt_close(void);
+
+/* Line number parsing helper (interp.c) */
+bool read_linenum(uint16_t *out);
+
 /* Variables (vars.c) */
 gw_valtype_t gw_parse_varname(char name_out[2]);
 var_entry_t *gw_var_find_or_create(const char name[2], gw_valtype_t type);

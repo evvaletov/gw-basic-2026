@@ -5,4 +5,5 @@ docs/_build/
 gwbasic_*.txt
 gwbasic_*.dat
 gwbasic_*.bas
+LPT1.TXT
 !tests/programs/*.bas

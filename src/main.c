@@ -178,9 +178,11 @@ int main(int argc, char **argv)
         if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             printf("Usage: gwbasic [options] [file.bas]\n"
                    "Options:\n"
-                   "  -f, --full     Use full terminal size (default: 25x80)\n"
-                   "  -h, --help     Show this help\n"
-                   "  -v, --version  Show version\n");
+                   "  -f, --full         Use full terminal size (default: 25x80)\n"
+                   "  -h, --help         Show this help\n"
+                   "  --lpt DEVICE|FILE  Printer output destination (default: LPT1.TXT)\n"
+                   "                     Use LPT1 or /dev/lp0 for real hardware\n"
+                   "  -v, --version      Show version\n");
             return 0;
         }
         if (strcmp(argv[i], "--version") == 0 || strcmp(argv[i], "-v") == 0) {
@@ -189,6 +191,10 @@ int main(int argc, char **argv)
         }
         if (strcmp(argv[i], "--full") == 0 || strcmp(argv[i], "-f") == 0) {
             fullscreen = true;
+            continue;
+        }
+        if (strcmp(argv[i], "--lpt") == 0 && i + 1 < argc) {
+            gw_lpt_set_path(argv[++i]);
             continue;
         }
         if (argv[i][0] != '-') {
@@ -226,6 +232,7 @@ int main(int argc, char **argv)
         }
 
         if (!interactive) {
+            gw_lpt_close();
             snd_shutdown();
             if (gw_hal) gw_hal->shutdown();
             return 0;
@@ -293,6 +300,7 @@ int main(int argc, char **argv)
 
     if (interactive)
         tui_shutdown();
+    gw_lpt_close();
     snd_shutdown();
     if (gw_hal)
         gw_hal->shutdown();
