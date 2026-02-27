@@ -6,4 +6,7 @@ gwbasic_*.txt
 gwbasic_*.dat
 gwbasic_*.bas
 LPT1.TXT
+OUTPUT
+RANDOM
+test
 !tests/programs/*.bas
