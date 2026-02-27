@@ -2,8 +2,6 @@
 
 ## Planned Features
 
-- **EDIT statement** — edit a specific program line in the TUI
-- **ON KEY / ON TIMER event trapping** — periodic event handlers for interactive programs
 - **BSAVE / BLOAD** — binary file save/load for screen buffers and data
 - **DEF SEG** — memory segment declaration for PEEK/POKE/BSAVE/BLOAD
 - **PRINT USING edge cases** — `**` asterisk fill, `**$` combined

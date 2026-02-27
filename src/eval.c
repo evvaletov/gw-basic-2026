@@ -1,4 +1,5 @@
 #include "gwbasic.h"
+#include "tui.h"
 #include "graphics.h"
 #include <ctype.h>
 #include <string.h>
@@ -879,7 +880,12 @@ static gw_value_t eval_atom(void)
         gw_chrget();
         gw_value_t v;
         v.type = VT_STR;
-        if (gw_hal && gw_hal->kbhit()) {
+        /* Check key buffer first (keys pushed back by event trapping) */
+        if (!tui_keybuf_empty()) {
+            int ch = tui_pop_key();
+            v.sval = gw_str_alloc(1);
+            v.sval.data[0] = (char)ch;
+        } else if (gw_hal && gw_hal->kbhit()) {
             int ch = gw_hal->getch();
             v.sval = gw_str_alloc(1);
             v.sval.data[0] = ch;

@@ -64,11 +64,30 @@ typedef struct {
     uint16_t line_num;
 } for_entry_t;
 
+/* Event trap mode */
+typedef enum { TRAP_OFF = 0, TRAP_ON = 1, TRAP_STOP = 2 } trap_mode_t;
+
+/* Event trap state (shared by TIMER/KEY traps) */
+typedef struct event_trap {
+    trap_mode_t mode;
+    uint16_t gosub_line;
+    bool pending;
+    bool in_handler;
+} event_trap_t;
+
+/* ON TIMER trap */
+typedef struct {
+    event_trap_t trap;
+    float interval;        /* seconds */
+    double last_fire;      /* monotonic timestamp */
+} timer_trap_t;
+
 /* GOSUB stack entry */
 typedef struct {
     uint8_t *ret_text;
     struct program_line *ret_line;
     uint16_t line_num;
+    struct event_trap *event_source;  /* non-NULL for event handler GOSUB */
 } gosub_entry_t;
 
 /* WHILE stack entry */

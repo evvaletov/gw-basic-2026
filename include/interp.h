@@ -76,6 +76,10 @@ typedef struct {
     /* COMMON variable list for CHAIN */
     int common_count;
     struct { char name[2]; gw_valtype_t type; } common_vars[64];
+
+    /* Event trapping */
+    timer_trap_t timer_trap;
+    event_trap_t key_traps[10];  /* KEY(1)-KEY(10) */
 } interp_state_t;
 
 extern interp_state_t gw;

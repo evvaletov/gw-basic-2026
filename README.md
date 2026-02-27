@@ -23,7 +23,7 @@ Interactive mode launches the authentic GW-BASIC full-screen editor:
 
 ```
 $ ./gwbasic
-GW-BASIC 2026 0.8.0
+GW-BASIC 2026 0.9.0
 (C) Eremey Valetov 2026. MIT License.
 Based on Microsoft GW-BASIC assembly source.
 Ok
@@ -67,10 +67,11 @@ SPACE$, STRING$, HEX$, OCT$, INSTR, INPUT$
 | Variables | LET, DIM, ERASE, SWAP, DEFINT/SNG/DBL/STR |
 | Control flow | GOTO, GOSUB/RETURN, FOR/NEXT, IF/THEN/ELSE, WHILE/WEND, ON...GOTO/GOSUB |
 | Input | INPUT, LINE INPUT, DATA/READ/RESTORE, INKEY$ |
-| Program | RUN, RUN "file", CONT, STOP, END, NEW, LIST, CLEAR, AUTO, RENUM, DELETE |
+| Program | RUN, RUN "file", CONT, STOP, END, NEW, LIST, CLEAR, AUTO, RENUM, DELETE, EDIT |
 | Sequential I/O | OPEN, CLOSE, PRINT#, WRITE#, INPUT#, LINE INPUT# |
 | Random-access I/O | FIELD, LSET, RSET, PUT, GET, CVI/CVS/CVD, MKI$/MKS$/MKD$ |
 | Program I/O | SAVE, LOAD, MERGE, CHAIN, COMMON |
+| Event trapping | ON TIMER(n) GOSUB, TIMER ON/OFF/STOP, ON KEY(n) GOSUB, KEY(n) ON/OFF/STOP |
 | Error handling | ON ERROR GOTO, RESUME, ERROR, ERR, ERL |
 | User functions | DEF FN, RANDOMIZE |
 | File management | KILL, NAME, FILES, MKDIR, RMDIR, CHDIR, SHELL |
@@ -160,7 +161,7 @@ Key design differences from the original:
 
 ## Tests
 
-54 test programs in `tests/programs/`, with CI via GitHub Actions:
+56 test programs in `tests/programs/`, with CI via GitHub Actions:
 
 ```bash
 bash tests/run_tests.sh

@@ -167,6 +167,11 @@ void tui_update_cursor(void)
 
 int tui_read_key(void)
 {
+    /* Drain key buffer first (keys pushed back by event trapping) */
+    int buffered = tui_pop_key();
+    if (buffered >= 0)
+        return buffered;
+
     gw_hal->enable_raw();
 
     int ch = gw_hal->getch();
@@ -482,6 +487,54 @@ void tui_key_list(void)
     }
     tui_refresh();
     tui_update_cursor();
+}
+
+/* Key buffer ring buffer operations */
+void tui_push_key(int key)
+{
+    int next = (tui.keybuf_head + 1) % TUI_KEYBUF_SIZE;
+    if (next == tui.keybuf_tail)
+        return;  /* buffer full, drop key */
+    tui.keybuf[tui.keybuf_head] = key;
+    tui.keybuf_head = next;
+}
+
+int tui_pop_key(void)
+{
+    if (tui.keybuf_head == tui.keybuf_tail)
+        return -1;
+    int key = tui.keybuf[tui.keybuf_tail];
+    tui.keybuf_tail = (tui.keybuf_tail + 1) % TUI_KEYBUF_SIZE;
+    return key;
+}
+
+bool tui_keybuf_empty(void)
+{
+    return tui.keybuf_head == tui.keybuf_tail;
+}
+
+void tui_edit_line(const char *prefill)
+{
+    /* Advance to new line */
+    tui.cursor_col = 0;
+    tui.cursor_row++;
+    if (tui.cursor_row > tui.view_bottom) {
+        scroll_up();
+        tui.cursor_row = tui.view_bottom;
+    }
+
+    /* Write prefill text into screen buffer */
+    for (int i = 0; prefill[i] && i < tui.cols; i++) {
+        TUI_CELL(tui.cursor_row, i).ch = (uint8_t)prefill[i];
+        TUI_CELL(tui.cursor_row, i).attr = tui.current_attr;
+    }
+
+    tui_refresh_row(tui.cursor_row);
+    tui_update_cursor();
+
+    char *result = tui_read_line();
+    if (result && result[0])
+        gw_exec_direct(result);
 }
 
 void tui_set_cursor_block(void)

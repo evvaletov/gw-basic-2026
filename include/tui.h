@@ -45,6 +45,9 @@ typedef struct {
 #define TK_CTRL_C   0x03
 #define TK_CTRL_BREAK 0x200
 
+/* Key buffer for event trapping (keys consumed from HAL but not yet processed) */
+#define TUI_KEYBUF_SIZE 16
+
 /* TUI state */
 typedef struct {
     tui_cell_t *screen;             /* dynamically allocated [rows * cols] */
@@ -60,6 +63,9 @@ typedef struct {
     volatile bool break_flag;       /* set by SIGINT handler */
     int view_top;                   /* top of scrollable area */
     int view_bottom;                /* bottom row (rows-1 normally, rows-2 with key bar) */
+    int keybuf[TUI_KEYBUF_SIZE];   /* ring buffer for pushed-back keys */
+    int keybuf_head;
+    int keybuf_tail;
 } tui_state_t;
 
 extern tui_state_t tui;
@@ -92,6 +98,14 @@ char *tui_read_line(void);
 void tui_key_on(void);
 void tui_key_off(void);
 void tui_key_list(void);
+
+/* EDIT statement */
+void tui_edit_line(const char *prefill);
+
+/* Key buffer for event trapping */
+void tui_push_key(int key);
+int  tui_pop_key(void);
+bool tui_keybuf_empty(void);
 
 /* Ctrl+Break */
 void tui_check_break(void);

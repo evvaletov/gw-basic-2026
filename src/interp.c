@@ -11,6 +11,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <errno.h>
+#include <time.h>
 
 /*
  * Execution loop and control flow - the heart of the interpreter.
@@ -1087,6 +1088,28 @@ void gw_exec_stmt(void)
             free(path);
             return;
         }
+        /* TIMER ON/OFF/STOP */
+        if (xstmt == XSTMT_TIMER) {
+            gw_chrget();
+            gw_skip_spaces();
+            if (gw_chrgot() == TOK_ON) {
+                gw_chrget();
+                gw.timer_trap.trap.mode = TRAP_ON;
+                return;
+            }
+            if (gw_chrgot() == TOK_OFF) {
+                gw_chrget();
+                gw.timer_trap.trap.mode = TRAP_OFF;
+                gw.timer_trap.trap.pending = false;
+                return;
+            }
+            if (gw_chrgot() == TOK_STOP) {
+                gw_chrget();
+                gw.timer_trap.trap.mode = TRAP_STOP;
+                return;
+            }
+            gw_error(ERR_SN);
+        }
         /* Stubs: VIEW, WINDOW, PALETTE */
         if (xstmt == XSTMT_VIEW ||
             xstmt == XSTMT_WINDOW || xstmt == XSTMT_PALETTE) {
@@ -1216,6 +1239,8 @@ void gw_exec_stmt(void)
         gw.on_error_line = 0;
         gw.in_error_handler = false;
         gw.option_base = 0;
+        memset(&gw.timer_trap, 0, sizeof(gw.timer_trap));
+        memset(gw.key_traps, 0, sizeof(gw.key_traps));
 
         gw.cur_line = start;
         gw.text_ptr = start->tokens;
@@ -1284,6 +1309,40 @@ void gw_exec_stmt(void)
         }
         gw.cont_text = NULL;
         gw.cont_line = NULL;
+        return;
+    }
+
+    /* EDIT [linenum] */
+    if (tok == TOK_EDIT) {
+        gw_chrget();
+        gw_skip_spaces();
+        uint16_t num;
+        if (gw_chrgot() && gw_chrgot() != ':' && gw_chrgot() != TOK_ELSE) {
+            num = gw_eval_uint16();
+        } else if (gw.cont_line) {
+            num = gw.cont_line->num;
+        } else if (gw.err_line_num) {
+            num = gw.err_line_num;
+        } else {
+            gw_error(ERR_SN);
+        }
+        program_line_t *line = gw_find_line(num);
+        if (!line) gw_error(ERR_UL);
+        char listbuf[512];
+        gw_list_line(line->tokens, line->len, listbuf, sizeof(listbuf));
+        char formatted[560];
+        snprintf(formatted, sizeof(formatted), "%u %s", line->num, listbuf);
+        if (tui.active) {
+            tui_edit_line(formatted);
+        } else {
+            /* Non-interactive: just display the line */
+            if (gw_hal) {
+                gw_hal->puts(formatted);
+                gw_hal->puts("\n");
+            } else {
+                printf("%s\n", formatted);
+            }
+        }
         return;
     }
 
@@ -1521,6 +1580,7 @@ void gw_exec_stmt(void)
         gw.gosub_stack[gw.gosub_sp].ret_text = gw.text_ptr;
         gw.gosub_stack[gw.gosub_sp].ret_line = gw.cur_line;
         gw.gosub_stack[gw.gosub_sp].line_num = gw.cur_line_num;
+        gw.gosub_stack[gw.gosub_sp].event_source = NULL;
         gw.gosub_sp++;
 
         gw.cur_line = target;
@@ -1538,6 +1598,10 @@ void gw_exec_stmt(void)
         gw.text_ptr = gw.gosub_stack[gw.gosub_sp].ret_text;
         gw.cur_line = gw.gosub_stack[gw.gosub_sp].ret_line;
         gw.cur_line_num = gw.gosub_stack[gw.gosub_sp].line_num;
+
+        /* Clear event handler flag if returning from event trap */
+        if (gw.gosub_stack[gw.gosub_sp].event_source)
+            gw.gosub_stack[gw.gosub_sp].event_source->in_handler = false;
 
         /* Optional line number: RETURN <linenum> */
         gw_skip_spaces();
@@ -1859,6 +1923,49 @@ void gw_exec_stmt(void)
             return;
         }
 
+        /* ON TIMER(n) GOSUB line */
+        if (gw_chrgot() == TOK_PREFIX_FE && gw.text_ptr[1] == XSTMT_TIMER) {
+            gw.text_ptr += 2;
+            gw_expect('(');
+            gw_value_t v = gw_eval_num();
+            float interval;
+            if (v.type == VT_INT) interval = (float)v.ival;
+            else if (v.type == VT_SNG) interval = v.fval;
+            else interval = (float)v.dval;
+            if (interval <= 0) gw_error(ERR_FC);
+            gw_expect(')');
+            gw_skip_spaces();
+            if (gw_chrgot() != TOK_GOSUB) gw_error(ERR_SN);
+            gw_chrget();
+            uint16_t line = gw_eval_uint16();
+            gw.timer_trap.interval = interval;
+            gw.timer_trap.trap.gosub_line = line;
+            gw.timer_trap.trap.pending = false;
+            gw.timer_trap.trap.in_handler = false;
+            /* Reset the clock */
+            struct timespec ts;
+            clock_gettime(CLOCK_MONOTONIC, &ts);
+            gw.timer_trap.last_fire = ts.tv_sec + ts.tv_nsec / 1e9;
+            return;
+        }
+
+        /* ON KEY(n) GOSUB line */
+        if (gw_chrgot() == TOK_KEY) {
+            gw_chrget();
+            gw_expect('(');
+            int n = gw_eval_int();
+            if (n < 1 || n > 10) gw_error(ERR_FC);
+            gw_expect(')');
+            gw_skip_spaces();
+            if (gw_chrgot() != TOK_GOSUB) gw_error(ERR_SN);
+            gw_chrget();
+            uint16_t line = gw_eval_uint16();
+            gw.key_traps[n - 1].gosub_line = line;
+            gw.key_traps[n - 1].pending = false;
+            gw.key_traps[n - 1].in_handler = false;
+            return;
+        }
+
         int idx = gw_eval_int();
         gw_skip_spaces();
 
@@ -1899,6 +2006,7 @@ void gw_exec_stmt(void)
             gw.gosub_stack[gw.gosub_sp].ret_text = gw.text_ptr;
             gw.gosub_stack[gw.gosub_sp].ret_line = gw.cur_line;
             gw.gosub_stack[gw.gosub_sp].line_num = gw.cur_line_num;
+            gw.gosub_stack[gw.gosub_sp].event_source = NULL;
             gw.gosub_sp++;
         }
 
@@ -2277,6 +2385,31 @@ void gw_exec_stmt(void)
     if (tok == TOK_KEY) {
         gw_chrget();
         gw_skip_spaces();
+        /* KEY(n) ON/OFF/STOP — event trapping */
+        if (gw_chrgot() == '(') {
+            gw_chrget();
+            int n = gw_eval_int();
+            if (n < 1 || n > 10) gw_error(ERR_FC);
+            gw_expect(')');
+            gw_skip_spaces();
+            if (gw_chrgot() == TOK_ON) {
+                gw_chrget();
+                gw.key_traps[n - 1].mode = TRAP_ON;
+                return;
+            }
+            if (gw_chrgot() == TOK_OFF) {
+                gw_chrget();
+                gw.key_traps[n - 1].mode = TRAP_OFF;
+                gw.key_traps[n - 1].pending = false;
+                return;
+            }
+            if (gw_chrgot() == TOK_STOP) {
+                gw_chrget();
+                gw.key_traps[n - 1].mode = TRAP_STOP;
+                return;
+            }
+            gw_error(ERR_SN);
+        }
         if (gw_chrgot() == TOK_ON) {
             gw_chrget();
             tui_key_on();
@@ -2451,6 +2584,156 @@ void gw_exec_stmt(void)
 }
 
 /* ================================================================
+ * Event Trapping
+ * ================================================================ */
+
+static void fire_event_trap(event_trap_t *trap)
+{
+    trap->in_handler = true;
+    trap->pending = false;
+
+    program_line_t *target = gw_find_line(trap->gosub_line);
+    if (!target) return;
+
+    if (gw.gosub_sp >= MAX_GOSUB_DEPTH)
+        gw_error(ERR_OM);
+    gw.gosub_stack[gw.gosub_sp].ret_text = gw.text_ptr;
+    gw.gosub_stack[gw.gosub_sp].ret_line = gw.cur_line;
+    gw.gosub_stack[gw.gosub_sp].line_num = gw.cur_line_num;
+    gw.gosub_stack[gw.gosub_sp].event_source = trap;
+    gw.gosub_sp++;
+
+    gw.cur_line = target;
+    gw.text_ptr = target->tokens;
+    gw.cur_line_num = target->num;
+}
+
+static void gw_check_events(void)
+{
+    /* Timer trap */
+    if (gw.timer_trap.trap.gosub_line && !gw.timer_trap.trap.in_handler) {
+        struct timespec ts;
+        clock_gettime(CLOCK_MONOTONIC, &ts);
+        double now = ts.tv_sec + ts.tv_nsec / 1e9;
+        double elapsed = now - gw.timer_trap.last_fire;
+
+        if (elapsed >= gw.timer_trap.interval) {
+            if (gw.timer_trap.trap.mode == TRAP_ON) {
+                gw.timer_trap.last_fire = now;
+                fire_event_trap(&gw.timer_trap.trap);
+                return;
+            } else if (gw.timer_trap.trap.mode == TRAP_STOP) {
+                gw.timer_trap.trap.pending = true;
+            }
+        }
+    }
+
+    /* Check for pending timer event after TIMER ON */
+    if (gw.timer_trap.trap.pending && gw.timer_trap.trap.mode == TRAP_ON &&
+        !gw.timer_trap.trap.in_handler) {
+        struct timespec ts;
+        clock_gettime(CLOCK_MONOTONIC, &ts);
+        gw.timer_trap.last_fire = ts.tv_sec + ts.tv_nsec / 1e9;
+        fire_event_trap(&gw.timer_trap.trap);
+        return;
+    }
+
+    /* Key traps: only consume keystrokes when at least one trap is configured */
+    bool any_key_trap = false;
+    for (int i = 0; i < 10; i++) {
+        if (gw.key_traps[i].gosub_line) { any_key_trap = true; break; }
+    }
+
+    if (any_key_trap && gw_hal && gw_hal->kbhit()) {
+        int ch = gw_hal->getch();
+        int fkey = -1;
+        if (ch == 27 && gw_hal->kbhit()) {
+            int seq1 = gw_hal->getch();
+            if (seq1 == 'O') {
+                int seq2 = gw_hal->getch();
+                switch (seq2) {
+                case 'P': fkey = 0; break;  /* F1 */
+                case 'Q': fkey = 1; break;  /* F2 */
+                case 'R': fkey = 2; break;  /* F3 */
+                case 'S': fkey = 3; break;  /* F4 */
+                default:
+                    tui_push_key(27);
+                    tui_push_key('O');
+                    tui_push_key(seq2);
+                    return;
+                }
+            } else if (seq1 == '[') {
+                int seq2 = gw_hal->getch();
+                if ((seq2 == '1' || seq2 == '2') && gw_hal->kbhit()) {
+                    int seq3 = gw_hal->getch();
+                    if (gw_hal->kbhit()) {
+                        int seq4 = gw_hal->getch();
+                        if (seq4 == '~') {
+                            int code = (seq2 - '0') * 10 + (seq3 - '0');
+                            switch (code) {
+                            case 15: fkey = 4; break;   /* F5 */
+                            case 17: fkey = 5; break;   /* F6 */
+                            case 18: fkey = 6; break;   /* F7 */
+                            case 19: fkey = 7; break;   /* F8 */
+                            case 20: fkey = 8; break;   /* F9 */
+                            case 21: fkey = 9; break;   /* F10 */
+                            }
+                        }
+                        if (fkey < 0) {
+                            tui_push_key(27);
+                            tui_push_key('[');
+                            tui_push_key(seq2);
+                            tui_push_key(seq3);
+                            tui_push_key(seq4);
+                            return;
+                        }
+                    } else {
+                        tui_push_key(27);
+                        tui_push_key('[');
+                        tui_push_key(seq2);
+                        tui_push_key(seq3);
+                        return;
+                    }
+                } else {
+                    tui_push_key(27);
+                    tui_push_key('[');
+                    tui_push_key(seq2);
+                    return;
+                }
+            } else {
+                tui_push_key(27);
+                tui_push_key(seq1);
+                return;
+            }
+        }
+
+        if (fkey >= 0 && fkey < 10) {
+            event_trap_t *kt = &gw.key_traps[fkey];
+            if (kt->gosub_line && kt->mode == TRAP_ON && !kt->in_handler) {
+                fire_event_trap(kt);
+                return;
+            } else if (kt->gosub_line && kt->mode == TRAP_STOP) {
+                kt->pending = true;
+                return;
+            }
+            return;
+        }
+
+        /* Not an F-key: push into key buffer for INKEY$/input */
+        tui_push_key(ch);
+    }
+
+    /* Check for pending key traps after KEY(n) ON */
+    for (int i = 0; i < 10; i++) {
+        event_trap_t *kt = &gw.key_traps[i];
+        if (kt->pending && kt->mode == TRAP_ON && !kt->in_handler) {
+            fire_event_trap(kt);
+            return;
+        }
+    }
+}
+
+/* ================================================================
  * NEWSTT Loop (Run Loop)
  * ================================================================ */
 
@@ -2470,6 +2753,9 @@ void gw_run_loop(void)
         /* Check for Ctrl+Break */
         if (tui.active)
             tui_check_break();
+
+        /* Check event traps (ON TIMER, ON KEY) */
+        gw_check_events();
 
         gw_skip_spaces();
         uint8_t ch = gw_chrgot();

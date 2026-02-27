@@ -10,7 +10,7 @@
 #include "gw_math.h"
 #include "strings.h"
 
-#define GW_VERSION "0.8.0"
+#define GW_VERSION "0.9.0"
 #define GW_BANNER "GW-BASIC " GW_VERSION
 
 /* Tokenizer */

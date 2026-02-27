@@ -12,10 +12,11 @@
 | 0.6.0 | `ece018d` | DATE$/TIME$/TIMER, FILES, SHELL, CHDIR, MKDIR, RMDIR |
 | 0.7.0 | `da6b513` | AUTO, RENUM (with GOTO/GOSUB patching), DELETE, COMMON, LIST range fix |
 | 0.8.0 | `c68167c` | Dynamic TUI screen buffer, `--full` flag, LPRINT/LLIST with `--lpt` |
+| 0.9.0 | | EDIT statement, ON TIMER/ON KEY event trapping, F-key escape parser fixes |
 
 ## Tests
 
-54 test programs in `tests/programs/`. Run the full suite:
+56 test programs in `tests/programs/`. Run the full suite:
 
 ```bash
 bash tests/run_tests.sh
@@ -40,6 +41,6 @@ bash tests/run_compat.sh
 ## CI
 
 GitHub Actions runs on every push to `main` and on pull requests. The workflow
-builds the project with PulseAudio support and runs all 54 test programs.
+builds the project with PulseAudio support and runs all 56 test programs.
 
 See [`.github/workflows/ci.yml`](https://github.com/evvaletov/gw-basic-2026/blob/main/.github/workflows/ci.yml).

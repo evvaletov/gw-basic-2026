@@ -47,10 +47,11 @@ type suffixes (`%`, `!`, `#`)
 | Variables | `LET`, `DIM`, `ERASE`, `SWAP`, `DEFINT`, `DEFSNG`, `DEFDBL`, `DEFSTR` |
 | Control flow | `GOTO`, `GOSUB`/`RETURN`, `FOR`/`NEXT`, `IF`/`THEN`/`ELSE`, `WHILE`/`WEND`, `ON...GOTO`, `ON...GOSUB` |
 | Input | `INPUT`, `LINE INPUT`, `DATA`/`READ`/`RESTORE`, `INKEY$` |
-| Program control | `RUN`, `RUN "file"`, `CONT`, `STOP`, `END`, `NEW`, `LIST`, `CLEAR`, `AUTO`, `RENUM`, `DELETE` |
+| Program control | `RUN`, `RUN "file"`, `CONT`, `STOP`, `END`, `NEW`, `LIST`, `CLEAR`, `AUTO`, `RENUM`, `DELETE`, `EDIT` |
 | Sequential I/O | `OPEN`, `CLOSE`, `PRINT#`, `WRITE#`, `INPUT#`, `LINE INPUT#` |
 | Random-access I/O | `FIELD`, `LSET`, `RSET`, `PUT`, `GET`, `CVI`/`CVS`/`CVD`, `MKI$`/`MKS$`/`MKD$` |
 | Program I/O | `SAVE`, `LOAD`, `MERGE`, `CHAIN`, `COMMON` |
+| Event trapping | `ON TIMER(n) GOSUB`, `TIMER ON`/`OFF`/`STOP`, `ON KEY(n) GOSUB`, `KEY(n) ON`/`OFF`/`STOP` |
 | Error handling | `ON ERROR GOTO`, `RESUME`, `RESUME NEXT`, `RESUME n`, `ERROR`, `ERR`, `ERL` |
 | User functions | `DEF FN`, `RANDOMIZE` |
 | File management | `KILL`, `NAME`, `FILES`, `MKDIR`, `RMDIR`, `CHDIR`, `SHELL` |
@@ -145,6 +146,37 @@ suitable for scripting and test harnesses.
 
 ### Program Editing
 
+- `EDIT [linenum]` — display a program line for editing in the TUI; press Enter to re-store it
 - `AUTO [start][,increment]` — automatic line numbering mode
 - `RENUM [new][,[old][,increment]]` — renumber program lines (patches all GOTO/GOSUB references)
 - `DELETE range` — delete program lines (`DELETE 10-50`, `DELETE -100`, `DELETE 200-`)
+
+## Event Trapping
+
+GW-BASIC supports event-driven programming through trap handlers that fire
+between statements during program execution.
+
+### Timer Events
+
+```
+ON TIMER(n) GOSUB line    ' register handler (fires every n seconds)
+TIMER ON                  ' enable timer trapping
+TIMER STOP                ' suspend trapping (events are queued)
+TIMER OFF                 ' disable trapping (events are discarded)
+```
+
+### Function Key Events
+
+```
+ON KEY(n) GOSUB line      ' register handler for F-key n (1-10)
+KEY(n) ON                 ' enable trapping for key n
+KEY(n) STOP               ' suspend trapping (events are queued)
+KEY(n) OFF                ' disable trapping
+```
+
+Event handlers execute as implicit GOSUBs. The `RETURN` statement returns
+to the interrupted code and clears the handler's in-progress flag. Events do
+not fire inside their own handler (re-entrant protection).
+
+`TIMER STOP` / `KEY(n) STOP` queue events while stopped; switching to
+`TIMER ON` / `KEY(n) ON` fires the pending event immediately.
