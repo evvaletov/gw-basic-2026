@@ -14,15 +14,17 @@ Source text → Tokenizer (CRUNCH) → Token stream
                               HAL (platform I/O)
 ```
 
-The interpreter follows the original GW-BASIC's internal structure. Source lines
-are tokenized by CRUNCH into a compact token stream. The NEWSTT loop dispatches
-each statement, calling FRMEVL for expression evaluation. All platform I/O goes
-through a HAL vtable (`hal_ops_t`), keeping the core interpreter portable.
+The interpreter mirrors the original GW-BASIC's internal pipeline, which — like
+most Microsoft interpreters of the era — is a tight loop around three core
+routines.  CRUNCH tokenizes source lines into a compact byte stream.  NEWSTT
+dispatches each statement.  FRMEVL evaluates expressions.  All platform I/O
+goes through a HAL vtable (`hal_ops_t`), so the core interpreter has no idea
+whether it's talking to an ANSI terminal or a teletype from 1975.
 
-When running interactively, the TUI layer intercepts HAL output calls
-(`putch`, `puts`, `cls`, `locate`) and routes them through a dynamically
-allocated screen buffer rendered via ANSI escape sequences. In piped mode the
-TUI is not activated and the HAL writes directly to stdout.
+In interactive mode, the TUI layer swaps in its own HAL function pointers and
+redirects all output through a dynamically allocated screen buffer, displayed
+via ANSI escape sequences.  In piped mode the TUI stays out of the way and the
+HAL writes straight to stdout.
 
 ## Module Map
 
@@ -54,7 +56,7 @@ TUI is not activated and the HAL writes directly to stdout.
 src/         — core interpreter (20 files)
 include/     — headers (12 files)
 platform/    — HAL backends (1 file)
-tests/       — test programs (54 .BAS files), compat test harness
+tests/       — 58 automated test programs, 4 classic interactive programs, compat harness
 docs/        — Sphinx documentation
 ```
 
@@ -79,11 +81,12 @@ The TUI (`tui.c`) implements the classic GW-BASIC full-screen editor:
 
 ### Relation to Original Assembly
 
-The original GW-BASIC source was
-[released by Microsoft in 2020](https://github.com/microsoft/GW-BASIC) as 8088
-assembly (43,771 lines across 43 `.ASM` files). This reimplementation uses that
-assembly as a reference but is not a transpilation — it reimplements the
-algorithms in idiomatic C with modern data structures.
+Microsoft [released the original GW-BASIC source](https://github.com/microsoft/GW-BASIC)
+in 2020 — 43,771 lines of 8088 assembly spread across 43 `.ASM` files, complete
+with Greg Whitten's comments and Neil Konzen's transcendental math routines
+(which are, frankly, impressive for 16-bit fixed-point).  This reimplementation
+uses that assembly as a reference, not as input to a transliterator — the
+algorithms are reimplemented in idiomatic C with modern data structures.
 
 ### Key Differences from the Original
 

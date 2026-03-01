@@ -50,7 +50,7 @@ type suffixes (`%`, `!`, `#`)
 | Program control | `RUN`, `RUN "file"`, `CONT`, `STOP`, `END`, `NEW`, `LIST`, `CLEAR`, `AUTO`, `RENUM`, `DELETE`, `EDIT` |
 | Sequential I/O | `OPEN`, `CLOSE`, `PRINT#`, `WRITE#`, `INPUT#`, `LINE INPUT#` |
 | Random-access I/O | `FIELD`, `LSET`, `RSET`, `PUT`, `GET`, `CVI`/`CVS`/`CVD`, `MKI$`/`MKS$`/`MKD$` |
-| Program I/O | `SAVE`, `LOAD`, `MERGE`, `CHAIN`, `COMMON` |
+| Program I/O | `SAVE` (binary/ASCII), `LOAD` (auto-detects), `MERGE`, `CHAIN`, `COMMON` |
 | Event trapping | `ON TIMER(n) GOSUB`, `TIMER ON`/`OFF`/`STOP`, `ON KEY(n) GOSUB`, `KEY(n) ON`/`OFF`/`STOP` |
 | Error handling | `ON ERROR GOTO`, `RESUME`, `RESUME NEXT`, `RESUME n`, `ERROR`, `ERR`, `ERL` |
 | User functions | `DEF FN`, `RANDOMIZE` |
@@ -61,6 +61,52 @@ type suffixes (`%`, `!`, `#`)
 | Sound | `SOUND`, `BEEP`, `PLAY` (MML parser, PulseAudio backend) |
 | Misc | `POKE`, `KEY`, `TRON`/`TROFF`, `OPTION BASE`, `MID$` assignment |
 | System | `SYSTEM` |
+
+## Program I/O (SAVE / LOAD)
+
+`SAVE` writes the current program to a file. The default format is tokenized
+binary (compact, fast to load), matching the original GW-BASIC behavior:
+
+```
+SAVE "myprog.bas"       ' tokenized binary (default)
+SAVE "myprog.bas",A     ' ASCII text (human-readable, editable)
+```
+
+`LOAD` reads a program file, auto-detecting the format from the first byte:
+
+```
+LOAD "myprog.bas"       ' auto-detects binary or ASCII
+LOAD "myprog.bas",R     ' load and run immediately
+```
+
+Binary files use the standard GW-BASIC 0xFF header format. Command-line
+loading (`./gwbasic file.bas`) also auto-detects format.
+
+`MERGE` loads an ASCII file without clearing the current program, overlaying
+lines by number. `CHAIN` loads and runs a new program, optionally preserving
+variables listed by `COMMON`.
+
+## INKEY$ Extended Keys
+
+`INKEY$` returns a zero-length string when no key is available, a one-byte
+string for regular ASCII keys, or a two-byte string for extended keys:
+
+```
+K$ = INKEY$
+IF LEN(K$) = 2 THEN scan = ASC(MID$(K$, 2, 1))
+```
+
+Extended keys return `CHR$(0)` as the first byte and the IBM PC scan code
+as the second. Common scan codes:
+
+| Key | Scan | Key | Scan |
+|-----|------|-----|------|
+| F1-F10 | 59-68 | Home | 71 |
+| Up | 72 | PgUp | 73 |
+| Left | 75 | Right | 77 |
+| End | 79 | Down | 80 |
+| PgDn | 81 | Ins | 82 |
+| Del | 83 | | |
 
 ## Printer Output (LPRINT / LLIST)
 

@@ -880,17 +880,31 @@ static gw_value_t eval_atom(void)
         gw_chrget();
         gw_value_t v;
         v.type = VT_STR;
+
+        int key = -1;
+
         /* Check key buffer first (keys pushed back by event trapping) */
         if (!tui_keybuf_empty()) {
-            int ch = tui_pop_key();
-            v.sval = gw_str_alloc(1);
-            v.sval.data[0] = (char)ch;
+            key = tui_pop_key();
+        } else if (tui.active && gw_hal && gw_hal->kbhit()) {
+            key = tui_read_key();
         } else if (gw_hal && gw_hal->kbhit()) {
-            int ch = gw_hal->getch();
-            v.sval = gw_str_alloc(1);
-            v.sval.data[0] = ch;
-        } else {
+            key = gw_hal->getch();
+        }
+
+        if (key < 0) {
             v.sval = gw_str_alloc(0);
+        } else {
+            int scan = tui_key_to_scancode(key);
+            if (scan >= 0) {
+                /* Extended key: CHR$(0) + CHR$(scan_code) */
+                v.sval = gw_str_alloc(2);
+                v.sval.data[0] = '\0';
+                v.sval.data[1] = (char)scan;
+            } else {
+                v.sval = gw_str_alloc(1);
+                v.sval.data[0] = (char)key;
+            }
         }
         return v;
     }

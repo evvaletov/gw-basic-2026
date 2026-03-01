@@ -513,6 +513,35 @@ bool tui_keybuf_empty(void)
     return tui.keybuf_head == tui.keybuf_tail;
 }
 
+int tui_key_to_scancode(int key)
+{
+    /* Map internal TK_* key codes to IBM PC scan codes for INKEY$.
+       Returns -1 for regular ASCII keys (no scan code). */
+    switch (key) {
+    case TK_F1:     return 59;
+    case TK_F2:     return 60;
+    case TK_F3:     return 61;
+    case TK_F4:     return 62;
+    case TK_F5:     return 63;
+    case TK_F6:     return 64;
+    case TK_F7:     return 65;
+    case TK_F8:     return 66;
+    case TK_F9:     return 67;
+    case TK_F10:    return 68;
+    case TK_HOME:   return 71;
+    case TK_UP:     return 72;
+    case TK_PGUP:   return 73;
+    case TK_LEFT:   return 75;
+    case TK_RIGHT:  return 77;
+    case TK_END:    return 79;
+    case TK_DOWN:   return 80;
+    case TK_PGDN:   return 81;
+    case TK_INSERT: return 82;
+    case TK_DELETE: return 83;
+    default:        return -1;
+    }
+}
+
 void tui_edit_line(const char *prefill)
 {
     /* Advance to new line */

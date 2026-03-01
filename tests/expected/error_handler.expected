@@ -1,0 +1,7 @@
+Before error
+Caught error 5 at line 40
+After resume
+Triggering div by zero
+Caught error 11 at line 70
+After second resume
+Error handler OK

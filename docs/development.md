@@ -12,19 +12,24 @@
 | 0.6.0 | `ece018d` | DATE$/TIME$/TIMER, FILES, SHELL, CHDIR, MKDIR, RMDIR |
 | 0.7.0 | `da6b513` | AUTO, RENUM (with GOTO/GOSUB patching), DELETE, COMMON, LIST range fix |
 | 0.8.0 | `c68167c` | Dynamic TUI screen buffer, `--full` flag, LPRINT/LLIST with `--lpt` |
-| 0.9.0 | | EDIT statement, ON TIMER/ON KEY event trapping, F-key escape parser fixes |
+| 0.9.0 | `2a8f98b` | EDIT statement, ON TIMER/ON KEY event trapping, F-key escape parser fixes |
+| 0.10.0 | | Binary tokenized SAVE/LOAD, INKEY$ extended key sequences, golden-file regression tests, classic BASIC programs |
 
 ## Tests
 
-56 test programs in `tests/programs/`. Run the full suite:
+58 test programs in `tests/programs/`, plus 4 classic interactive programs in
+`tests/classic/` (Hamurabi, Lunar Lander, Gunner, Diamond from David Ahl's
+*BASIC Computer Games*).
+
+Run the full automated suite:
 
 ```bash
 bash tests/run_tests.sh
 ```
 
-Each test has a 5-second timeout. When `.expected` files are present
-(generated from real GWBASIC.EXE), the runner also reports compatibility
-match status.
+Each test has a 5-second timeout. 55 tests have `.expected` golden files
+for output regression detection. Three timing-dependent tests (datetime,
+on_timer, timer_stop) run without golden comparison.
 
 ### Compatibility Testing
 
@@ -41,6 +46,6 @@ bash tests/run_compat.sh
 ## CI
 
 GitHub Actions runs on every push to `main` and on pull requests. The workflow
-builds the project with PulseAudio support and runs all 56 test programs.
+builds the project with PulseAudio support and runs all 58 test programs.
 
 See [`.github/workflows/ci.yml`](https://github.com/evvaletov/gw-basic-2026/blob/main/.github/workflows/ci.yml).

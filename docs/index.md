@@ -14,11 +14,18 @@ version is structured as modular C suitable for new feature development.
 - **Authentic full-screen editor** — dynamically sized screen buffer (25×80
   default, full terminal with `--full`), free cursor movement, Enter-on-any-line,
   F1-F10 function keys, Insert/Overwrite toggle
+- **Binary and ASCII file formats** — `SAVE` writes tokenized binary by default,
+  `LOAD` auto-detects format (just like the real thing)
+- **INKEY$ extended keys** — arrow keys, F-keys, and navigation keys return proper
+  `CHR$(0)` + scan code two-byte sequences
 - **Sixel graphics** — `SCREEN 1`/`SCREEN 2` rendering in compatible terminals
 - **Sound** — `SOUND`, `BEEP`, `PLAY` (MML) via PulseAudio
 - **Full file I/O** — sequential, random-access, SAVE/LOAD/MERGE/CHAIN/COMMON
 - **Printer output** — `LPRINT`/`LLIST` to file or real hardware via `--lpt`
-- **54 test programs** with DOSBox-X compatibility testing against real GWBASIC.EXE
+- **Classic programs** — Hamurabi, Lunar Lander, Gunner, and Diamond from
+  David Ahl's *BASIC Computer Games* (1978) run out of the box
+- **58 test programs** with golden-file regression testing and DOSBox-X
+  compatibility testing against real GWBASIC.EXE
 - **MIT License**
 
 ```{toctree}

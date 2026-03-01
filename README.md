@@ -23,7 +23,7 @@ Interactive mode launches the authentic GW-BASIC full-screen editor:
 
 ```
 $ ./gwbasic
-GW-BASIC 2026 0.9.0
+GW-BASIC 2026 0.10.0
 (C) Eremey Valetov 2026. MIT License.
 Based on Microsoft GW-BASIC assembly source.
 Ok
@@ -35,7 +35,7 @@ FOR I=1 TO 5:PRINT I;:NEXT
 Ok
 ```
 
-Run a program file:
+Run a program file (ASCII or binary tokenized):
 
 ```bash
 ./gwbasic tests/programs/prime_sieve.bas
@@ -70,7 +70,7 @@ SPACE$, STRING$, HEX$, OCT$, INSTR, INPUT$
 | Program | RUN, RUN "file", CONT, STOP, END, NEW, LIST, CLEAR, AUTO, RENUM, DELETE, EDIT |
 | Sequential I/O | OPEN, CLOSE, PRINT#, WRITE#, INPUT#, LINE INPUT# |
 | Random-access I/O | FIELD, LSET, RSET, PUT, GET, CVI/CVS/CVD, MKI$/MKS$/MKD$ |
-| Program I/O | SAVE, LOAD, MERGE, CHAIN, COMMON |
+| Program I/O | SAVE (binary/ASCII), LOAD (auto-detects format), MERGE, CHAIN, COMMON |
 | Event trapping | ON TIMER(n) GOSUB, TIMER ON/OFF/STOP, ON KEY(n) GOSUB, KEY(n) ON/OFF/STOP |
 | Error handling | ON ERROR GOTO, RESUME, ERROR, ERR, ERL |
 | User functions | DEF FN, RANDOMIZE |
@@ -79,6 +79,29 @@ SPACE$, STRING$, HEX$, OCT$, INSTR, INPUT$
 | Screen | LOCATE, COLOR, WIDTH, SCREEN, KEY ON/OFF/LIST |
 | Graphics | PSET, PRESET, LINE, CIRCLE, DRAW, PAINT |
 | Sound | SOUND, BEEP, PLAY (MML) |
+
+### Binary and ASCII File Formats
+
+`SAVE` writes tokenized binary by default (just like the original), or ASCII
+with the `,A` flag.  `LOAD` auto-detects the format — so you can load programs
+saved in either format without any extra flags.
+
+```
+SAVE "myprog.bas"       ' tokenized binary (compact, fast)
+SAVE "myprog.bas",A     ' ASCII text (human-readable)
+LOAD "myprog.bas"       ' auto-detects format
+```
+
+Binary files use the standard GW-BASIC 0xFF-header format.  Command-line
+loading (`./gwbasic file.bas`) also auto-detects, so binary `.BAS` files
+just work.
+
+### INKEY$ Extended Keys
+
+`INKEY$` returns the classic GW-BASIC two-byte encoding for extended keys:
+`CHR$(0) + CHR$(scan_code)`.  Arrow keys, Home, End, PgUp/PgDn, Insert,
+Delete, and F1-F10 all produce the correct IBM PC scan codes — so programs
+that poll for arrow-key input work as expected.
 
 ### Full-Screen Editor (TUI)
 
@@ -159,9 +182,17 @@ Key design differences from the original:
 - malloc'd strings instead of compacting garbage collector
 - setjmp/longjmp for error recovery
 
+## Classic Programs
+
+The `tests/classic/` directory contains classic BASIC programs from David Ahl's
+*BASIC Computer Games* (1978) — Hamurabi, Lunar Lander, Gunner, Diamond — for
+manual compatibility testing.  These are interactive programs that need keyboard
+input, so they're not part of the automated test suite.
+
 ## Tests
 
-56 test programs in `tests/programs/`, with CI via GitHub Actions:
+58 test programs in `tests/programs/`, with golden-file regression testing
+and CI via GitHub Actions:
 
 ```bash
 bash tests/run_tests.sh

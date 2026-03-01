@@ -202,27 +202,46 @@ int main(int argc, char **argv)
         }
     }
 
-    /* Load file: read lines, store numbered lines, then RUN */
+    /* Load file: auto-detects binary vs ASCII, then RUN */
     if (filename) {
-        FILE *f = fopen(filename, "r");
-        if (!f) {
+        /* Peek at first byte to detect binary format */
+        FILE *probe = fopen(filename, "rb");
+        if (!probe) {
             fprintf(stderr, "File not found: %s\n", filename);
             return 1;
         }
-        char buf[256];
-        while (fgets(buf, sizeof(buf), f)) {
-            int len = strlen(buf);
-            while (len > 0 && (buf[len - 1] == '\n' || buf[len - 1] == '\r'))
-                buf[--len] = '\0';
-            if (buf[0] == '\0') continue;
+        int header = fgetc(probe);
+        fclose(probe);
 
-            if (setjmp(gw_error_jmp) != 0)
-                continue;
-            gw_exec_direct(buf);
+        if (header == 0xFF || header == 0xFE) {
+            /* Binary tokenized file — use LOAD machinery */
+            if (setjmp(gw_error_jmp) != 0) {
+                fprintf(stderr, "Error loading %s\n", filename);
+                gw_lpt_close();
+                snd_shutdown();
+                if (gw_hal) gw_hal->shutdown();
+                return 1;
+            }
+            gw_stmt_load_internal(filename, true);
+        } else {
+            /* ASCII file — process line by line (supports unnumbered lines) */
+            FILE *f = fopen(filename, "r");
+            if (!f) {
+                fprintf(stderr, "File not found: %s\n", filename);
+                return 1;
+            }
+            char buf[256];
+            while (fgets(buf, sizeof(buf), f)) {
+                int len = strlen(buf);
+                while (len > 0 && (buf[len - 1] == '\n' || buf[len - 1] == '\r'))
+                    buf[--len] = '\0';
+                if (buf[0] == '\0') continue;
+                if (setjmp(gw_error_jmp) != 0) continue;
+                gw_exec_direct(buf);
+            }
+            fclose(f);
         }
-        fclose(f);
 
-        /* If program was loaded but RUN wasn't in the file, auto-run */
         if (gw.prog_head && !gw.running) {
             if (setjmp(gw_error_jmp) != 0) {
                 /* error during auto-run */

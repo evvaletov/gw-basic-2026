@@ -107,6 +107,9 @@ void tui_push_key(int key);
 int  tui_pop_key(void);
 bool tui_keybuf_empty(void);
 
+/* Map TK_* key code to IBM PC scan code; returns -1 for ASCII keys */
+int tui_key_to_scancode(int key);
+
 /* Ctrl+Break */
 void tui_check_break(void);
 void tui_install_break_handler(void);

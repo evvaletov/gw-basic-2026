@@ -2645,67 +2645,14 @@ static void gw_check_events(void)
     }
 
     if (any_key_trap && gw_hal && gw_hal->kbhit()) {
-        int ch = gw_hal->getch();
+        /* Use tui_read_key to get a properly parsed key code */
+        int key = tui_read_key();
+        if (key < 0) return;
+
+        /* Check if it's an F-key for key trapping */
         int fkey = -1;
-        if (ch == 27 && gw_hal->kbhit()) {
-            int seq1 = gw_hal->getch();
-            if (seq1 == 'O') {
-                int seq2 = gw_hal->getch();
-                switch (seq2) {
-                case 'P': fkey = 0; break;  /* F1 */
-                case 'Q': fkey = 1; break;  /* F2 */
-                case 'R': fkey = 2; break;  /* F3 */
-                case 'S': fkey = 3; break;  /* F4 */
-                default:
-                    tui_push_key(27);
-                    tui_push_key('O');
-                    tui_push_key(seq2);
-                    return;
-                }
-            } else if (seq1 == '[') {
-                int seq2 = gw_hal->getch();
-                if ((seq2 == '1' || seq2 == '2') && gw_hal->kbhit()) {
-                    int seq3 = gw_hal->getch();
-                    if (gw_hal->kbhit()) {
-                        int seq4 = gw_hal->getch();
-                        if (seq4 == '~') {
-                            int code = (seq2 - '0') * 10 + (seq3 - '0');
-                            switch (code) {
-                            case 15: fkey = 4; break;   /* F5 */
-                            case 17: fkey = 5; break;   /* F6 */
-                            case 18: fkey = 6; break;   /* F7 */
-                            case 19: fkey = 7; break;   /* F8 */
-                            case 20: fkey = 8; break;   /* F9 */
-                            case 21: fkey = 9; break;   /* F10 */
-                            }
-                        }
-                        if (fkey < 0) {
-                            tui_push_key(27);
-                            tui_push_key('[');
-                            tui_push_key(seq2);
-                            tui_push_key(seq3);
-                            tui_push_key(seq4);
-                            return;
-                        }
-                    } else {
-                        tui_push_key(27);
-                        tui_push_key('[');
-                        tui_push_key(seq2);
-                        tui_push_key(seq3);
-                        return;
-                    }
-                } else {
-                    tui_push_key(27);
-                    tui_push_key('[');
-                    tui_push_key(seq2);
-                    return;
-                }
-            } else {
-                tui_push_key(27);
-                tui_push_key(seq1);
-                return;
-            }
-        }
+        if (key >= TK_F1 && key <= TK_F10)
+            fkey = key - TK_F1;
 
         if (fkey >= 0 && fkey < 10) {
             event_trap_t *kt = &gw.key_traps[fkey];
@@ -2720,7 +2667,7 @@ static void gw_check_events(void)
         }
 
         /* Not an F-key: push into key buffer for INKEY$/input */
-        tui_push_key(ch);
+        tui_push_key(key);
     }
 
     /* Check for pending key traps after KEY(n) ON */
