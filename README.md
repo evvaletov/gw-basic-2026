@@ -23,7 +23,7 @@ Interactive mode launches the authentic GW-BASIC full-screen editor:
 
 ```
 $ ./gwbasic
-GW-BASIC 2026 0.11.0
+GW-BASIC 2026 0.12.0
 (C) Eremey Valetov 2026. MIT License.
 Based on Microsoft GW-BASIC assembly source.
 Ok
@@ -77,7 +77,7 @@ SPACE$, STRING$, HEX$, OCT$, INSTR, INPUT$
 | File management | KILL, NAME, FILES, MKDIR, RMDIR, CHDIR, SHELL |
 | Date/time | DATE$, TIME$, TIMER |
 | Screen | LOCATE, COLOR, WIDTH, SCREEN, KEY ON/OFF/LIST |
-| Graphics | PSET, PRESET, LINE, CIRCLE, DRAW, PAINT, GET/PUT (sprites) |
+| Graphics | PSET, PRESET, LINE, CIRCLE, DRAW, PAINT, GET/PUT (sprites), BSAVE, BLOAD |
 | Sound | SOUND, BEEP, PLAY (MML) |
 | Memory | DEF SEG, PEEK, POKE |
 
@@ -162,8 +162,8 @@ expected on a real IBM PC:
 
 | Segment | Description |
 |---------|-------------|
-| `0040` | BIOS data area — video mode, cursor position, timer ticks (18.2 Hz) |
-| `B800` | CGA text buffer — character/attribute pairs (80×25 = 4000 bytes) |
+| `0040` | BIOS data area — video mode, cursor position, timer ticks (18.2 Hz), keyboard flags |
+| `B800` | CGA text buffer (text mode) or CGA framebuffer (graphics mode) |
 
 ```
 DEF SEG = &HB800
@@ -220,7 +220,7 @@ input, so they're not part of the automated test suite.
 
 ## Tests
 
-61 test programs in `tests/programs/`, with golden-file regression testing
+64 test programs in `tests/programs/`, with golden-file regression testing
 and CI via GitHub Actions:
 
 ```bash

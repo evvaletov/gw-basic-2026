@@ -463,6 +463,67 @@ void gfx_flush(void)
 }
 
 /*
+ * CGA framebuffer PEEK/POKE.
+ *
+ * CGA interlaced layout:
+ *   Even rows: offset 0x0000, odd rows: offset 0x2000
+ *   Each row = 80 bytes
+ *   SCREEN 1: 2 bpp (4 pixels/byte, MSB first)
+ *   SCREEN 2: 1 bpp (8 pixels/byte, MSB first)
+ */
+
+static void cga_offset_to_pixels(uint16_t offset, int *row, int *col_byte)
+{
+    int bank = (offset >= 0x2000) ? 1 : 0;
+    uint16_t linear = offset - bank * 0x2000;
+    *row = (linear / 80) * 2 + bank;
+    *col_byte = linear % 80;
+}
+
+uint8_t gfx_cga_peek(uint16_t offset)
+{
+    if (!framebuf) return 0;
+
+    int row, col_byte;
+    cga_offset_to_pixels(offset, &row, &col_byte);
+    if (row < 0 || row >= fb_height) return 0;
+
+    int bpp = (screen_mode == 2) ? 1 : 2;
+    int ppb = 8 / bpp;
+    int base_x = col_byte * ppb;
+    uint8_t val = 0;
+
+    for (int i = 0; i < ppb; i++) {
+        int x = base_x + i;
+        if (x >= fb_width) break;
+        int px = get_pixel(x, row) & ((1 << bpp) - 1);
+        val |= px << (8 - bpp - i * bpp);
+    }
+    return val;
+}
+
+void gfx_cga_poke(uint16_t offset, uint8_t val)
+{
+    if (!framebuf) return;
+
+    int row, col_byte;
+    cga_offset_to_pixels(offset, &row, &col_byte);
+    if (row < 0 || row >= fb_height) return;
+
+    int bpp = (screen_mode == 2) ? 1 : 2;
+    int ppb = 8 / bpp;
+    int base_x = col_byte * ppb;
+    int mask = (1 << bpp) - 1;
+
+    for (int i = 0; i < ppb; i++) {
+        int x = base_x + i;
+        if (x >= fb_width) break;
+        int px = (val >> (8 - bpp - i * bpp)) & mask;
+        set_pixel(x, row, px);
+    }
+}
+
+/*
  * GET/PUT sprite support.
  *
  * Sprites are stored in integer arrays using the CGA packed format:

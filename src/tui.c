@@ -128,19 +128,38 @@ void tui_locate(int row, int col)
 int tui_get_cursor_row(void) { return tui.cursor_row; }
 int tui_get_cursor_col(void) { return tui.cursor_col; }
 
+/* CGA-to-ANSI color mapping */
+static const int ansi_fg[16] = {30,34,32,36,31,35,33,37,90,94,92,96,91,95,93,97};
+static const int ansi_bg[8]  = {40,44,42,46,41,45,43,47};
+
+static void emit_attr(uint8_t attr)
+{
+    int fg = attr & 0x0F;
+    int bg = (attr >> 4) & 0x07;
+    printf("\033[%d;%dm", ansi_fg[fg], ansi_bg[bg]);
+}
+
 void tui_refresh(void)
 {
     printf("\033[H");
 
     int bottom = tui.key_bar_visible ? tui.rows : tui.view_bottom + 1;
+    uint8_t prev_attr = 0xFF;
 
     for (int r = 0; r < bottom; r++) {
         printf("\033[%d;1H", r + 1);
         for (int c = 0; c < tui.cols; c++) {
+            uint8_t attr = TUI_CELL(r, c).attr;
+            if (attr != prev_attr) {
+                emit_attr(attr);
+                prev_attr = attr;
+            }
             uint8_t ch = TUI_CELL(r, c).ch;
             putchar(ch ? ch : ' ');
         }
     }
+
+    printf("\033[0m");
 
     if (tui.key_bar_visible)
         tui_refresh_row(tui.rows - 1);
@@ -152,10 +171,17 @@ void tui_refresh_row(int row)
 {
     if (row < 0 || row >= tui.rows) return;
     printf("\033[%d;1H", row + 1);
+    uint8_t prev_attr = 0xFF;
     for (int c = 0; c < tui.cols; c++) {
+        uint8_t attr = TUI_CELL(row, c).attr;
+        if (attr != prev_attr) {
+            emit_attr(attr);
+            prev_attr = attr;
+        }
         uint8_t ch = TUI_CELL(row, c).ch;
         putchar(ch ? ch : ' ');
     }
+    printf("\033[0m");
     fflush(stdout);
 }
 

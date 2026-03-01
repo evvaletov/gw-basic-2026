@@ -15,15 +15,10 @@
   bus so retro programs that talk to the speaker, joystick port, or parallel
   interface can do *something* useful instead of silently no-oping.  Think of it
   as a tiny museum exhibit for vintage BASIC hardware hacking.
-- **BSAVE / BLOAD** — binary file save/load for screen buffers and data
-- **TUI color support** — map GW-BASIC COLOR attributes to ANSI 16-color output
-  in the TUI screen buffer
 - **VIEW / WINDOW / PALETTE** — graphics viewport, coordinate mapping, and
   palette remapping
 - **MBF format support for binary LOAD** — convert Microsoft Binary Format
   float constants when loading files saved by the original GWBASIC.EXE
-- **Extended PEEK/POKE regions** — keyboard shift flags (0040:0017), CGA
-  graphics mode framebuffer mapping
 
 ## IDE and Notebook Integration
 
@@ -41,8 +36,6 @@
 
 ## Known Limitations
 
-- Virtual memory emulation covers BIOS data area and CGA text buffer only;
-  CGA graphics mode PEEK/POKE not yet mapped
 - Binary files use IEEE 754 floats, not MBF — files saved here are not
   byte-compatible with original GWBASIC.EXE binary format
 - String garbage collection not implemented (uses `malloc`/`free` instead)

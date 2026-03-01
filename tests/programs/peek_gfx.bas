@@ -1,0 +1,17 @@
+10 REM Test CGA graphics framebuffer PEEK/POKE
+20 SCREEN 1
+30 DEF SEG = &HB800
+40 REM POKE a byte at offset 0 (even row 0, first 4 pixels)
+50 POKE 0, &HFF
+60 V = PEEK(0)
+70 PRINT "POKE FF PEEK="; V
+80 REM POKE at odd row bank (offset 0x2000)
+90 POKE &H2000, &HAA
+100 V = PEEK(&H2000)
+110 PRINT "ODD ROW PEEK="; V
+120 REM Clear and verify
+130 POKE 0, 0
+140 PRINT "CLEARED="; PEEK(0)
+150 SCREEN 0
+160 DEF SEG
+170 PRINT "DONE"

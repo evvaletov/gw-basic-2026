@@ -59,7 +59,7 @@ type suffixes (`%`, `!`, `#`)
 | Screen | `LOCATE`, `COLOR`, `WIDTH`, `SCREEN`, `KEY ON`/`OFF`/`LIST`, `KEY n,"string"` |
 | Graphics | `PSET`, `PRESET`, `LINE`, `CIRCLE`, `DRAW`, `PAINT`, `GET`, `PUT` |
 | Sound | `SOUND`, `BEEP`, `PLAY` (MML parser, PulseAudio backend) |
-| Memory | `DEF SEG`, `PEEK`, `POKE` |
+| Memory | `DEF SEG`, `PEEK`, `POKE`, `BSAVE`, `BLOAD` |
 | Misc | `KEY`, `TRON`/`TROFF`, `OPTION BASE`, `MID$` assignment |
 | System | `SYSTEM` |
 
@@ -183,11 +183,30 @@ DEF SEG                ' reset to default segment
 
 | Segment | Address Range | Description |
 |---------|---------------|-------------|
-| `0040` | BIOS data area | Video mode (`0049`), column count (`004A`), cursor position (`0050-0051`), timer ticks (`006C-006F`), screen rows (`0084`) |
+| `0040` | BIOS data area | Video mode (`0049`), column count (`004A`), cursor position (`0050-0051`), timer ticks (`006C-006F`), screen rows (`0084`), keyboard shift flags (`0017`: bit 7 = insert mode) |
 | `B800` | CGA text buffer | Character/attribute pairs in text mode (even byte = char, odd byte = attr, 80 columns × 25 rows = 4000 bytes) |
+| `B800` | CGA graphics buffer | In SCREEN 1/2: CGA interlaced layout (even rows at offset 0, odd rows at 0x2000, 80 bytes/row) |
 
 All other segments read as 0 and writes are silently discarded. The timer
 tick counter at `0040:006C` tracks real time at the original 18.2 Hz rate.
+
+## BSAVE / BLOAD
+
+`BSAVE` saves a block of virtual memory to a binary file with a 7-byte header.
+`BLOAD` loads it back. These operate on whichever segment was last set by
+`DEF SEG`.
+
+```
+DEF SEG = &HB800
+BSAVE "screen.bin", 0, 4000    ' save the CGA text buffer
+CLS
+BLOAD "screen.bin"              ' restore it
+BLOAD "screen.bin", 100         ' load to a different offset
+```
+
+The file format is compatible with the original GW-BASIC: byte 0 = `0xFD`,
+bytes 1-2 = segment (LE), bytes 3-4 = offset (LE), bytes 5-6 = length (LE),
+followed by the raw data bytes.
 
 ## Sound
 
@@ -268,3 +287,16 @@ not fire inside their own handler (re-entrant protection).
 
 `TIMER STOP` / `KEY(n) STOP` queue events while stopped; switching to
 `TIMER ON` / `KEY(n) ON` fires the pending event immediately.
+
+## References
+
+- Microsoft Corporation. *Microsoft GW-BASIC: User's Guide and Reference*.
+  Microsoft Press, 1989. ISBN 978-1-55615-260-3.
+- Inman, Don and Bob Albrecht. *The GW-BASIC Reference*. Osborne McGraw-Hill,
+  1990. ISBN 978-0-07-881644-4.
+- Ahl, David H. *BASIC Computer Games: Microcomputer Edition*. Workman, 1978.
+  ISBN 978-0-89480-052-8.
+- Microsoft Corporation. *GW-BASIC User's Manual*. Microsoft, 1987.
+  (OEM bundled; no ISBN.)
+- Microsoft Corporation.
+  [GW-BASIC Source Code](https://github.com/microsoft/GW-BASIC). Released 2020.

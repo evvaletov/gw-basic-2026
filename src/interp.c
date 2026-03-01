@@ -2436,10 +2436,15 @@ void gw_exec_stmt(void)
         }
         if (gfx_active()) {
             gfx_set_color(fg);
+        } else if (tui.active) {
+            /* TUI mode: update current attribute for subsequent output */
+            if (fg >= 0 && fg < 16)
+                tui.current_attr = (tui.current_attr & 0xF0) | (fg & 0x0F);
+            if (bg >= 0 && bg < 8)
+                tui.current_attr = (tui.current_attr & 0x0F) | ((bg & 0x07) << 4);
         } else if (gw_hal) {
-            /* Text mode: emit ANSI color codes */
+            /* Piped/non-TUI mode: emit ANSI color codes directly */
             char ansi[32];
-            /* Map GW-BASIC colors to ANSI (simplified) */
             static const int ansi_fg[] = {30,34,32,36,31,35,33,37,90,94,92,96,91,95,93,97};
             static const int ansi_bg[] = {40,44,42,46,41,45,43,47};
             if (fg >= 0 && fg < 16) {
@@ -2612,6 +2617,80 @@ void gw_exec_stmt(void)
     if (tok == TOK_MERGE) {
         gw_chrget();
         gw_stmt_merge();
+        return;
+    }
+
+    /* BSAVE "filename", offset, length */
+    if (tok == TOK_BSAVE) {
+        gw_chrget();
+        gw_value_t fname = gw_eval_str();
+        char *path = gw_str_to_cstr(&fname.sval);
+        gw_str_free(&fname.sval);
+        gw_skip_spaces();
+        if (gw_chrgot() != ',') { free(path); gw_error(ERR_SN); }
+        gw_chrget();
+        uint16_t offset = gw_eval_uint16();
+        gw_skip_spaces();
+        if (gw_chrgot() != ',') { free(path); gw_error(ERR_SN); }
+        gw_chrget();
+        uint16_t length = gw_eval_uint16();
+
+        FILE *fp = fopen(path, "wb");
+        free(path);
+        if (!fp) gw_error(ERR_FF);
+
+        /* 7-byte BSAVE header: 0xFD, segment(2), offset(2), length(2) LE */
+        fputc(0xFD, fp);
+        fputc(gw.def_seg & 0xFF, fp);
+        fputc((gw.def_seg >> 8) & 0xFF, fp);
+        fputc(offset & 0xFF, fp);
+        fputc((offset >> 8) & 0xFF, fp);
+        fputc(length & 0xFF, fp);
+        fputc((length >> 8) & 0xFF, fp);
+
+        for (uint16_t i = 0; i < length; i++)
+            fputc(virmem_peek(gw.def_seg, offset + i), fp);
+        fclose(fp);
+        return;
+    }
+
+    /* BLOAD "filename" [, offset] */
+    if (tok == TOK_BLOAD) {
+        gw_chrget();
+        gw_value_t fname = gw_eval_str();
+        char *path = gw_str_to_cstr(&fname.sval);
+        gw_str_free(&fname.sval);
+
+        int has_offset = 0;
+        uint16_t user_offset = 0;
+        gw_skip_spaces();
+        if (gw_chrgot() == ',') {
+            gw_chrget();
+            user_offset = gw_eval_uint16();
+            has_offset = 1;
+        }
+
+        FILE *fp = fopen(path, "rb");
+        free(path);
+        if (!fp) gw_error(ERR_FF);
+
+        /* Read and validate 7-byte header */
+        int marker = fgetc(fp);
+        if (marker != 0xFD) { fclose(fp); gw_error(ERR_BM); }
+        /* Skip segment (2 bytes) — we use gw.def_seg */
+        fgetc(fp); fgetc(fp);
+        uint16_t file_offset = (uint8_t)fgetc(fp);
+        file_offset |= (uint8_t)fgetc(fp) << 8;
+        uint16_t length = (uint8_t)fgetc(fp);
+        length |= (uint8_t)fgetc(fp) << 8;
+
+        uint16_t load_offset = has_offset ? user_offset : file_offset;
+        for (uint16_t i = 0; i < length; i++) {
+            int b = fgetc(fp);
+            if (b == EOF) break;
+            virmem_poke(gw.def_seg, load_offset + i, (uint8_t)b);
+        }
+        fclose(fp);
         return;
     }
 

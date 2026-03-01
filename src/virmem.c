@@ -19,7 +19,8 @@ static uint8_t bios_peek(uint16_t offset)
 {
     switch (offset) {
     case 0x17:
-        return 0;  /* no shift keys pressed */
+        /* Bit 7 = insert mode; other modifier bits not detectable on POSIX */
+        return tui.insert_mode ? 0x80 : 0;
     case 0x18:
         return 0;
 
@@ -109,8 +110,11 @@ uint8_t virmem_peek(uint16_t segment, uint16_t offset)
     if (segment == 0x0040)
         return bios_peek(offset);
 
-    if (segment == 0xB800 && !gfx_active())
+    if (segment == 0xB800) {
+        if (gfx_active())
+            return gfx_cga_peek(offset);
         return cga_text_peek(offset);
+    }
 
     /* Unhandled regions return 0 */
     return 0;
@@ -123,8 +127,11 @@ void virmem_poke(uint16_t segment, uint16_t offset, uint8_t value)
         return;
     }
 
-    if (segment == 0xB800 && !gfx_active()) {
-        cga_text_poke(offset, value);
+    if (segment == 0xB800) {
+        if (gfx_active())
+            gfx_cga_poke(offset, value);
+        else
+            cga_text_poke(offset, value);
         return;
     }
 

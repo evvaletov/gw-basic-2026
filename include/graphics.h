@@ -50,4 +50,8 @@ void gfx_sprite_put(int x, int y, const int16_t *buf, int bufsize, int action);
 /* Calculate required array element count for a sprite rectangle. */
 int gfx_sprite_size(int x1, int y1, int x2, int y2);
 
+/* CGA framebuffer PEEK/POKE (segment 0xB800 in graphics mode) */
+uint8_t gfx_cga_peek(uint16_t offset);
+void    gfx_cga_poke(uint16_t offset, uint8_t val);
+
 #endif
