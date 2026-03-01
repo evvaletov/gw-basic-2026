@@ -1,6 +1,7 @@
 #include "gwbasic.h"
 #include "tui.h"
 #include "graphics.h"
+#include "virmem.h"
 #include "sound.h"
 #include <ctype.h>
 #include <string.h>
@@ -722,6 +723,113 @@ void gw_stmt_chain(void)
     }
 }
 
+/* Graphics GET (x1,y1)-(x2,y2), array */
+static void stmt_gfx_get(void)
+{
+    gw_expect('(');
+    int x1 = gw_eval_int();
+    gw_skip_spaces();
+    gw_expect(',');
+    int y1 = gw_eval_int();
+    gw_expect_rparen();
+    gw_skip_spaces();
+    gw_expect(TOK_MINUS);
+    gw_expect('(');
+    int x2 = gw_eval_int();
+    gw_skip_spaces();
+    gw_expect(',');
+    int y2 = gw_eval_int();
+    gw_expect_rparen();
+    gw_skip_spaces();
+    gw_expect(',');
+
+    char name[2];
+    gw_valtype_t type = gw_parse_varname(name);
+    if (type != VT_INT)
+        gw_error(ERR_TM);
+
+    int required = gfx_sprite_size(x1, y1, x2, y2);
+    if (required <= 0) gw_error(ERR_FC);
+
+    /* Find or auto-dim the array; skip its subscript so parser is happy */
+    gw_skip_spaces();
+    array_entry_t *a = NULL;
+    for (int i = 0; i < gw.array_count; i++) {
+        if (gw.arrays[i].name[0] == name[0] && gw.arrays[i].name[1] == name[1]
+            && gw.arrays[i].type == VT_INT) {
+            a = &gw.arrays[i];
+            break;
+        }
+    }
+    if (!a) gw_error(ERR_FC);
+    if (a->total_elements < required) gw_error(ERR_FC);
+
+    /* Build a flat int16 buffer from the array's ival fields */
+    int16_t *buf = malloc(a->total_elements * sizeof(int16_t));
+    if (!buf) gw_error(ERR_OM);
+
+    gfx_sprite_get(x1, y1, x2, y2, buf, a->total_elements);
+
+    /* Copy back to array */
+    for (int i = 0; i < a->total_elements && i < required; i++)
+        a->data[i].ival = buf[i];
+
+    free(buf);
+}
+
+/* Graphics PUT (x,y), array [, action] */
+static void stmt_gfx_put(void)
+{
+    gw_expect('(');
+    int x = gw_eval_int();
+    gw_skip_spaces();
+    gw_expect(',');
+    int y = gw_eval_int();
+    gw_expect_rparen();
+    gw_skip_spaces();
+    gw_expect(',');
+
+    char name[2];
+    gw_valtype_t type = gw_parse_varname(name);
+    if (type != VT_INT)
+        gw_error(ERR_TM);
+
+    /* Find the array */
+    array_entry_t *a = NULL;
+    for (int i = 0; i < gw.array_count; i++) {
+        if (gw.arrays[i].name[0] == name[0] && gw.arrays[i].name[1] == name[1]
+            && gw.arrays[i].type == VT_INT) {
+            a = &gw.arrays[i];
+            break;
+        }
+    }
+    if (!a) gw_error(ERR_FC);
+
+    /* Parse optional action verb */
+    int action = GFX_ACTION_XOR;
+    gw_skip_spaces();
+    if (gw_chrgot() == ',') {
+        gw_chrget();
+        gw_skip_spaces();
+        uint8_t tok = gw_chrgot();
+        if (tok == TOK_PSET) { action = GFX_ACTION_PSET; gw_chrget(); }
+        else if (tok == TOK_PRESET) { action = GFX_ACTION_PRESET; gw_chrget(); }
+        else if (tok == TOK_AND) { action = GFX_ACTION_AND; gw_chrget(); }
+        else if (tok == TOK_OR) { action = GFX_ACTION_OR; gw_chrget(); }
+        else if (tok == TOK_XOR) { action = GFX_ACTION_XOR; gw_chrget(); }
+        else gw_error(ERR_SN);
+    }
+
+    /* Build int16 buffer from array */
+    int16_t *buf = malloc(a->total_elements * sizeof(int16_t));
+    if (!buf) gw_error(ERR_OM);
+    for (int i = 0; i < a->total_elements; i++)
+        buf[i] = a->data[i].ival;
+
+    gfx_sprite_put(x, y, buf, a->total_elements, action);
+    free(buf);
+}
+
 /* ================================================================
  * Statement Dispatcher
  * ================================================================ */
@@ -841,12 +949,22 @@ void gw_exec_stmt(void)
         }
         if (xstmt == XSTMT_PUT) {
             gw_chrget();
-            gw_stmt_put();
+            gw_skip_spaces();
+            if (gfx_active() && gw_chrgot() == '(') {
+                stmt_gfx_put();
+            } else {
+                gw_stmt_put();
+            }
             return;
         }
         if (xstmt == XSTMT_GET) {
             gw_chrget();
-            gw_stmt_get();
+            gw_skip_spaces();
+            if (gfx_active() && gw_chrgot() == '(') {
+                stmt_gfx_get();
+            } else {
+                gw_stmt_get();
+            }
             return;
         }
         if (xstmt == XSTMT_KILL) {
@@ -2181,6 +2299,21 @@ void gw_exec_stmt(void)
             stmt_def_fn();
             return;
         }
+        /* DEF SEG [= segment] */
+        uint8_t ch = gw_chrgot();
+        if ((ch == 'S' || ch == 's') &&
+            (gw.text_ptr[1] == 'E' || gw.text_ptr[1] == 'e') &&
+            (gw.text_ptr[2] == 'G' || gw.text_ptr[2] == 'g')) {
+            gw.text_ptr += 3;
+            gw_skip_spaces();
+            if (gw_chrgot() == TOK_EQ) {
+                gw_chrget();
+                gw.def_seg = gw_eval_uint16();
+            } else {
+                gw.def_seg = 0;  /* DEF SEG with no argument resets to default */
+            }
+            return;
+        }
         gw_error(ERR_SN);
     }
 
@@ -2241,13 +2374,15 @@ void gw_exec_stmt(void)
         return;
     }
 
-    /* POKE - ignore for now */
+    /* POKE address, value */
     if (tok == TOK_POKE) {
         gw_chrget();
-        gw_eval_int();  /* address */
+        uint16_t addr = gw_eval_uint16();
         gw_skip_spaces();
         gw_expect(',');
-        gw_eval_int();  /* value */
+        int val = gw_eval_int();
+        if (val < 0 || val > 255) gw_error(ERR_FC);
+        virmem_poke(gw.def_seg, addr, (uint8_t)val);
         return;
     }
 

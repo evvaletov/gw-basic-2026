@@ -461,3 +461,114 @@ void gfx_flush(void)
     gw_hal->write_raw(buf, pos);
     free(buf);
 }
+
+/*
+ * GET/PUT sprite support.
+ *
+ * Sprites are stored in integer arrays using the CGA packed format:
+ *   Word 0: width in bits (pixel_width * bits_per_pixel)
+ *   Word 1: height in scan lines
+ *   Remaining: packed pixel data, row by row, padded to word boundary
+ *
+ * SCREEN 1: 2 bits/pixel (4 pixels/byte)
+ * SCREEN 2: 1 bit/pixel  (8 pixels/byte)
+ */
+
+static int bits_per_pixel(void)
+{
+    return (screen_mode == 2) ? 1 : 2;
+}
+
+int gfx_sprite_size(int x1, int y1, int x2, int y2)
+{
+    if (!framebuf) return 0;
+    int w = abs(x2 - x1) + 1;
+    int h = abs(y2 - y1) + 1;
+    int bpp = bits_per_pixel();
+    int bytes_per_row = (w * bpp + 7) / 8;
+    if (bytes_per_row & 1) bytes_per_row++;  /* pad to word boundary */
+    int data_bytes = bytes_per_row * h;
+    return 2 + (data_bytes + 1) / 2;  /* 2 header words + data words */
+}
+
+int gfx_sprite_get(int x1, int y1, int x2, int y2, int16_t *buf, int bufsize)
+{
+    if (!framebuf) return 0;
+
+    /* Normalize coordinates */
+    if (x1 > x2) { int t = x1; x1 = x2; x2 = t; }
+    if (y1 > y2) { int t = y1; y1 = y2; y2 = t; }
+
+    int w = x2 - x1 + 1;
+    int h = y2 - y1 + 1;
+    int bpp = bits_per_pixel();
+    int width_bits = w * bpp;
+    int bytes_per_row = (width_bits + 7) / 8;
+    if (bytes_per_row & 1) bytes_per_row++;  /* word-align */
+    int data_bytes = bytes_per_row * h;
+    int required = 2 + (data_bytes + 1) / 2;
+
+    if (bufsize < required) return required;
+
+    buf[0] = (int16_t)width_bits;
+    buf[1] = (int16_t)h;
+
+    /* Pack pixels into CGA format */
+    uint8_t *out = (uint8_t *)&buf[2];
+    memset(out, 0, data_bytes);
+
+    for (int row = 0; row < h; row++) {
+        for (int col = 0; col < w; col++) {
+            int px = get_pixel(x1 + col, y1 + row);
+            int bit_offset = col * bpp;
+            int byte_idx = bit_offset / 8;
+            int bit_pos = 8 - bpp - (bit_offset % 8);  /* MSB first */
+            out[row * bytes_per_row + byte_idx] |=
+                (px & ((1 << bpp) - 1)) << bit_pos;
+        }
+    }
+
+    return required;
+}
+
+void gfx_sprite_put(int x, int y, const int16_t *buf, int bufsize, int action)
+{
+    if (!framebuf || bufsize < 2) return;
+
+    int bpp = bits_per_pixel();
+    int width_bits = (uint16_t)buf[0];
+    int h = (uint16_t)buf[1];
+    int w = width_bits / bpp;
+    if (w <= 0 || h <= 0) return;
+
+    int bytes_per_row = (width_bits + 7) / 8;
+    if (bytes_per_row & 1) bytes_per_row++;
+
+    const uint8_t *src = (const uint8_t *)&buf[2];
+    int mask = (1 << bpp) - 1;
+
+    for (int row = 0; row < h; row++) {
+        int sy = y + row;
+        if (sy < 0 || sy >= fb_height) continue;
+        for (int col = 0; col < w; col++) {
+            int sx = x + col;
+            if (sx < 0 || sx >= fb_width) continue;
+
+            int bit_offset = col * bpp;
+            int byte_idx = bit_offset / 8;
+            int bit_pos = 8 - bpp - (bit_offset % 8);
+            int sprite_px = (src[row * bytes_per_row + byte_idx] >> bit_pos) & mask;
+
+            int old_px = get_pixel(sx, sy);
+            int new_px;
+            switch (action) {
+            case GFX_ACTION_PSET:   new_px = sprite_px; break;
+            case GFX_ACTION_PRESET: new_px = (~sprite_px) & mask; break;
+            case GFX_ACTION_AND:    new_px = old_px & sprite_px; break;
+            case GFX_ACTION_OR:     new_px = old_px | sprite_px; break;
+            default:                new_px = old_px ^ sprite_px; break;  /* XOR */
+            }
+            set_pixel(sx, sy, new_px);
+        }
+    }
+}

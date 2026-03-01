@@ -80,6 +80,9 @@ typedef struct {
     /* Event trapping */
     timer_trap_t timer_trap;
     event_trap_t key_traps[10];  /* KEY(1)-KEY(10) */
+
+    /* DEF SEG segment (for PEEK/POKE/BSAVE/BLOAD) */
+    uint16_t def_seg;
 } interp_state_t;
 
 extern interp_state_t gw;

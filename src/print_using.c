@@ -160,8 +160,9 @@ static void format_number(FILE *fp, const char *fmt, int fmtlen, double val)
             exp_val = (int)floor(log10(absval));
             double mant = absval / pow(10, exp_val);
             snprintf(mantissa, sizeof(mantissa), "%.*f", dec, mant);
-            /* Check for rounding overflow (e.g., 9.95 -> 10.0 with 1 dec) */
-            if (mantissa[0] != '0' && (mantissa[0] - '0') >= 10) {
+            /* Check for rounding/precision overflow (e.g., 9.95 -> 10.0,
+               or log10 imprecision giving mant >= 10) */
+            if (mant >= 9.9995 || (mantissa[0] == '1' && mantissa[1] == '0')) {
                 exp_val++;
                 mant = absval / pow(10, exp_val);
                 snprintf(mantissa, sizeof(mantissa), "%.*f", dec, mant);
@@ -227,11 +228,13 @@ static void format_number(FILE *fp, const char *fmt, int fmtlen, double val)
     /* Calculate total field width for integer part */
     int int_field = total_digits;
     int total_field = int_field + (has_decimal ? 1 + dec : 0);
+    /* Commas in the actual formatted number expand the field */
+    int actual_commas = (int)strlen(int_with_commas) - (int)strlen(intpart);
 
     /* Pad the number to fill the field */
     char result[80];
     int numlen = strlen(numstr);
-    int padding = total_field - numlen;
+    int padding = total_field + actual_commas - numlen;
     if (padding < 0) padding = 0;
 
     int ri = 0;
@@ -247,7 +250,7 @@ static void format_number(FILE *fp, const char *fmt, int fmtlen, double val)
     char fillch = asterisk_fill ? '*' : ' ';
     bool dollar_placed = false;
 
-    if (numlen > total_field) {
+    if (numlen > total_field + actual_commas) {
         /* Overflow: print % followed by the number */
         pu_putch(fp, '%');
         if (!sign_placed && !trailing_plus && !trailing_minus) {
@@ -263,9 +266,6 @@ static void format_number(FILE *fp, const char *fmt, int fmtlen, double val)
 
     for (int j = 0; j < padding; j++) {
         if (dollar && !dollar_placed && j == padding - 1) {
-            if (!sign_placed && negative && !trailing_plus && !trailing_minus) {
-                result[ri++] = fillch == '*' ? '*' : ' ';
-            }
             result[ri++] = '$';
             dollar_placed = true;
         } else {

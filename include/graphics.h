@@ -31,4 +31,23 @@ int  gfx_get_height(void);
 #define GFX_BOX   'B'
 #define GFX_BOXF  'F'
 
+/* GET/PUT sprite support */
+#include <stdint.h>
+
+/* PUT action modes */
+#define GFX_ACTION_XOR    0
+#define GFX_ACTION_PSET   1
+#define GFX_ACTION_PRESET 2
+#define GFX_ACTION_AND    3
+#define GFX_ACTION_OR     4
+
+/* Capture screen rectangle into int16 array. Returns required array size. */
+int gfx_sprite_get(int x1, int y1, int x2, int y2, int16_t *buf, int bufsize);
+
+/* Blit sprite from int16 array to screen. */
+void gfx_sprite_put(int x, int y, const int16_t *buf, int bufsize, int action);
+
+/* Calculate required array element count for a sprite rectangle. */
+int gfx_sprite_size(int x1, int y1, int x2, int y2);
+
 #endif

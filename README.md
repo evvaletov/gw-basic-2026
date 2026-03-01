@@ -23,7 +23,7 @@ Interactive mode launches the authentic GW-BASIC full-screen editor:
 
 ```
 $ ./gwbasic
-GW-BASIC 2026 0.10.0
+GW-BASIC 2026 0.11.0
 (C) Eremey Valetov 2026. MIT License.
 Based on Microsoft GW-BASIC assembly source.
 Ok
@@ -77,8 +77,9 @@ SPACE$, STRING$, HEX$, OCT$, INSTR, INPUT$
 | File management | KILL, NAME, FILES, MKDIR, RMDIR, CHDIR, SHELL |
 | Date/time | DATE$, TIME$, TIMER |
 | Screen | LOCATE, COLOR, WIDTH, SCREEN, KEY ON/OFF/LIST |
-| Graphics | PSET, PRESET, LINE, CIRCLE, DRAW, PAINT |
+| Graphics | PSET, PRESET, LINE, CIRCLE, DRAW, PAINT, GET/PUT (sprites) |
 | Sound | SOUND, BEEP, PLAY (MML) |
+| Memory | DEF SEG, PEEK, POKE |
 
 ### Binary and ASCII File Formats
 
@@ -144,6 +145,33 @@ CIRCLE (160,100), 80, 2
 PAINT (160,100), 3, 2
 ```
 
+`GET` and `PUT` capture and blit rectangular sprites using CGA-compatible
+packed pixel format. `PUT` supports action modes: XOR (default), PSET,
+PRESET, AND, OR.
+
+```
+DIM S%(50)
+GET (0,0)-(15,15), S%
+PUT (100,50), S%, XOR
+```
+
+### DEF SEG / PEEK / POKE
+
+A virtual 8086 address space emulates the memory layout that GW-BASIC programs
+expected on a real IBM PC:
+
+| Segment | Description |
+|---------|-------------|
+| `0040` | BIOS data area — video mode, cursor position, timer ticks (18.2 Hz) |
+| `B800` | CGA text buffer — character/attribute pairs (80×25 = 4000 bytes) |
+
+```
+DEF SEG = &HB800
+POKE 0, 65             ' write 'A' to top-left screen cell
+PRINT PEEK(1)          ' read the color attribute
+DEF SEG                ' reset to default segment
+```
+
 ## Architecture
 
 The interpreter follows the original GW-BASIC's internal structure:
@@ -174,6 +202,7 @@ Source text → Tokenizer (CRUNCH) → Token stream
 | File I/O | fileio.c | BIPTRG.ASM |
 | PRINT USING | print_using.c | BIPRTU.ASM |
 | Sound | sound.c | — |
+| Virtual memory | virmem.c | — |
 | Platform | hal_posix.c | OEM*.ASM |
 
 Key design differences from the original:
@@ -191,7 +220,7 @@ input, so they're not part of the automated test suite.
 
 ## Tests
 
-58 test programs in `tests/programs/`, with golden-file regression testing
+61 test programs in `tests/programs/`, with golden-file regression testing
 and CI via GitHub Actions:
 
 ```bash

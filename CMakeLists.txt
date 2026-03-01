@@ -37,6 +37,7 @@ set(SOURCES
     src/program_io.c
     src/print_using.c
     src/graphics.c
+    src/virmem.c
     src/sound.c
     src/tui.c
     platform/hal_posix.c

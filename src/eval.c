@@ -1,6 +1,7 @@
 #include "gwbasic.h"
 #include "tui.h"
 #include "graphics.h"
+#include "virmem.h"
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
@@ -690,8 +691,16 @@ static gw_value_t eval_function(uint8_t prefix, uint8_t func_tok)
         return v;
     }
 
+    case FUNC_PEEK: {
+        gw_expect('(');
+        uint16_t offset = gw_eval_uint16();
+        gw_expect_rparen();
+        v.type = VT_INT;
+        v.ival = virmem_peek(gw.def_seg, offset);
+        return v;
+    }
+
     case FUNC_INP:
-    case FUNC_PEEK:
     case FUNC_PEN:
     case FUNC_STICK:
     case FUNC_STRIG:
@@ -1052,10 +1061,13 @@ int16_t gw_eval_int(void)
 uint16_t gw_eval_uint16(void)
 {
     gw_value_t v = gw_eval_num();
+    /* Integer values may be negative due to int16 representation of &H8000+ */
+    if (v.type == VT_INT)
+        return (uint16_t)v.ival;
     double d = gw_to_dbl(&v);
-    if (d < 0 || d > 65535)
+    if (d < -32768 || d > 65535)
         gw_error(ERR_FC);
-    return (uint16_t)d;
+    return (uint16_t)(int16_t)d;
 }
 
 void gw_expect_rparen(void)

@@ -57,9 +57,10 @@ type suffixes (`%`, `!`, `#`)
 | File management | `KILL`, `NAME`, `FILES`, `MKDIR`, `RMDIR`, `CHDIR`, `SHELL` |
 | Date/time | `DATE$`, `TIME$`, `TIMER` |
 | Screen | `LOCATE`, `COLOR`, `WIDTH`, `SCREEN`, `KEY ON`/`OFF`/`LIST`, `KEY n,"string"` |
-| Graphics | `PSET`, `PRESET`, `LINE`, `CIRCLE`, `DRAW`, `PAINT` |
+| Graphics | `PSET`, `PRESET`, `LINE`, `CIRCLE`, `DRAW`, `PAINT`, `GET`, `PUT` |
 | Sound | `SOUND`, `BEEP`, `PLAY` (MML parser, PulseAudio backend) |
-| Misc | `POKE`, `KEY`, `TRON`/`TROFF`, `OPTION BASE`, `MID$` assignment |
+| Memory | `DEF SEG`, `PEEK`, `POKE` |
+| Misc | `KEY`, `TRON`/`TROFF`, `OPTION BASE`, `MID$` assignment |
 | System | `SYSTEM` |
 
 ## Program I/O (SAVE / LOAD)
@@ -138,6 +139,25 @@ which works in terminals like xterm, mlterm, foot, and WezTerm.
 - `POINT (x,y)` — read pixel color
 - `COLOR fg, bg` — set foreground/background colors
 
+### Sprite Capture and Blit (GET / PUT)
+
+- `GET (x1,y1)-(x2,y2), array` — capture a screen rectangle into an integer array
+- `PUT (x,y), array [, action]` — blit a captured sprite back to the screen
+
+The `action` parameter controls how the sprite combines with the existing screen:
+
+| Action | Effect |
+|--------|--------|
+| `XOR` (default) | Exclusive OR — drawing twice erases the sprite |
+| `PSET` | Overwrite screen with sprite pixels |
+| `PRESET` | Overwrite screen with inverted sprite pixels |
+| `AND` | Bitwise AND of screen and sprite |
+| `OR` | Bitwise OR of screen and sprite |
+
+Sprite data is stored in CGA-compatible packed format: word 0 is the width
+in bits, word 1 is the height, and remaining words contain packed pixel data
+matching the original GW-BASIC representation.
+
 ### Example
 
 ```
@@ -146,6 +166,28 @@ LINE (0,0)-(319,199), 1
 CIRCLE (160,100), 80, 2
 PAINT (160,100), 3, 2
 ```
+
+## DEF SEG / PEEK / POKE
+
+`DEF SEG`, `PEEK`, and `POKE` provide access to a virtual 8086 address space
+that emulates the memory layout programs expected on a real IBM PC:
+
+```
+DEF SEG = &HB800       ' select CGA video buffer segment
+POKE 0, 65             ' write 'A' to top-left screen cell
+PRINT PEEK(1)          ' read the color attribute
+DEF SEG                ' reset to default segment
+```
+
+### Emulated Memory Regions
+
+| Segment | Address Range | Description |
+|---------|---------------|-------------|
+| `0040` | BIOS data area | Video mode (`0049`), column count (`004A`), cursor position (`0050-0051`), timer ticks (`006C-006F`), screen rows (`0084`) |
+| `B800` | CGA text buffer | Character/attribute pairs in text mode (even byte = char, odd byte = attr, 80 columns × 25 rows = 4000 bytes) |
+
+All other segments read as 0 and writes are silently discarded. The timer
+tick counter at `0040:006C` tracks real time at the original 18.2 Hz rate.
 
 ## Sound
 
