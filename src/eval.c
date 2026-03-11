@@ -865,9 +865,20 @@ static gw_value_t eval_atom(void)
     if (tok == TOK_POINT) {
         gw_chrget();
         gw_expect('(');
-        int px = gw_eval_int();
+        int px, py;
+        if (gfx_has_window()) {
+            gw_value_t vx = gw_eval_num();
+            px = gfx_map_x(gw_to_dbl(&vx));
+        } else {
+            px = gfx_map_x((double)gw_eval_int());
+        }
         gw_expect(',');
-        int py = gw_eval_int();
+        if (gfx_has_window()) {
+            gw_value_t vy = gw_eval_num();
+            py = gfx_map_y(gw_to_dbl(&vy));
+        } else {
+            py = gfx_map_y((double)gw_eval_int());
+        }
         gw_expect_rparen();
         gw_value_t v;
         v.type = VT_INT;

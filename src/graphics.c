@@ -22,7 +22,6 @@ static const uint32_t default_palette[16] = {
 
 /* Active palette: palette_map[attr] gives the physical color index */
 static int palette_map[16];
-static uint32_t palette[16];
 
 /* Viewport state (VIEW) */
 static bool vp_active;
@@ -36,10 +35,8 @@ static double win_x1, win_y1, win_x2, win_y2;
 
 static void reset_palette(void)
 {
-    for (int i = 0; i < 16; i++) {
+    for (int i = 0; i < 16; i++)
         palette_map[i] = i;
-        palette[i] = default_palette[i];
-    }
 }
 
 bool gfx_active(void) { return framebuf != NULL; }
@@ -663,7 +660,6 @@ void gfx_palette_set(int attr, int color)
 {
     if (attr < 0 || attr > 15 || color < 0 || color > 15) return;
     palette_map[attr] = color;
-    palette[attr] = default_palette[color];
 }
 
 void gfx_palette_reset(void)

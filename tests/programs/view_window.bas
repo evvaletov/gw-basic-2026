@@ -1,6 +1,6 @@
 10 REM VIEW / WINDOW / PALETTE test
 20 SCREEN 2
-30 REM Test WINDOW coordinate mapping
+30 REM === Test WINDOW (Cartesian, Y-up) ===
 40 WINDOW (0,0)-(100,100)
 50 REM PMAP: logical to physical
 60 PRINT "PMAP(0,0)="; PMAP(0,0)
@@ -10,12 +10,31 @@
 100 REM PMAP: physical to logical
 110 PRINT "PMAP(0,2)="; PMAP(0,2)
 120 PRINT "PMAP(199,3)="; PMAP(199,3)
-130 WINDOW
-140 REM Test VIEW
-150 VIEW (10,10)-(100,50)
-160 REM After VIEW, drawing clips to viewport
-170 VIEW
-180 REM Test PALETTE (just reset, no visual check)
-190 PALETTE
-200 SCREEN 0
-210 PRINT "VIEW/WINDOW/PALETTE OK"
+130 REM === Test WINDOW SCREEN (Y-down) ===
+140 WINDOW SCREEN (0,0)-(100,100)
+150 REM In SCREEN mode, Y=0 maps to top (0), Y=100 maps to bottom (199)
+160 PRINT "SCR PMAP(0,1)="; PMAP(0,1)
+170 PRINT "SCR PMAP(100,1)="; PMAP(100,1)
+180 PRINT "SCR PMAP(50,0)="; PMAP(50,0)
+190 REM Inverse: physical to logical
+200 PRINT "SCR PMAP(0,3)="; PMAP(0,3)
+210 PRINT "SCR PMAP(199,3)="; PMAP(199,3)
+220 WINDOW
+230 REM === Test VIEW ===
+240 VIEW (10,10)-(100,50)
+250 REM After VIEW, reset to check state
+260 VIEW
+270 REM === Test WINDOW + VIEW together ===
+280 VIEW (100,50)-(300,150)
+290 WINDOW (0,0)-(10,10)
+300 REM PMAP should map relative to viewport (100..300, 50..150)
+310 PRINT "VP PMAP(0,0)="; PMAP(0,0)
+320 PRINT "VP PMAP(10,0)="; PMAP(10,0)
+330 PRINT "VP PMAP(0,1)="; PMAP(0,1)
+340 PRINT "VP PMAP(10,1)="; PMAP(10,1)
+350 WINDOW
+360 VIEW
+370 REM === Test PALETTE (just reset, no visual check) ===
+380 PALETTE
+390 SCREEN 0
+400 PRINT "VIEW/WINDOW/PALETTE OK"

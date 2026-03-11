@@ -50,6 +50,6 @@ bash tests/run_compat.sh
 ## CI
 
 GitHub Actions runs on every push to `main` and on pull requests. The workflow
-builds the project with PulseAudio support and runs all 64 test programs.
+builds the project with PulseAudio support and runs all 66 test programs.
 
 See [`.github/workflows/ci.yml`](https://github.com/evvaletov/gw-basic-2026/blob/main/.github/workflows/ci.yml).
