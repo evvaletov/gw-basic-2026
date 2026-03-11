@@ -733,10 +733,12 @@ gw_value_t gw_fn_cvs(gw_value_t *s)
 {
     if (s->type != VT_STR) gw_error(ERR_TM);
     if (s->sval.len < 4) gw_error(ERR_FC);
+    mbf_single_t mbf;
+    memcpy(&mbf, s->sval.data, 4);
+    gw_str_free(&s->sval);
     gw_value_t v;
     v.type = VT_SNG;
-    memcpy(&v.fval, s->sval.data, 4);
-    gw_str_free(&s->sval);
+    v.fval = gw_mbf_to_ieee_single(mbf);
     return v;
 }
 
@@ -744,10 +746,12 @@ gw_value_t gw_fn_cvd(gw_value_t *s)
 {
     if (s->type != VT_STR) gw_error(ERR_TM);
     if (s->sval.len < 8) gw_error(ERR_FC);
+    mbf_double_t mbf;
+    memcpy(&mbf, s->sval.data, 8);
+    gw_str_free(&s->sval);
     gw_value_t v;
     v.type = VT_DBL;
-    memcpy(&v.dval, s->sval.data, 8);
-    gw_str_free(&s->sval);
+    v.dval = gw_mbf_to_ieee_double(mbf);
     return v;
 }
 
@@ -763,18 +767,20 @@ gw_value_t gw_fn_mki(int16_t n)
 
 gw_value_t gw_fn_mks(float f)
 {
+    mbf_single_t mbf = gw_ieee_to_mbf_single(f);
     gw_value_t v;
     v.type = VT_STR;
     v.sval = gw_str_alloc(4);
-    memcpy(v.sval.data, &f, 4);
+    memcpy(v.sval.data, &mbf, 4);
     return v;
 }
 
 gw_value_t gw_fn_mkd(double d)
 {
+    mbf_double_t mbf = gw_ieee_to_mbf_double(d);
     gw_value_t v;
     v.type = VT_STR;
     v.sval = gw_str_alloc(8);
-    memcpy(v.sval.data, &d, 8);
+    memcpy(v.sval.data, &mbf, 8);
     return v;
 }

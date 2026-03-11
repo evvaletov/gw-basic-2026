@@ -256,7 +256,8 @@ float gw_mbf_to_ieee_single(mbf_single_t mbf)
     int exp = (int)mbf.exponent - 128 - 1 + 127;  /* MBF bias 128, IEEE bias 127 */
     if (exp < 0 || exp > 254) return 0.0f;
 
-    ieee = ((uint32_t)sign << 24) | ((uint32_t)exp << 23) | ((mantissa >> 1) & 0x7FFFFF);
+    /* Hidden 1 at bit 23 of mantissa, IEEE stores bits 0-22 (fraction only) */
+    ieee = ((uint32_t)sign << 24) | ((uint32_t)exp << 23) | (mantissa & 0x7FFFFF);
     float result;
     memcpy(&result, &ieee, 4);
     return result;
@@ -275,7 +276,9 @@ double gw_mbf_to_ieee_double(mbf_double_t mbf)
     int exp = (int)mbf.exponent - 128 - 1 + 1023;
     if (exp < 0 || exp > 2046) return 0.0;
 
-    ieee = ((uint64_t)sign << 56) | ((uint64_t)exp << 52) | ((mantissa >> 4) & 0x000FFFFFFFFFFFFF);
+    /* Hidden 1 at bit 55 of mantissa, IEEE stores bits 0-51 (fraction only).
+     * MBF has 55 fraction bits (3 more than IEEE), shift right 3 to align. */
+    ieee = ((uint64_t)sign << 56) | ((uint64_t)exp << 52) | ((mantissa >> 3) & 0x000FFFFFFFFFFFFF);
     double result;
     memcpy(&result, &ieee, 8);
     return result;
@@ -297,7 +300,7 @@ mbf_single_t gw_ieee_to_mbf_single(float f)
     if (exp > 255) exp = 255;
 
     mbf.exponent = exp;
-    mantissa <<= 1;
+    /* Hidden 1 at bit 23, sign replaces it in byte 2 bit 7 */
     mbf.mantissa[0] = mantissa & 0xFF;
     mbf.mantissa[1] = (mantissa >> 8) & 0xFF;
     mbf.mantissa[2] = ((mantissa >> 16) & 0x7F) | (sign << 7);
@@ -321,7 +324,9 @@ mbf_double_t gw_ieee_to_mbf_double(double d)
     if (exp > 255) exp = 255;
 
     mbf.exponent = exp;
-    mantissa <<= 4;
+    /* Hidden 1 at bit 52, MBF stores 55 fraction bits + sign.
+     * Shift left 3 to place hidden 1 at bit 55 (byte 6 bit 7 = sign). */
+    mantissa <<= 3;
     for (int i = 0; i < 7; i++) {
         if (i == 6)
             mbf.mantissa[i] = ((mantissa >> (i * 8)) & 0x7F) | (sign << 7);

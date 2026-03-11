@@ -13,12 +13,34 @@ static int current_color = 1;
 static int last_x, last_y;
 
 /* CGA default palette (RGBI) */
-static uint32_t palette[16] = {
+static const uint32_t default_palette[16] = {
     0x000000, 0x0000AA, 0x00AA00, 0x00AAAA,
     0xAA0000, 0xAA00AA, 0xAA5500, 0xAAAAAA,
     0x555555, 0x5555FF, 0x55FF55, 0x55FFFF,
     0xFF5555, 0xFF55FF, 0xFFFF55, 0xFFFFFF,
 };
+
+/* Active palette: palette_map[attr] gives the physical color index */
+static int palette_map[16];
+static uint32_t palette[16];
+
+/* Viewport state (VIEW) */
+static bool vp_active;
+static bool vp_screen;  /* VIEW SCREEN flag */
+static int vp_x1, vp_y1, vp_x2, vp_y2;
+
+/* Window state (WINDOW) */
+static bool win_active;
+static bool win_screen;  /* WINDOW SCREEN flag */
+static double win_x1, win_y1, win_x2, win_y2;
+
+static void reset_palette(void)
+{
+    for (int i = 0; i < 16; i++) {
+        palette_map[i] = i;
+        palette[i] = default_palette[i];
+    }
+}
 
 bool gfx_active(void) { return framebuf != NULL; }
 int  gfx_get_mode(void) { return screen_mode; }
@@ -42,6 +64,11 @@ void gfx_init(int mode)
     current_color = (mode == 2) ? 1 : 3;
     last_x = 0;
     last_y = 0;
+    vp_active = false;
+    vp_x1 = 0; vp_y1 = 0;
+    vp_x2 = fb_width - 1; vp_y2 = fb_height - 1;
+    win_active = false;
+    reset_palette();
 }
 
 void gfx_shutdown(void)
@@ -51,17 +78,40 @@ void gfx_shutdown(void)
     fb_width = 0;
     fb_height = 0;
     screen_mode = 0;
+    vp_active = false;
+    win_active = false;
+    reset_palette();
 }
 
 void gfx_cls(void)
 {
-    if (framebuf)
+    if (!framebuf) return;
+    if (vp_active) {
+        for (int y = vp_y1; y <= vp_y2; y++)
+            for (int x = vp_x1; x <= vp_x2; x++)
+                framebuf[y * fb_width + x] = 0;
+    } else {
         memset(framebuf, 0, fb_width * fb_height);
+    }
+}
+
+/* Clip bounds: viewport when active, otherwise full framebuffer */
+static inline void clip_bounds(int *cx1, int *cy1, int *cx2, int *cy2)
+{
+    if (vp_active) {
+        *cx1 = vp_x1; *cy1 = vp_y1;
+        *cx2 = vp_x2; *cy2 = vp_y2;
+    } else {
+        *cx1 = 0; *cy1 = 0;
+        *cx2 = fb_width - 1; *cy2 = fb_height - 1;
+    }
 }
 
 static inline void set_pixel(int x, int y, int color)
 {
-    if (x >= 0 && x < fb_width && y >= 0 && y < fb_height)
+    int cx1, cy1, cx2, cy2;
+    clip_bounds(&cx1, &cy1, &cx2, &cy2);
+    if (x >= cx1 && x <= cx2 && y >= cy1 && y <= cy2)
         framebuf[y * fb_width + x] = color;
 }
 
@@ -350,10 +400,10 @@ void gfx_flush(void)
     /* DCS q - enter Sixel mode */
     EMIT("\033Pq");
 
-    /* Define palette */
+    /* Define palette (using palette mapping) */
     for (int c = 0; c < 16; c++) {
         if (!color_used[c]) continue;
-        uint32_t rgb = palette[c];
+        uint32_t rgb = default_palette[palette_map[c]];
         int r = ((rgb >> 16) & 0xFF) * 100 / 255;
         int g = ((rgb >> 8) & 0xFF) * 100 / 255;
         int b = (rgb & 0xFF) * 100 / 255;
@@ -460,6 +510,165 @@ void gfx_flush(void)
     /* Write out via HAL raw output */
     gw_hal->write_raw(buf, pos);
     free(buf);
+}
+
+/* ================================================================
+ * VIEW / WINDOW / PALETTE
+ * ================================================================ */
+
+void gfx_view(bool screen_flag, int x1, int y1, int x2, int y2,
+              int fill, bool has_fill, int border, bool has_border)
+{
+    if (!framebuf) return;
+
+    /* Normalize */
+    if (x1 > x2) { int t = x1; x1 = x2; x2 = t; }
+    if (y1 > y2) { int t = y1; y1 = y2; y2 = t; }
+
+    /* Clamp to screen */
+    if (x1 < 0) x1 = 0;
+    if (y1 < 0) y1 = 0;
+    if (x2 >= fb_width) x2 = fb_width - 1;
+    if (y2 >= fb_height) y2 = fb_height - 1;
+
+    vp_active = true;
+    vp_screen = screen_flag;
+    vp_x1 = x1; vp_y1 = y1;
+    vp_x2 = x2; vp_y2 = y2;
+
+    /* Draw border (outside viewport, on full framebuffer) */
+    if (has_border) {
+        bool save = vp_active;
+        vp_active = false;
+        if (x1 > 0) draw_line(x1 - 1, y1 > 0 ? y1 - 1 : y1, x1 - 1, y2 < fb_height - 1 ? y2 + 1 : y2, border);
+        if (x2 < fb_width - 1) draw_line(x2 + 1, y1 > 0 ? y1 - 1 : y1, x2 + 1, y2 < fb_height - 1 ? y2 + 1 : y2, border);
+        if (y1 > 0) draw_line(x1 > 0 ? x1 - 1 : x1, y1 - 1, x2 < fb_width - 1 ? x2 + 1 : x2, y1 - 1, border);
+        if (y2 < fb_height - 1) draw_line(x1 > 0 ? x1 - 1 : x1, y2 + 1, x2 < fb_width - 1 ? x2 + 1 : x2, y2 + 1, border);
+        vp_active = save;
+    }
+
+    /* Fill viewport */
+    if (has_fill) {
+        for (int y = vp_y1; y <= vp_y2; y++)
+            for (int x = vp_x1; x <= vp_x2; x++)
+                framebuf[y * fb_width + x] = fill;
+    }
+
+    /* Reset last position to viewport origin */
+    last_x = vp_x1;
+    last_y = vp_y1;
+
+    /* Reset WINDOW when VIEW changes */
+    win_active = false;
+}
+
+void gfx_view_reset(void)
+{
+    vp_active = false;
+    if (framebuf) {
+        vp_x1 = 0; vp_y1 = 0;
+        vp_x2 = fb_width - 1; vp_y2 = fb_height - 1;
+    }
+    win_active = false;
+    last_x = 0;
+    last_y = 0;
+}
+
+void gfx_window(bool screen_flag, double x1, double y1, double x2, double y2)
+{
+    win_active = true;
+    win_screen = screen_flag;
+    win_x1 = x1; win_y1 = y1;
+    win_x2 = x2; win_y2 = y2;
+}
+
+void gfx_window_reset(void)
+{
+    win_active = false;
+}
+
+bool gfx_has_window(void)
+{
+    return win_active;
+}
+
+int gfx_map_x(double x)
+{
+    int left  = vp_active ? vp_x1 : 0;
+    int right = vp_active ? vp_x2 : (fb_width - 1);
+
+    if (win_active) {
+        if (win_x2 == win_x1) return left;
+        return left + (int)((x - win_x1) / (win_x2 - win_x1) * (right - left) + 0.5);
+    }
+    if (vp_active && !vp_screen)
+        return left + (int)x;
+    return (int)x;
+}
+
+int gfx_map_y(double y)
+{
+    int top    = vp_active ? vp_y1 : 0;
+    int bottom = vp_active ? vp_y2 : (fb_height - 1);
+
+    if (win_active) {
+        if (win_y2 == win_y1) return top;
+        if (win_screen) {
+            /* WINDOW SCREEN: Y increases downward */
+            return top + (int)((y - win_y1) / (win_y2 - win_y1) * (bottom - top) + 0.5);
+        } else {
+            /* WINDOW (Cartesian): Y increases upward */
+            return bottom - (int)((y - win_y1) / (win_y2 - win_y1) * (bottom - top) + 0.5);
+        }
+    }
+    if (vp_active && !vp_screen)
+        return top + (int)y;
+    return (int)y;
+}
+
+double gfx_pmap(double coord, int func)
+{
+    int left   = vp_active ? vp_x1 : 0;
+    int right  = vp_active ? vp_x2 : (fb_width - 1);
+    int top    = vp_active ? vp_y1 : 0;
+    int bottom = vp_active ? vp_y2 : (fb_height - 1);
+
+    if (!win_active) return coord;
+
+    switch (func) {
+    case 0: /* logical X → physical X */
+        if (win_x2 == win_x1) return left;
+        return left + (coord - win_x1) / (win_x2 - win_x1) * (right - left);
+    case 1: /* logical Y → physical Y */
+        if (win_y2 == win_y1) return top;
+        if (win_screen)
+            return top + (coord - win_y1) / (win_y2 - win_y1) * (bottom - top);
+        else
+            return bottom - (coord - win_y1) / (win_y2 - win_y1) * (bottom - top);
+    case 2: /* physical X → logical X */
+        if (right == left) return win_x1;
+        return win_x1 + (coord - left) / (double)(right - left) * (win_x2 - win_x1);
+    case 3: /* physical Y → logical Y */
+        if (bottom == top) return win_y1;
+        if (win_screen)
+            return win_y1 + (coord - top) / (double)(bottom - top) * (win_y2 - win_y1);
+        else
+            return win_y1 + (bottom - coord) / (double)(bottom - top) * (win_y2 - win_y1);
+    default:
+        return coord;
+    }
+}
+
+void gfx_palette_set(int attr, int color)
+{
+    if (attr < 0 || attr > 15 || color < 0 || color > 15) return;
+    palette_map[attr] = color;
+    palette[attr] = default_palette[color];
+}
+
+void gfx_palette_reset(void)
+{
+    reset_palette();
 }
 
 /*

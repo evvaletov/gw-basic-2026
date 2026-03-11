@@ -723,22 +723,41 @@ void gw_stmt_chain(void)
     }
 }
 
+/* Evaluate a graphics coordinate, mapping through WINDOW/VIEW */
+static int eval_gfx_x(void)
+{
+    if (gfx_has_window()) {
+        gw_value_t v = gw_eval_num();
+        return gfx_map_x(gw_to_dbl(&v));
+    }
+    return gfx_map_x((double)gw_eval_int());
+}
+
+static int eval_gfx_y(void)
+{
+    if (gfx_has_window()) {
+        gw_value_t v = gw_eval_num();
+        return gfx_map_y(gw_to_dbl(&v));
+    }
+    return gfx_map_y((double)gw_eval_int());
+}
+
 /* Graphics GET (x1,y1)-(x2,y2), array */
 static void stmt_gfx_get(void)
 {
     gw_expect('(');
-    int x1 = gw_eval_int();
+    int x1 = eval_gfx_x();
     gw_skip_spaces();
     gw_expect(',');
-    int y1 = gw_eval_int();
+    int y1 = eval_gfx_y();
     gw_expect_rparen();
     gw_skip_spaces();
     gw_expect(TOK_MINUS);
     gw_expect('(');
-    int x2 = gw_eval_int();
+    int x2 = eval_gfx_x();
     gw_skip_spaces();
     gw_expect(',');
-    int y2 = gw_eval_int();
+    int y2 = eval_gfx_y();
     gw_expect_rparen();
     gw_skip_spaces();
     gw_expect(',');
@@ -781,10 +800,10 @@ static void stmt_gfx_get(void)
 static void stmt_gfx_put(void)
 {
     gw_expect('(');
-    int x = gw_eval_int();
+    int x = eval_gfx_x();
     gw_skip_spaces();
     gw_expect(',');
-    int y = gw_eval_int();
+    int y = eval_gfx_y();
     gw_expect_rparen();
     gw_skip_spaces();
     gw_expect(',');
@@ -1002,9 +1021,9 @@ void gw_exec_stmt(void)
             gw_chrget();
             gw_skip_spaces();
             gw_expect('(');
-            int cx = gw_eval_int();
+            int cx = eval_gfx_x();
             gw_expect(',');
-            int cy = gw_eval_int();
+            int cy = eval_gfx_y();
             gw_expect_rparen();
             gw_expect(',');
             int radius = gw_eval_int();
@@ -1059,9 +1078,9 @@ void gw_exec_stmt(void)
             gw_chrget();
             gw_skip_spaces();
             gw_expect('(');
-            int px = gw_eval_int();
+            int px = eval_gfx_x();
             gw_expect(',');
-            int py = gw_eval_int();
+            int py = eval_gfx_y();
             gw_expect_rparen();
             int fill_c = gfx_get_color(), border_c = 0;
             gw_skip_spaces();
@@ -1228,12 +1247,101 @@ void gw_exec_stmt(void)
             }
             gw_error(ERR_SN);
         }
-        /* Stubs: VIEW, WINDOW, PALETTE */
-        if (xstmt == XSTMT_VIEW ||
-            xstmt == XSTMT_WINDOW || xstmt == XSTMT_PALETTE) {
+        /* VIEW [[SCREEN] (x1,y1)-(x2,y2) [,[fill][,border]]] */
+        if (xstmt == XSTMT_VIEW) {
             gw_chrget();
-            while (gw_chrgot() && gw_chrgot() != ':' && gw_chrgot() != TOK_ELSE)
-                gw.text_ptr++;
+            gw_skip_spaces();
+            if (gw_chrgot() == 0 || gw_chrgot() == ':' || gw_chrgot() == TOK_ELSE) {
+                gfx_view_reset();
+                return;
+            }
+            bool scr = false;
+            if (gw_chrgot() == TOK_SCREEN) {
+                scr = true;
+                gw_chrget();
+                gw_skip_spaces();
+            }
+            /* Check for PRINT after VIEW to handle VIEW PRINT (ignore) */
+            if (gw_chrgot() == TOK_PRINT) {
+                while (gw_chrgot() && gw_chrgot() != ':' && gw_chrgot() != TOK_ELSE)
+                    gw.text_ptr++;
+                return;
+            }
+            gw_expect('(');
+            int x1 = gw_eval_int();
+            gw_expect(',');
+            int y1 = gw_eval_int();
+            gw_expect_rparen();
+            gw_skip_spaces();
+            gw_expect(TOK_MINUS);
+            gw_expect('(');
+            int x2 = gw_eval_int();
+            gw_expect(',');
+            int y2 = gw_eval_int();
+            gw_expect_rparen();
+            int fill = 0, border = 0;
+            bool has_fill = false, has_border = false;
+            gw_skip_spaces();
+            if (gw_chrgot() == ',') {
+                gw_chrget();
+                gw_skip_spaces();
+                if (gw_chrgot() != ',' && gw_chrgot() != 0 && gw_chrgot() != ':' &&
+                    gw_chrgot() != TOK_ELSE) {
+                    fill = gw_eval_int();
+                    has_fill = true;
+                }
+                gw_skip_spaces();
+                if (gw_chrgot() == ',') {
+                    gw_chrget();
+                    border = gw_eval_int();
+                    has_border = true;
+                }
+            }
+            gfx_view(scr, x1, y1, x2, y2, fill, has_fill, border, has_border);
+            return;
+        }
+        /* WINDOW [[SCREEN] (x1,y1)-(x2,y2)] */
+        if (xstmt == XSTMT_WINDOW) {
+            gw_chrget();
+            gw_skip_spaces();
+            if (gw_chrgot() == 0 || gw_chrgot() == ':' || gw_chrgot() == TOK_ELSE) {
+                gfx_window_reset();
+                return;
+            }
+            bool scr = false;
+            if (gw_chrgot() == TOK_SCREEN) {
+                scr = true;
+                gw_chrget();
+                gw_skip_spaces();
+            }
+            gw_expect('(');
+            gw_value_t vx1 = gw_eval_num();
+            gw_expect(',');
+            gw_value_t vy1 = gw_eval_num();
+            gw_expect_rparen();
+            gw_skip_spaces();
+            gw_expect(TOK_MINUS);
+            gw_expect('(');
+            gw_value_t vx2 = gw_eval_num();
+            gw_expect(',');
+            gw_value_t vy2 = gw_eval_num();
+            gw_expect_rparen();
+            gfx_window(scr, gw_to_dbl(&vx1), gw_to_dbl(&vy1),
+                        gw_to_dbl(&vx2), gw_to_dbl(&vy2));
+            return;
+        }
+        /* PALETTE [attribute, color] */
+        if (xstmt == XSTMT_PALETTE) {
+            gw_chrget();
+            gw_skip_spaces();
+            if (gw_chrgot() == 0 || gw_chrgot() == ':' || gw_chrgot() == TOK_ELSE) {
+                gfx_palette_reset();
+                return;
+            }
+            int attr = gw_eval_int();
+            gw_expect(',');
+            int color = gw_eval_int();
+            gfx_palette_set(attr, color);
             return;
         }
         gw.text_ptr = save;
@@ -2188,9 +2296,9 @@ void gw_exec_stmt(void)
             gw_skip_spaces();
             if (gw_chrgot() == '(') {
                 gw_chrget();
-                x1 = gw_eval_int();
+                x1 = eval_gfx_x();
                 gw_expect(',');
-                y1 = gw_eval_int();
+                y1 = eval_gfx_y();
                 gw_expect_rparen();
             } else {
                 gfx_get_last(&x1, &y1);
@@ -2198,9 +2306,9 @@ void gw_exec_stmt(void)
             gw_skip_spaces();
             gw_expect(TOK_MINUS);
             gw_expect('(');
-            x2 = gw_eval_int();
+            x2 = eval_gfx_x();
             gw_expect(',');
-            y2 = gw_eval_int();
+            y2 = eval_gfx_y();
             gw_expect_rparen();
             int color = gfx_get_color();
             int style = GFX_LINE;
@@ -2484,9 +2592,9 @@ void gw_exec_stmt(void)
         gw_chrget();
         gw_skip_spaces();
         gw_expect('(');
-        int px = gw_eval_int();
+        int px = eval_gfx_x();
         gw_expect(',');
-        int py = gw_eval_int();
+        int py = eval_gfx_y();
         gw_expect_rparen();
         int color = is_preset ? 0 : gfx_get_color();
         gw_skip_spaces();

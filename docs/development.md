@@ -16,10 +16,11 @@
 | 0.10.0 | | Binary tokenized SAVE/LOAD, INKEY$ extended key sequences, golden-file regression tests, classic BASIC programs |
 | 0.11.0 | | DEF SEG / PEEK / POKE virtual memory, GET/PUT graphics sprites, PRINT USING fixes |
 | 0.12.0 | | BSAVE/BLOAD, TUI ANSI 16-color rendering, CGA graphics framebuffer PEEK/POKE, keyboard shift flags |
+| 0.13.0 | | VIEW/WINDOW/PALETTE graphics, PMAP function, MBF float format for CVS/CVD/MKS$/MKD$ |
 
 ## Tests
 
-64 test programs in `tests/programs/`, plus 4 classic interactive programs in
+66 test programs in `tests/programs/`, plus 4 classic interactive programs in
 `tests/classic/` (Hamurabi, Lunar Lander, Gunner, Diamond from David Ahl's
 *BASIC Computer Games*).
 
@@ -29,7 +30,7 @@ Run the full automated suite:
 bash tests/run_tests.sh
 ```
 
-Each test has a 5-second timeout. 60 tests have `.expected` golden files
+Each test has a 5-second timeout. 62 tests have `.expected` golden files
 for output regression detection. Three timing-dependent tests (datetime,
 on_timer, timer_stop) and one visual test (color_test) run without golden
 comparison.

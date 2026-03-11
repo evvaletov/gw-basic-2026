@@ -57,7 +57,7 @@ type suffixes (`%`, `!`, `#`)
 | File management | `KILL`, `NAME`, `FILES`, `MKDIR`, `RMDIR`, `CHDIR`, `SHELL` |
 | Date/time | `DATE$`, `TIME$`, `TIMER` |
 | Screen | `LOCATE`, `COLOR`, `WIDTH`, `SCREEN`, `KEY ON`/`OFF`/`LIST`, `KEY n,"string"` |
-| Graphics | `PSET`, `PRESET`, `LINE`, `CIRCLE`, `DRAW`, `PAINT`, `GET`, `PUT` |
+| Graphics | `PSET`, `PRESET`, `LINE`, `CIRCLE`, `DRAW`, `PAINT`, `GET`, `PUT`, `VIEW`, `WINDOW`, `PALETTE`, `PMAP` |
 | Sound | `SOUND`, `BEEP`, `PLAY` (MML parser, PulseAudio backend) |
 | Memory | `DEF SEG`, `PEEK`, `POKE`, `BSAVE`, `BLOAD` |
 | Misc | `KEY`, `TRON`/`TROFF`, `OPTION BASE`, `MID$` assignment |
@@ -157,6 +157,20 @@ The `action` parameter controls how the sprite combines with the existing screen
 Sprite data is stored in CGA-compatible packed format: word 0 is the width
 in bits, word 1 is the height, and remaining words contain packed pixel data
 matching the original GW-BASIC representation.
+
+### VIEW / WINDOW / PALETTE
+
+- `VIEW [[SCREEN] (x1,y1)-(x2,y2) [,[fill][,border]]]` — define a graphics
+  viewport.  Without `SCREEN`, drawing coordinates are relative to the
+  viewport origin.  With `SCREEN`, coordinates remain absolute.  Without
+  arguments, resets to full screen.
+- `WINDOW [[SCREEN] (x1,y1)-(x2,y2)]` — map logical coordinates onto the
+  viewport.  Without `SCREEN`, Y increases upward (Cartesian); with `SCREEN`,
+  Y increases downward.  Without arguments, resets to physical coordinates.
+- `PALETTE [attribute, color]` — remap a color attribute to a different
+  physical color (0–15).  Without arguments, resets to the default CGA palette.
+- `PMAP(coordinate, function)` — convert between logical and physical
+  coordinates.  Function 0/1 = logical→physical X/Y; 2/3 = physical→logical X/Y.
 
 ### Example
 

@@ -987,6 +987,18 @@ static gw_value_t eval_atom(void)
             v.fval = (float)(tm->tm_hour * 3600 + tm->tm_min * 60 + tm->tm_sec);
             return v;
         }
+        if (xtok == XSTMT_PMAP) {
+            gw_chrget();
+            gw_expect('(');
+            gw_value_t arg = gw_eval_num();
+            gw_expect(',');
+            int func = gw_eval_int();
+            gw_expect_rparen();
+            gw_value_t v;
+            v.type = VT_SNG;
+            v.fval = (float)gfx_pmap(gw_to_dbl(&arg), func);
+            return v;
+        }
         gw.text_ptr = save;
     }
 

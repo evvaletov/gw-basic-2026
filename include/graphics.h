@@ -50,6 +50,21 @@ void gfx_sprite_put(int x, int y, const int16_t *buf, int bufsize, int action);
 /* Calculate required array element count for a sprite rectangle. */
 int gfx_sprite_size(int x1, int y1, int x2, int y2);
 
+/* VIEW / WINDOW / PALETTE */
+void gfx_view(bool screen_flag, int x1, int y1, int x2, int y2,
+              int fill, bool has_fill, int border, bool has_border);
+void gfx_view_reset(void);
+void gfx_window(bool screen_flag, double x1, double y1, double x2, double y2);
+void gfx_window_reset(void);
+void gfx_palette_set(int attr, int color);
+void gfx_palette_reset(void);
+
+/* Coordinate mapping (logical ↔ physical) */
+int  gfx_map_x(double x);
+int  gfx_map_y(double y);
+double gfx_pmap(double coord, int func);
+bool gfx_has_window(void);
+
 /* CGA framebuffer PEEK/POKE (segment 0xB800 in graphics mode) */
 uint8_t gfx_cga_peek(uint16_t offset);
 void    gfx_cga_poke(uint16_t offset, uint8_t val);

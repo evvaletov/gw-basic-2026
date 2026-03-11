@@ -15,8 +15,6 @@
   bus so retro programs that talk to the speaker, joystick port, or parallel
   interface can do *something* useful instead of silently no-oping.  Think of it
   as a tiny museum exhibit for vintage BASIC hardware hacking.
-- **VIEW / WINDOW / PALETTE** — graphics viewport, coordinate mapping, and
-  palette remapping
 - **MBF format support for binary LOAD** — convert Microsoft Binary Format
   float constants when loading files saved by the original GWBASIC.EXE
 
@@ -36,8 +34,6 @@
 
 ## Known Limitations
 
-- Binary files use IEEE 754 floats, not MBF — files saved here are not
-  byte-compatible with original GWBASIC.EXE binary format
 - String garbage collection not implemented (uses `malloc`/`free` instead)
 - Maximum 256 variables, 64 arrays, 16 FOR nesting, 24 GOSUB nesting,
   16 WHILE nesting

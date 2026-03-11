@@ -1,0 +1,22 @@
+10 REM MBF format conversion test
+20 REM Test MKS$/CVS roundtrip
+30 PRINT CVS(MKS$(0))
+40 PRINT CVS(MKS$(1))
+50 PRINT CVS(MKS$(-1))
+60 PRINT CVS(MKS$(3.14))
+70 PRINT CVS(MKS$(100.5))
+80 REM Test MKD$/CVD roundtrip
+90 PRINT CVD(MKD$(0#))
+100 PRINT CVD(MKD$(1#))
+110 PRINT CVD(MKD$(-1#))
+120 PRINT CVD(MKD$(3.14#))
+130 REM Test MKI$/CVI roundtrip
+140 PRINT CVI(MKI$(0))
+150 PRINT CVI(MKI$(32767))
+160 PRINT CVI(MKI$(-32768))
+170 PRINT CVI(MKI$(-1))
+180 REM Test MBF byte encoding
+190 REM MKS$(1) in MBF should be: 00 00 00 81 (exponent=129, mantissa=0.5)
+200 A$ = MKS$(1)
+210 PRINT ASC(MID$(A$,1,1)); ASC(MID$(A$,2,1)); ASC(MID$(A$,3,1)); ASC(MID$(A$,4,1))
+220 PRINT "DONE"

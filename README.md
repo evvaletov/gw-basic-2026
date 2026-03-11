@@ -23,7 +23,7 @@ Interactive mode launches the authentic GW-BASIC full-screen editor:
 
 ```
 $ ./gwbasic
-GW-BASIC 2026 0.12.0
+GW-BASIC 2026 0.13.0
 (C) Eremey Valetov 2026. MIT License.
 Based on Microsoft GW-BASIC assembly source.
 Ok
@@ -77,7 +77,7 @@ SPACE$, STRING$, HEX$, OCT$, INSTR, INPUT$
 | File management | KILL, NAME, FILES, MKDIR, RMDIR, CHDIR, SHELL |
 | Date/time | DATE$, TIME$, TIMER |
 | Screen | LOCATE, COLOR, WIDTH, SCREEN, KEY ON/OFF/LIST |
-| Graphics | PSET, PRESET, LINE, CIRCLE, DRAW, PAINT, GET/PUT (sprites), BSAVE, BLOAD |
+| Graphics | PSET, PRESET, LINE, CIRCLE, DRAW, PAINT, GET/PUT (sprites), BSAVE, BLOAD, VIEW, WINDOW, PALETTE, PMAP |
 | Sound | SOUND, BEEP, PLAY (MML) |
 | Memory | DEF SEG, PEEK, POKE |
 
@@ -206,7 +206,7 @@ Source text → Tokenizer (CRUNCH) → Token stream
 | Platform | hal_posix.c | OEM*.ASM |
 
 Key design differences from the original:
-- IEEE 754 floating point (MBF conversion only for CVI/CVS/CVD compatibility)
+- IEEE 754 floating point (MBF conversion for CVI/CVS/CVD/MKI$/MKS$/MKD$ file compatibility)
 - Dynamic memory allocation instead of 64KB segment layout
 - malloc'd strings instead of compacting garbage collector
 - setjmp/longjmp for error recovery
