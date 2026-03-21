@@ -8,7 +8,7 @@
   But we've come this far, so why not?  Likely approach: translate the token
   stream to C and lean on GCC/Clang for the heavy lifting.
 
-## Next Up (v0.14.0)
+## Next Up
 
 ### Hardware I/O Simulator
 
@@ -37,30 +37,6 @@ following the established `virmem.c` dispatch-by-address pattern.
 - `MOTOR` → accept and silently ignore
 - `INP(port)` → `portio_inp(port)` (currently returns 0)
 - `STICK(n)` / `STRIG(n)` → joystick state from port 0x201
-
-### DRAW Command Fixes
-
-The DRAW mini-language parser has three bugs and four missing features.
-
-**Bugs to fix:**
-
-1. **M command parsing** — the generic argument parser consumes digits that
-   belong to M's x-coordinate, so `DRAW "M100,50"` moves to (0, 50).  Fix:
-   skip the generic parser when the command is M.
-2. **S (scale) semantics** — scale is used as a default distance instead of a
-   multiplier.  `DRAW "U"` moves 4 pixels instead of 1.  Correct formula:
-   `dist = (has_arg ? arg : 1) * scale / 4`.
-3. **A (90° rotation)** — recognized but no-op.  Needs a rotation state
-   variable and direction vector transform for U/D/L/R/E/F/G/H.
-
-**Features to add:**
-
-- `TA n` — arbitrary rotation angle (degrees, −360 to 360); requires
-  multi-character command parsing and trigonometric direction vector rotation
-- `=variable;` — numeric variable substitution in DRAW strings; requires
-  passing variable lookup capability into `gfx_draw()`
-- `X subexpr;` — execute sub-string from a string variable (recursive parse)
-- Scale applied to relative M coordinates
 
 ## IDE and Notebook Integration
 

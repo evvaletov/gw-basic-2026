@@ -17,11 +17,11 @@
 | 0.11.0 | | DEF SEG / PEEK / POKE virtual memory, GET/PUT graphics sprites, PRINT USING fixes |
 | 0.12.0 | | BSAVE/BLOAD, TUI ANSI 16-color rendering, CGA graphics framebuffer PEEK/POKE, keyboard shift flags |
 | 0.13.0 | | VIEW/WINDOW/PALETTE graphics, PMAP function, MBF float format for CVS/CVD/MKS$/MKD$ |
-| 0.14.0 | | MBF binary file compatibility (IEEE↔MBF at save/load boundary), fix binary loader null-byte truncation |
+| 0.14.0 | | MBF binary file compatibility (IEEE↔MBF at save/load boundary), fix binary loader null-byte truncation, fix DRAW M/S/A bugs, add TA/=var;/X substring |
 
 ## Tests
 
-67 test programs in `tests/programs/`, plus 4 classic interactive programs in
+68 test programs in `tests/programs/`, plus 4 classic interactive programs in
 `tests/classic/` (Hamurabi, Lunar Lander, Gunner, Diamond from David Ahl's
 *BASIC Computer Games*).
 

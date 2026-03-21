@@ -1,4 +1,5 @@
 #include "graphics.h"
+#include "gwbasic.h"
 #include "hal.h"
 #include <stdlib.h>
 #include <string.h>
@@ -266,13 +267,53 @@ void gfx_paint(int x, int y, int fill_color, int border_color)
     free(stack);
 }
 
-/* DRAW mini-language parser */
-void gfx_draw(const char *cmd)
+/* Parse an integer from a DRAW string, advancing *pp. */
+static int draw_parse_int(const char **pp)
 {
-    if (!framebuf) return;
-    int x = last_x, y = last_y;
-    int draw_color = current_color;
-    int scale = 4;  /* default scale factor (C4) */
+    const char *p = *pp;
+    int neg = 0, val = 0;
+    if (*p == '-') { neg = 1; p++; }
+    else if (*p == '+') p++;
+    while (isdigit((unsigned char)*p)) { val = val * 10 + (*p - '0'); p++; }
+    *pp = p;
+    return neg ? -val : val;
+}
+
+/* Parse a =variable; reference, returning the variable's integer value. */
+static int draw_parse_varref(const char **pp)
+{
+    const char *p = *pp;
+    if (*p != '=') return 0;
+    p++;
+    /* Parse variable name (1-2 chars + optional type suffix) */
+    if (!isalpha((unsigned char)*p)) return 0;
+    char vname[2] = {toupper(*p), 0};
+    p++;
+    if (isalpha((unsigned char)*p)) { vname[1] = toupper(*p); p++; }
+    gw_valtype_t vtype = VT_SNG;
+    if (*p == '%') { vtype = VT_INT; p++; }
+    else if (*p == '!') { vtype = VT_SNG; p++; }
+    else if (*p == '#') { vtype = VT_DBL; p++; }
+    if (*p == ';') p++;
+    *pp = p;
+    var_entry_t *var = gw_var_find_or_create(vname, vtype);
+    if (!var) return 0;
+    switch (var->val.type) {
+    case VT_INT: return var->val.ival;
+    case VT_SNG: return (int)var->val.fval;
+    case VT_DBL: return (int)var->val.dval;
+    default: return 0;
+    }
+}
+
+/* Core DRAW engine, used by both gfx_draw() and X substring recursion. */
+static void draw_engine(const char *cmd, int *px, int *py,
+                        int *pcolor, int *pscale, double *pangle)
+{
+    int x = *px, y = *py;
+    int draw_color = *pcolor;
+    int scale = *pscale;
+    double angle = *pangle;
     const char *p = cmd;
 
     while (*p) {
@@ -280,10 +321,9 @@ void gfx_draw(const char *cmd)
         if (!*p) break;
 
         int blind = 0, no_update = 0;
-        /* Prefix modifiers */
-        while (*p == 'B' || *p == 'b' || *p == 'N' || *p == 'n') {
-            if (*p == 'B' || *p == 'b') blind = 1;
-            if (*p == 'N' || *p == 'n') no_update = 1;
+        while (toupper(*p) == 'B' || toupper(*p) == 'N') {
+            if (toupper(*p) == 'B') blind = 1;
+            if (toupper(*p) == 'N') no_update = 1;
             p++;
         }
 
@@ -291,77 +331,147 @@ void gfx_draw(const char *cmd)
         if (!ch) break;
         p++;
 
-        /* Parse optional numeric argument */
-        int has_arg = 0, arg = 0;
-        if (*p == '-' || isdigit((unsigned char)*p)) {
-            int neg = 0;
-            if (*p == '-') { neg = 1; p++; }
-            while (isdigit((unsigned char)*p)) {
-                arg = arg * 10 + (*p - '0');
+        /* Commands that handle their own argument parsing */
+        if (ch == 'M' || ch == 'X' || ch == 'T') {
+            /* TA — multi-char command */
+            if (ch == 'T' && toupper(*p) == 'A') {
                 p++;
+                while (*p == ' ') p++;
+                int ta;
+                if (*p == '=') ta = draw_parse_varref(&p);
+                else ta = draw_parse_int(&p);
+                angle = ta * M_PI / 180.0;
+                while (*p == ' ' || *p == ';') p++;
+                continue;
             }
-            if (neg) arg = -arg;
+            if (ch == 'T') continue;  /* unknown T command */
+
+            if (ch == 'X') {
+                /* X stringvar; — execute substring */
+                while (*p == ' ') p++;
+                if (!isalpha((unsigned char)*p)) continue;
+                char vn[2] = {toupper(*p), 0};
+                p++;
+                if (isalpha((unsigned char)*p)) { vn[1] = toupper(*p); p++; }
+                gw_valtype_t vt = VT_STR;
+                if (*p == '$') p++;
+                if (*p == ';') p++;
+                var_entry_t *sv = gw_var_find_or_create(vn, vt);
+                if (sv && sv->val.type == VT_STR && sv->val.sval.len > 0) {
+                    char *sub = gw_str_to_cstr(&sv->val.sval);
+                    draw_engine(sub, &x, &y, &draw_color, &scale, &angle);
+                    free(sub);
+                }
+                continue;
+            }
+
+            /* M x,y — move absolute or relative */
+            while (*p == ' ') p++;
+            int relative = (*p == '+' || *p == '-');
+            int mx, my;
+            if (*p == '=') mx = draw_parse_varref(&p);
+            else mx = draw_parse_int(&p);
+            while (*p == ' ' || *p == ',') p++;
+            if (*p == '=') my = draw_parse_varref(&p);
+            else my = draw_parse_int(&p);
+
+            int nx, ny;
+            if (relative) {
+                mx = mx * scale / 4;
+                my = my * scale / 4;
+                nx = x + mx;
+                ny = y + my;
+            } else {
+                nx = mx;
+                ny = my;
+            }
+
+            if (!blind)
+                draw_line(x, y, nx, ny, draw_color);
+            if (!no_update) { x = nx; y = ny; }
+            while (*p == ' ' || *p == ';') p++;
+            continue;
+        }
+
+        /* Generic numeric argument (or =variable; reference) */
+        while (*p == ' ') p++;
+        int has_arg = 0, arg = 0;
+        if (*p == '=') {
+            arg = draw_parse_varref(&p);
+            has_arg = 1;
+        } else if (*p == '-' || isdigit((unsigned char)*p)) {
+            arg = draw_parse_int(&p);
             has_arg = 1;
         }
 
-        int dist = has_arg ? arg : scale;
-        int nx = x, ny = y;
-
         switch (ch) {
-        case 'U': ny = y - dist; break;
-        case 'D': ny = y + dist; break;
-        case 'L': nx = x - dist; break;
-        case 'R': nx = x + dist; break;
-        case 'E': nx = x + dist; ny = y - dist; break;
-        case 'F': nx = x + dist; ny = y + dist; break;
-        case 'G': nx = x - dist; ny = y + dist; break;
-        case 'H': nx = x - dist; ny = y - dist; break;
-        case 'M': {
-            /* M x,y or M +/-x, +/-y */
-            int relative = 0;
-            while (*p == ' ') p++;
-            if (*p == '+' || *p == '-') relative = 1;
-            int mx = 0, my = 0;
-            int mneg = 0;
-            if (*p == '-') { mneg = 1; p++; }
-            else if (*p == '+') p++;
-            while (isdigit((unsigned char)*p)) { mx = mx * 10 + (*p - '0'); p++; }
-            if (mneg) mx = -mx;
-            while (*p == ' ' || *p == ',') p++;
-            mneg = 0;
-            if (*p == '-') { mneg = 1; p++; }
-            else if (*p == '+') p++;
-            while (isdigit((unsigned char)*p)) { my = my * 10 + (*p - '0'); p++; }
-            if (mneg) my = -my;
-            if (relative) { nx = x + mx; ny = y + my; }
-            else { nx = mx; ny = my; }
-            break;
-        }
         case 'C':
             draw_color = has_arg ? arg : 1;
+            while (*p == ' ' || *p == ';') p++;
             continue;
         case 'S':
             scale = has_arg ? arg : 4;
+            while (*p == ' ' || *p == ';') p++;
             continue;
         case 'A':
-            /* Angle: 0-3, we ignore rotation for simplicity */
-            continue;
-        case ';':
+            angle = (has_arg ? (arg & 3) : 0) * M_PI / 2.0;
+            while (*p == ' ' || *p == ';') p++;
             continue;
         default:
+            break;
+        }
+
+        /* Direction commands — compute base displacement */
+        int dist = (has_arg ? arg : 1) * scale / 4;
+        int dx = 0, dy = 0;
+
+        switch (ch) {
+        case 'U': dy = -dist; break;
+        case 'D': dy =  dist; break;
+        case 'L': dx = -dist; break;
+        case 'R': dx =  dist; break;
+        case 'E': dx =  dist; dy = -dist; break;
+        case 'F': dx =  dist; dy =  dist; break;
+        case 'G': dx = -dist; dy =  dist; break;
+        case 'H': dx = -dist; dy = -dist; break;
+        default:
+            while (*p == ' ' || *p == ';') p++;
             continue;
         }
 
+        /* Apply rotation */
+        if (angle != 0.0) {
+            double c = cos(angle), s = sin(angle);
+            int rdx = (int)round(dx * c + dy * s);
+            int rdy = (int)round(-dx * s + dy * c);
+            dx = rdx;
+            dy = rdy;
+        }
+
+        int nx = x + dx, ny = y + dy;
         if (!blind)
             draw_line(x, y, nx, ny, draw_color);
-
-        if (!no_update) {
-            x = nx;
-            y = ny;
-        }
+        if (!no_update) { x = nx; y = ny; }
 
         while (*p == ' ' || *p == ';') p++;
     }
+
+    *px = x; *py = y;
+    *pcolor = draw_color;
+    *pscale = scale;
+    *pangle = angle;
+}
+
+/* DRAW mini-language parser */
+void gfx_draw(const char *cmd)
+{
+    if (!framebuf) return;
+    int x = last_x, y = last_y;
+    int draw_color = current_color;
+    int scale = 4;
+    double angle = 0.0;
+
+    draw_engine(cmd, &x, &y, &draw_color, &scale, &angle);
 
     last_x = x;
     last_y = y;
