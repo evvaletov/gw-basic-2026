@@ -37,7 +37,7 @@ Running `./gwbasic` with no arguments launches the full-screen editor:
 
 ```
 $ ./gwbasic
-GW-BASIC 2026 0.13.0
+GW-BASIC 2026 0.14.0
 (C) Eremey Valetov 2026. MIT License.
 Based on Microsoft GW-BASIC assembly source.
 Ok

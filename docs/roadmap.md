@@ -10,23 +10,6 @@
 
 ## Next Up (v0.14.0)
 
-### MBF Binary File Compatibility
-
-Make the binary tokenized file format fully compatible with original GWBASIC.EXE
-files.  Currently, float constants in the token stream are stored as IEEE 754;
-the original uses Microsoft Binary Format (MBF).
-
-**Approach:** always store MBF on disk, always IEEE in memory.  Convert at the
-`load_binary()`/`save_binary()` boundary in `program_io.c`.  A token-walking
-function scans each line for `TOK_CONST_SNG` (0x1C, 4 bytes) and
-`TOK_CONST_DBL` (0x1F, 8 bytes) and converts in-place using the existing
-`gw_mbf_to_ieee_*` / `gw_ieee_to_mbf_*` routines.  The walker must skip string
-literals, REM/DATA regions, and multi-byte tokens to avoid false positives.
-
-This makes round-tripping lossless (MBF single has the same 24-bit mantissa as
-IEEE single; MBF double's 56 bits cleanly contain IEEE double's 53 bits) and
-enables loading authentic `.BAS` files from the 1980s.
-
 ### Hardware I/O Simulator
 
 An optional emulation layer for `OUT`, `INP`, `WAIT`, `MOTOR`, and friends,

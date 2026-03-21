@@ -91,8 +91,9 @@ algorithms are reimplemented in idiomatic C with modern data structures.
 
 ### Key Differences from the Original
 
-- **IEEE 754 floating point** — MBF (Microsoft Binary Format) conversion is only
-  used for file I/O compatibility (CVI/CVS/CVD, MKI$/MKS$/MKD$)
+- **IEEE 754 floating point** — MBF (Microsoft Binary Format) conversion is used
+  at the binary save/load boundary and for file I/O (CVI/CVS/CVD, MKI$/MKS$/MKD$),
+  matching the original's on-disk format
 - **Dynamic memory allocation** — `malloc`/`free` instead of a 64KB segment layout
 - **malloc'd strings** — instead of a compacting garbage collector
 - **`setjmp`/`longjmp`** — for error recovery, matching the original's stack reset

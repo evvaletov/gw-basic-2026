@@ -13,9 +13,9 @@
  * purposes we compute it sequentially — the original GW-BASIC used memory
  * addresses here, but only the line number and token data matter on load.
  *
- * Floating-point constants are stored in our native IEEE format, not MBF.
- * This means files saved here are compatible with this interpreter but not
- * directly with the original GWBASIC.EXE binary format.
+ * Floating-point constants are stored in Microsoft Binary Format (MBF) on disk
+ * and IEEE 754 in memory, matching the original GWBASIC.EXE binary format.
+ * Conversion happens at the load_binary()/save_binary() boundary.
  */
 
 #define BIN_HEADER_TOKEN  0xFF
@@ -36,6 +36,87 @@ static uint16_t read16(FILE *fp)
     return (uint16_t)(lo | (hi << 8));
 }
 
+/*
+ * Walk a token buffer and convert float constants between IEEE and MBF.
+ * direction: 0 = IEEE→MBF (for saving), 1 = MBF→IEEE (for loading).
+ */
+static void convert_floats(uint8_t *tok, int len, int direction)
+{
+    int i = 0;
+    while (i < len) {
+        uint8_t ch = tok[i];
+
+        /* REM or ' — rest of line is literal text, stop scanning */
+        if (ch == TOK_REM || ch == TOK_SQUOTE)
+            return;
+
+        /* String literal — skip to closing quote */
+        if (ch == '"') {
+            i++;
+            while (i < len && tok[i] != '"')
+                i++;
+            if (i < len) i++;  /* skip closing quote */
+            continue;
+        }
+
+        /* Multi-byte token prefixes: skip the prefix + 1 sub-token byte */
+        if (ch == TOK_PREFIX_FD || ch == TOK_PREFIX_FE || ch == TOK_PREFIX_FF) {
+            i += 2;
+            continue;
+        }
+
+        /* 2-byte integer constant */
+        if (ch == TOK_INT2) {
+            i += 3;  /* prefix + 2 data bytes */
+            continue;
+        }
+
+        /* 1-byte integer constant */
+        if (ch == TOK_INT1) {
+            i += 2;  /* prefix + 1 data byte */
+            continue;
+        }
+
+        /* Single-precision float constant — convert 4 bytes */
+        if (ch == TOK_CONST_SNG && i + 4 < len) {
+            if (direction == 0) {
+                /* IEEE → MBF */
+                float f;
+                memcpy(&f, &tok[i + 1], 4);
+                mbf_single_t mbf = gw_ieee_to_mbf_single(f);
+                memcpy(&tok[i + 1], &mbf, 4);
+            } else {
+                /* MBF → IEEE */
+                mbf_single_t mbf;
+                memcpy(&mbf, &tok[i + 1], 4);
+                float f = gw_mbf_to_ieee_single(mbf);
+                memcpy(&tok[i + 1], &f, 4);
+            }
+            i += 5;
+            continue;
+        }
+
+        /* Double-precision float constant — convert 8 bytes */
+        if (ch == TOK_CONST_DBL && i + 8 < len) {
+            if (direction == 0) {
+                double d;
+                memcpy(&d, &tok[i + 1], 8);
+                mbf_double_t mbf = gw_ieee_to_mbf_double(d);
+                memcpy(&tok[i + 1], &mbf, 8);
+            } else {
+                mbf_double_t mbf;
+                memcpy(&mbf, &tok[i + 1], 8);
+                double d = gw_mbf_to_ieee_double(mbf);
+                memcpy(&tok[i + 1], &d, 8);
+            }
+            i += 9;
+            continue;
+        }
+
+        i++;
+    }
+}
+
 /* Save program in tokenized binary format */
 static void save_binary(FILE *fp)
 {
@@ -44,6 +125,7 @@ static void save_binary(FILE *fp)
     /* First pass: compute the offset base (1 byte for header) */
     uint16_t offset = 1;
 
+    uint8_t cvtbuf[300];
     program_line_t *p = gw.prog_head;
     while (p) {
         /* next-ptr(2) + linenum(2) + tokens(len) + null(1) */
@@ -51,7 +133,11 @@ static void save_binary(FILE *fp)
         offset += line_size;
         write16(fp, offset);      /* next-line pointer */
         write16(fp, p->num);      /* line number */
-        fwrite(p->tokens, 1, p->len, fp);
+        /* Convert IEEE→MBF on a copy so in-memory tokens stay IEEE */
+        int clen = p->len < (int)sizeof(cvtbuf) ? p->len : (int)sizeof(cvtbuf);
+        memcpy(cvtbuf, p->tokens, clen);
+        convert_floats(cvtbuf, clen, 0);
+        fwrite(cvtbuf, 1, p->len, fp);
         fputc(0x00, fp);          /* null terminator */
         p = p->next;
     }
@@ -109,24 +195,35 @@ void gw_stmt_save(void)
     fclose(fp);
 }
 
-/* Load binary tokenized file */
+/* Load binary tokenized file.
+ * Uses the next-line pointer to determine token length rather than scanning
+ * for 0x00, since token data (especially MBF floats) can contain null bytes. */
 static void load_binary(FILE *fp)
 {
+    uint16_t offset = 1;  /* file position: 1 byte header already consumed */
+
     for (;;) {
         uint16_t next_ptr = read16(fp);
-        if (next_ptr == 0) break;  /* end of program */
+        if (next_ptr == 0) break;
 
         uint16_t linenum = read16(fp);
 
-        /* Read token data until null terminator */
-        uint8_t tokbuf[300];
-        int len = 0;
-        int ch;
-        while ((ch = fgetc(fp)) != EOF && ch != 0x00 && len < (int)sizeof(tokbuf) - 1)
-            tokbuf[len++] = (uint8_t)ch;
+        /* next-ptr(2) + linenum(2) + tokens(?) + null(1) = next_ptr - offset */
+        int tok_len = (int)next_ptr - (int)offset - 5;
+        if (tok_len < 0) tok_len = 0;
+        if (tok_len > 299) tok_len = 299;
 
-        if (len > 0)
-            gw_store_line(linenum, tokbuf, len);
+        uint8_t tokbuf[300];
+        if (tok_len > 0)
+            fread(tokbuf, 1, tok_len, fp);
+        fgetc(fp);  /* consume null terminator */
+
+        offset = next_ptr;
+
+        if (tok_len > 0) {
+            convert_floats(tokbuf, tok_len, 1);  /* MBF → IEEE */
+            gw_store_line(linenum, tokbuf, tok_len);
+        }
     }
 }
 
