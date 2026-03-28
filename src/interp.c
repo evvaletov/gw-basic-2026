@@ -1345,7 +1345,92 @@ void gw_exec_stmt(void)
             gfx_palette_set(attr, color);
             return;
         }
+        /* RESET — close all open files */
+        if (xstmt == XSTMT_RESET) {
+            gw_chrget();
+            gw_file_close_all();
+            return;
+        }
+
+        /* DATE$ = "string" — accept and ignore (don't modify system clock) */
+        if (xstmt == XSTMT_DATE) {
+            gw_chrget();
+            gw_expect(TOK_EQ);
+            gw_value_t val = gw_eval_str();
+            gw_str_free(&val.sval);
+            return;
+        }
+
+        /* TIME$ = "string" — accept and ignore (don't modify system clock) */
+        if (xstmt == XSTMT_TIME) {
+            gw_chrget();
+            gw_expect(TOK_EQ);
+            gw_value_t val = gw_eval_str();
+            gw_str_free(&val.sval);
+            return;
+        }
+
+        /* ENVIRON "var=value" — set environment variable */
+        if (xstmt == XSTMT_ENVIRON) {
+            gw_chrget();
+            gw_value_t val = gw_eval_str();
+            char *s = gw_str_to_cstr(&val.sval);
+            gw_str_free(&val.sval);
+            putenv(s);  /* s is intentionally not freed — putenv requires it */
+            return;
+        }
+
+        /* ERDEV — return device error code (always 0, no real devices) */
+        if (xstmt == XSTMT_ERDEV) {
+            gw_chrget();
+            /* As a statement, ERDEV is meaningless — silently ignore */
+            return;
+        }
+
+        /* IOCTL [#filenum,] string — device control (accept and ignore) */
+        if (xstmt == XSTMT_IOCTL) {
+            gw_chrget();
+            gw_skip_spaces();
+            if (gw_chrgot() == '#') {
+                gw_chrget();
+                gw_eval_int();  /* file number */
+                gw_expect(',');
+            }
+            gw_value_t val = gw_eval_str();
+            gw_str_free(&val.sval);
+            return;
+        }
+
+        /* LCOPY [source] — screen dump to printer (accept and ignore) */
+        if (xstmt == XSTMT_LCOPY) {
+            gw_chrget();
+            gw_skip_spaces();
+            if (gw_chrgot() && gw_chrgot() != ':' && gw_chrgot() != 0)
+                gw_eval();  /* consume optional argument */
+            return;
+        }
+
+        /* CALL / CALLS — machine code execution not supported */
+        if (xstmt == XSTMT_CALLS) {
+            gw_error(ERR_FC);
+        }
+
+        /* COM — serial port event trapping not supported */
+        if (xstmt == XSTMT_COM) {
+            gw_chrget();
+            gw_skip_spaces();
+            /* Skip past the arguments */
+            while (gw_chrgot() && gw_chrgot() != ':' && gw_chrgot() != 0)
+                gw.text_ptr++;
+            return;
+        }
+
         gw.text_ptr = save;
+    }
+
+    /* CALL — machine code execution not supported */
+    if (tok == TOK_CALL) {
+        gw_error(ERR_FC);
     }
 
     /* END */

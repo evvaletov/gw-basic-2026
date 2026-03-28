@@ -1016,6 +1016,52 @@ static gw_value_t eval_atom(void)
             v.fval = (float)(tm->tm_hour * 3600 + tm->tm_min * 60 + tm->tm_sec);
             return v;
         }
+        /* ENVIRON$("varname") — read environment variable */
+        if (xtok == XSTMT_ENVIRON) {
+            gw_chrget();
+            /* Must be followed by $ to be the function form */
+            if (gw_chrgot() != '$') { gw.text_ptr = save; goto not_xfunc; }
+            gw_chrget();
+            gw_expect('(');
+            gw_value_t arg = gw_eval_str();
+            gw_expect_rparen();
+            char *name = gw_str_to_cstr(&arg.sval);
+            gw_str_free(&arg.sval);
+            gw_value_t v;
+            v.type = VT_STR;
+            const char *val = getenv(name);
+            v.sval = gw_str_from_cstr(val ? val : "");
+            free(name);
+            return v;
+        }
+        /* ERDEV / ERDEV$ — device error (always 0 / "") */
+        if (xtok == XSTMT_ERDEV) {
+            gw_chrget();
+            gw_value_t v;
+            if (gw_chrgot() == '$') {
+                gw_chrget();
+                v.type = VT_STR;
+                v.sval = gw_str_from_cstr("");
+            } else {
+                v.type = VT_INT;
+                v.ival = 0;
+            }
+            return v;
+        }
+        /* IOCTL$([#]filenum) — device control string (always "") */
+        if (xtok == XSTMT_IOCTL) {
+            gw_chrget();
+            if (gw_chrgot() != '$') { gw.text_ptr = save; goto not_xfunc; }
+            gw_chrget();
+            gw_expect('(');
+            if (gw_chrgot() == '#') gw_chrget();
+            gw_eval_int();  /* file number */
+            gw_expect_rparen();
+            gw_value_t v;
+            v.type = VT_STR;
+            v.sval = gw_str_from_cstr("");
+            return v;
+        }
         if (xtok == XSTMT_PMAP) {
             gw_chrget();
             gw_expect('(');
@@ -1030,6 +1076,7 @@ static gw_value_t eval_atom(void)
         }
         gw.text_ptr = save;
     }
+not_xfunc:
 
     /* FN call */
     if (tok == TOK_FN) {
