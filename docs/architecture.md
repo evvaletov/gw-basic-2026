@@ -49,15 +49,16 @@ HAL writes straight to stdout.
 | INPUT/LINE INPUT | `input.c` | BINTRP.ASM |
 | Sound engine | `sound.c` | — |
 | Virtual memory (PEEK/POKE) | `virmem.c` | — |
+| Hardware I/O ports | `portio.c` | — |
 | Platform abstraction | `hal_posix.c` | OEM*.ASM |
 
 ## Source Layout
 
 ```
-src/         — core interpreter (21 files)
-include/     — headers (13 files)
+src/         — core interpreter (22 files)
+include/     — headers (14 files)
 platform/    — HAL backends (1 file)
-tests/       — 66 automated test programs, 4 classic interactive programs, compat harness
+tests/       — 70 automated test programs, 4 classic interactive programs, compat harness
 docs/        — Sphinx documentation
 ```
 

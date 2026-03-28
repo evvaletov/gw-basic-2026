@@ -19,12 +19,15 @@ version is structured as modular C suitable for new feature development.
 - **INKEY$ extended keys** — arrow keys, F-keys, and navigation keys return proper
   `CHR$(0)` + scan code two-byte sequences
 - **Sixel graphics** — `SCREEN 1`/`SCREEN 2` rendering in compatible terminals
-- **Sound** — `SOUND`, `BEEP`, `PLAY` (MML) via PulseAudio
+- **Sound** — `SOUND`, `BEEP`, `PLAY` (MML) via PulseAudio, plus continuous tone
+  via `OUT` (8253 PIT / PPI speaker emulation)
+- **Hardware I/O** — `OUT`, `INP`, `WAIT` port emulation (PIT, PPI, CGA, COM1,
+  game port) for classic programs that drive hardware directly
 - **Full file I/O** — sequential, random-access, SAVE/LOAD/MERGE/CHAIN/COMMON
 - **Printer output** — `LPRINT`/`LLIST` to file or real hardware via `--lpt`
 - **Classic programs** — Hamurabi, Lunar Lander, Gunner, and Diamond from
   David Ahl's *BASIC Computer Games* (1978) run out of the box
-- **66 test programs** with golden-file regression testing and DOSBox-X
+- **70 test programs** with golden-file regression testing and DOSBox-X
   compatibility testing against real GWBASIC.EXE
 - **MIT License**
 

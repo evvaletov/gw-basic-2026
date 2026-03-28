@@ -8,35 +8,21 @@
   But we've come this far, so why not?  Likely approach: translate the token
   stream to C and lean on GCC/Clang for the heavy lifting.
 
+## Completed
+
+### Hardware I/O Simulator (v0.15.0)
+
+Implemented in `portio.c` / `portio.h` following the `virmem.c` dispatch
+pattern.  Emulates 8253 PIT channel 2 (speaker frequency), PPI port B
+(speaker on/off with continuous tone via PulseAudio), CGA mode/color
+registers, game port (joystick stub), and COM1 serial (transmitter-ready
+stub).  Default: reads return 0xFF (floating bus), writes discarded.
+
+Statements: `OUT`, `WAIT`, `MOTOR`.  Functions: `INP()`, `STICK()`, `STRIG()`.
+
 ## Next Up
 
-### Hardware I/O Simulator
-
-An optional emulation layer for `OUT`, `INP`, `WAIT`, `MOTOR`, and friends,
-following the established `virmem.c` dispatch-by-address pattern.
-
-**New module:** `portio.c` / `portio.h` with `portio_inp(port)` /
-`portio_out(port, value)` dispatch.
-
-**Priority ports:**
-
-| Port | Device | Emulation |
-|------|--------|-----------|
-| 0x42–0x43 | 8253 PIT channel 2 | Speaker frequency divisor (1193180 / divisor Hz) |
-| 0x61 | PPI Port B | Speaker on/off (bits 0–1), routes to `snd_start_continuous()` / `snd_stop_continuous()` |
-| 0x3D8 | CGA mode control | Mode register storage, feeds `gfx_init()` |
-| 0x3D9 | CGA color select | Palette/background bits, feeds `gfx_palette_set()` |
-| 0x201 | Game port | Joystick stub (returns 0xF0 = no buttons) |
-| 0x3F8–0x3FE | COM1 serial | Minimal stub (LSR reports transmitter ready to prevent spin loops) |
-| Default | — | Reads return 0xFF (floating bus), writes silently discarded |
-
-**Statement/function changes:**
-
-- `OUT port, value` → `portio_out(port, value)`
-- `WAIT port, mask [, xor_mask]` → busy loop with `portio_inp()`, break check, timeout
-- `MOTOR` → accept and silently ignore
-- `INP(port)` → `portio_inp(port)` (currently returns 0)
-- `STICK(n)` / `STRIG(n)` → joystick state from port 0x201
+*(Looking for the next major feature — see IDE and Notebook Integration below.)*
 
 ## IDE and Notebook Integration
 

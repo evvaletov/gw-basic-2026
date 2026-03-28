@@ -60,6 +60,7 @@ type suffixes (`%`, `!`, `#`)
 | Graphics | `PSET`, `PRESET`, `LINE`, `CIRCLE`, `DRAW`, `PAINT`, `GET`, `PUT`, `VIEW`, `WINDOW`, `PALETTE`, `PMAP` |
 | Sound | `SOUND`, `BEEP`, `PLAY` (MML parser, PulseAudio backend) |
 | Memory | `DEF SEG`, `PEEK`, `POKE`, `BSAVE`, `BLOAD` |
+| Hardware I/O | `OUT`, `INP`, `WAIT`, `MOTOR`, `STICK`, `STRIG` |
 | Misc | `KEY`, `TRON`/`TROFF`, `OPTION BASE`, `MID$` assignment |
 | System | `SYSTEM` |
 
@@ -221,6 +222,42 @@ BLOAD "screen.bin", 100         ' load to a different offset
 The file format is compatible with the original GW-BASIC: byte 0 = `0xFD`,
 bytes 1-2 = segment (LE), bytes 3-4 = offset (LE), bytes 5-6 = length (LE),
 followed by the raw data bytes.
+
+## Hardware I/O (OUT / INP / WAIT)
+
+`OUT`, `INP`, and `WAIT` provide access to emulated IBM PC I/O ports, enabling
+classic programs that drive hardware directly — speaker tones via the 8253 PIT,
+CGA palette tricks, and serial port polling.
+
+```
+OUT &H43, &HB6              ' PIT channel 2: lobyte/hibyte, mode 3
+OUT &H42, &HD3 : OUT &H42, &H04   ' set frequency divisor (1235 → 966 Hz)
+OUT &H61, INP(&H61) OR 3    ' speaker on
+OUT &H61, INP(&H61) AND &HFC ' speaker off
+```
+
+### Emulated Ports
+
+| Port | Device | Behavior |
+|------|--------|----------|
+| `&H42`–`&H43` | 8253 PIT channel 2 | Speaker frequency divisor (1193180 / divisor Hz) |
+| `&H61` | PPI Port B | Bits 0–1 control speaker; both set = tone on, either clear = off |
+| `&H3D8` | CGA mode control | Mode register; writes with changed mode bits trigger `SCREEN` changes |
+| `&H3D9` | CGA color select | Background color (bits 0–3) and palette select (bit 5) |
+| `&H201` | Game port | Returns `&HF0` (no joystick connected) |
+| `&H3F8`–`&H3FE` | COM1 serial | Minimal stub; LSR (`&H3FD`) returns `&H60` (transmitter ready) |
+| Default | — | Reads return `&HFF` (floating bus), writes silently discarded |
+
+### Related Functions
+
+- `INP(port)` — read a byte from an I/O port
+- `STICK(n)` — joystick axis position (returns 128 = center, n = 0–3)
+- `STRIG(n)` — joystick button state (returns 0 = not pressed)
+- `WAIT port, mask [, xor_mask]` — busy-wait until `(INP(port) XOR xor_mask) AND mask` is nonzero; Ctrl+C breaks out
+- `MOTOR [n]` — accepted and silently ignored (cassette motor control)
+
+When the PPI speaker bits are set, the PIT frequency divisor is used to
+generate a continuous tone via PulseAudio (same backend as `SOUND` / `PLAY`).
 
 ## Sound
 
