@@ -1,6 +1,7 @@
 #include "gwbasic.h"
 #include "tui.h"
 #include "sound.h"
+#include "portio.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -169,6 +170,7 @@ int main(int argc, char **argv)
     gw_hal->init();
     gw_init();
     snd_init();
+    portio_reset();
 
     int interactive = isatty(fileno(stdin));
 

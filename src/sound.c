@@ -3,10 +3,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <stdbool.h>
 
 #ifdef HAVE_PULSEAUDIO
 #include <pulse/simple.h>
 #include <pulse/error.h>
+#include <pthread.h>
 #endif
 
 #define SAMPLE_RATE 44100
@@ -55,6 +57,7 @@ void snd_init(void)
 
 void snd_shutdown(void)
 {
+    snd_stop_continuous();
 #ifdef HAVE_PULSEAUDIO
     if (pa_conn) {
         pa_simple_drain(pa_conn, NULL);
@@ -307,5 +310,65 @@ void snd_play(const char *mml)
 
 #ifdef HAVE_PULSEAUDIO
     pa_drain();
+#endif
+}
+
+/* --- Continuous tone for PPI speaker emulation --- */
+
+#ifdef HAVE_PULSEAUDIO
+static volatile bool cont_running;
+static pthread_t cont_thread;
+static int cont_freq;
+static bool cont_active;
+
+static void *cont_worker(void *arg)
+{
+    (void)arg;
+    int16_t buf[4096];
+    double phase = 0.0;
+    double phase_inc = 2.0 * M_PI * cont_freq / SAMPLE_RATE;
+
+    while (cont_running) {
+        for (int i = 0; i < 4096; i++) {
+            buf[i] = (int16_t)(sin(phase) * 24000.0);
+            phase += phase_inc;
+            if (phase >= 2.0 * M_PI)
+                phase -= 2.0 * M_PI;
+        }
+        pa_simple_write(pa_conn, buf, sizeof(buf), NULL);
+    }
+    return NULL;
+}
+#endif
+
+void snd_start_continuous(int freq_hz)
+{
+#ifdef HAVE_PULSEAUDIO
+    snd_stop_continuous();
+
+    if (freq_hz < 37)
+        return;
+
+    pa_open();
+    if (!pa_conn)
+        return;
+
+    cont_freq = freq_hz;
+    cont_running = true;
+    cont_active = true;
+    pthread_create(&cont_thread, NULL, cont_worker, NULL);
+#else
+    (void)freq_hz;
+#endif
+}
+
+void snd_stop_continuous(void)
+{
+#ifdef HAVE_PULSEAUDIO
+    if (!cont_active)
+        return;
+    cont_running = false;
+    pthread_join(cont_thread, NULL);
+    cont_active = false;
 #endif
 }

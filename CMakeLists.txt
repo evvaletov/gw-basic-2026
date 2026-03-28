@@ -38,6 +38,7 @@ set(SOURCES
     src/print_using.c
     src/graphics.c
     src/virmem.c
+    src/portio.c
     src/sound.c
     src/tui.c
     platform/hal_posix.c
@@ -49,5 +50,5 @@ target_link_libraries(gwbasic m)
 if(PULSEAUDIO_FOUND)
     target_compile_definitions(gwbasic PRIVATE HAVE_PULSEAUDIO)
     target_include_directories(gwbasic PRIVATE ${PULSEAUDIO_INCLUDE_DIRS})
-    target_link_libraries(gwbasic ${PULSEAUDIO_LIBRARIES})
+    target_link_libraries(gwbasic ${PULSEAUDIO_LIBRARIES} pthread)
 endif()

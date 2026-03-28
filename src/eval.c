@@ -2,6 +2,7 @@
 #include "tui.h"
 #include "graphics.h"
 #include "virmem.h"
+#include "portio.h"
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
@@ -700,9 +701,26 @@ static gw_value_t eval_function(uint8_t prefix, uint8_t func_tok)
         return v;
     }
 
-    case FUNC_INP:
+    case FUNC_INP: {
+        gw_expect('(');
+        uint16_t port = gw_eval_uint16();
+        gw_expect_rparen();
+        v.type = VT_INT;
+        v.ival = portio_inp(port);
+        return v;
+    }
+
+    case FUNC_STICK: {
+        gw_expect('(');
+        int arg = gw_eval_int();
+        gw_expect_rparen();
+        if (arg < 0 || arg > 3) gw_error(ERR_FC);
+        v.type = VT_INT;
+        v.ival = 128;  /* center position */
+        return v;
+    }
+
     case FUNC_PEN:
-    case FUNC_STICK:
     case FUNC_STRIG:
         gw_expect('(');
         gw_eval();

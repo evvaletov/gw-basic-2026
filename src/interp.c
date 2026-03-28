@@ -2,6 +2,7 @@
 #include "tui.h"
 #include "graphics.h"
 #include "virmem.h"
+#include "portio.h"
 #include "sound.h"
 #include <ctype.h>
 #include <string.h>
@@ -1375,6 +1376,7 @@ void gw_exec_stmt(void)
     if (tok == TOK_NEW) {
         gw_chrget();
         gfx_shutdown();
+        portio_reset();
         gw_free_program();
         gw_vars_clear();
         gw_arrays_clear();
@@ -1399,6 +1401,7 @@ void gw_exec_stmt(void)
     /* CLEAR */
     if (tok == TOK_CLEAR) {
         gw_chrget();
+        portio_reset();
         gw_vars_clear();
         gw_arrays_clear();
         gw_file_close_all();
@@ -1452,6 +1455,7 @@ void gw_exec_stmt(void)
 
         if (!start) return;
 
+        portio_reset();
         gw_vars_clear();
         gw_arrays_clear();
         memset(gw.fn_defs, 0, sizeof(gw.fn_defs));
@@ -2491,6 +2495,49 @@ void gw_exec_stmt(void)
         int val = gw_eval_int();
         if (val < 0 || val > 255) gw_error(ERR_FC);
         virmem_poke(gw.def_seg, addr, (uint8_t)val);
+        return;
+    }
+
+    /* OUT port, value */
+    if (tok == TOK_OUT) {
+        gw_chrget();
+        uint16_t port = gw_eval_uint16();
+        gw_skip_spaces();
+        gw_expect(',');
+        int val = gw_eval_int();
+        if (val < 0 || val > 255) gw_error(ERR_FC);
+        portio_out(port, (uint8_t)val);
+        return;
+    }
+
+    /* WAIT port, mask [, xor_mask] */
+    if (tok == TOK_WAIT) {
+        gw_chrget();
+        uint16_t port = gw_eval_uint16();
+        gw_skip_spaces();
+        gw_expect(',');
+        int mask = gw_eval_int();
+        if (mask < 0 || mask > 255) gw_error(ERR_FC);
+        int xor_mask = 0;
+        gw_skip_spaces();
+        if (gw_chrgot() == ',') {
+            gw_chrget();
+            xor_mask = gw_eval_int();
+            if (xor_mask < 0 || xor_mask > 255) gw_error(ERR_FC);
+        }
+        while (((portio_inp(port) ^ xor_mask) & mask) == 0) {
+            if (tui.active)
+                tui_check_break();
+        }
+        return;
+    }
+
+    /* MOTOR [n] — silently ignored */
+    if (tok == TOK_MOTOR) {
+        gw_chrget();
+        gw_skip_spaces();
+        if (gw_chrgot() && gw_chrgot() != ':' && gw_chrgot() != 0)
+            gw_eval();  /* consume optional argument */
         return;
     }
 
