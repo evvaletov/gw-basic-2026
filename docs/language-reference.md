@@ -54,13 +54,15 @@ type suffixes (`%`, `!`, `#`)
 | Event trapping | `ON TIMER(n) GOSUB`, `TIMER ON`/`OFF`/`STOP`, `ON KEY(n) GOSUB`, `KEY(n) ON`/`OFF`/`STOP` |
 | Error handling | `ON ERROR GOTO`, `RESUME`, `RESUME NEXT`, `RESUME n`, `ERROR`, `ERR`, `ERL` |
 | User functions | `DEF FN`, `RANDOMIZE` |
-| File management | `KILL`, `NAME`, `FILES`, `MKDIR`, `RMDIR`, `CHDIR`, `SHELL` |
-| Date/time | `DATE$`, `TIME$`, `TIMER` |
+| File management | `KILL`, `NAME`, `FILES`, `MKDIR`, `RMDIR`, `CHDIR`, `SHELL`, `RESET` |
+| Date/time | `DATE$`, `TIME$`, `TIMER` (read/write; `DATE$`/`TIME$` assignment accepted) |
+| Environment | `ENVIRON`, `ENVIRON$` |
 | Screen | `LOCATE`, `COLOR`, `WIDTH`, `SCREEN`, `KEY ON`/`OFF`/`LIST`, `KEY n,"string"` |
 | Graphics | `PSET`, `PRESET`, `LINE`, `CIRCLE`, `DRAW`, `PAINT`, `GET`, `PUT`, `VIEW`, `WINDOW`, `PALETTE`, `PMAP` |
 | Sound | `SOUND`, `BEEP`, `PLAY` (MML parser, PulseAudio backend) |
 | Memory | `DEF SEG`, `PEEK`, `POKE`, `BSAVE`, `BLOAD` |
 | Hardware I/O | `OUT`, `INP`, `WAIT`, `MOTOR`, `STICK`, `STRIG` |
+| Device stubs | `ERDEV`, `ERDEV$`, `IOCTL`, `IOCTL$`, `COM`, `LCOPY` |
 | Misc | `KEY`, `TRON`/`TROFF`, `OPTION BASE`, `MID$` assignment |
 | System | `SYSTEM` |
 
@@ -258,6 +260,45 @@ OUT &H61, INP(&H61) AND &HFC ' speaker off
 
 When the PPI speaker bits are set, the PIT frequency divisor is used to
 generate a continuous tone via PulseAudio (same backend as `SOUND` / `PLAY`).
+
+## Environment Variables
+
+- `ENVIRON "var=value"` — set an environment variable (uses the C `putenv()` call)
+- `ENVIRON$("var")` — read an environment variable (returns "" if not set)
+
+```
+ENVIRON "GREETING=Hello"
+PRINT ENVIRON$("GREETING")   ' prints: Hello
+PRINT ENVIRON$("PATH")       ' prints the system PATH
+```
+
+## Date/Time Assignment
+
+`DATE$` and `TIME$` can be assigned to set the date and time:
+
+```
+DATE$ = "01-15-2026"
+TIME$ = "14:30:00"
+```
+
+These assignments are accepted for compatibility but do not modify the
+system clock.  Reading `DATE$` and `TIME$` always returns the current
+system date and time.
+
+## Device Stubs
+
+The following device-related statements and functions are accepted for
+compatibility with programs that reference them, but return stub values
+since there is no real device hardware:
+
+- `ERDEV` — device error code (always 0)
+- `ERDEV$` — device error name (always "")
+- `IOCTL [#n,] string` — device control string output (accepted, ignored)
+- `IOCTL$(n)` — device control string input (always "")
+- `COM ON` / `COM OFF` / `COM STOP` — serial port event trapping (accepted, ignored)
+- `LCOPY [n]` — screen dump to printer (accepted, ignored)
+- `CALL` / `CALLS` — machine code execution (raises Illegal function call)
+- `RESET` — close all open files (equivalent to `CLOSE`)
 
 ## Sound
 

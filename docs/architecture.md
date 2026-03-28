@@ -58,7 +58,7 @@ HAL writes straight to stdout.
 src/         — core interpreter (22 files)
 include/     — headers (14 files)
 platform/    — HAL backends (1 file)
-tests/       — 70 automated test programs, 4 classic interactive programs, compat harness
+tests/       — 71 automated test programs, 4 classic interactive programs, compat harness
 docs/        — Sphinx documentation
 ```
 

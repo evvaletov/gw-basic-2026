@@ -27,7 +27,7 @@ version is structured as modular C suitable for new feature development.
 - **Printer output** — `LPRINT`/`LLIST` to file or real hardware via `--lpt`
 - **Classic programs** — Hamurabi, Lunar Lander, Gunner, and Diamond from
   David Ahl's *BASIC Computer Games* (1978) run out of the box
-- **70 test programs** with golden-file regression testing and DOSBox-X
+- **71 test programs** with golden-file regression testing and DOSBox-X
   compatibility testing against real GWBASIC.EXE
 - **MIT License**
 
