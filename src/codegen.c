@@ -1019,9 +1019,9 @@ static void emit_assignment(void)
             emit_str_expr();
             EMIT(";\n    _elem->type = VT_STR;\n");
         } else {
-            EMIT("    *_elem = (gw_value_t){.type=%d};\n", type);
+            EMIT("    _elem->type = %d;\n", type);
             switch (type) {
-            case VT_INT: EMIT("    _elem->ival = (int16_t)("); break;
+            case VT_INT: EMIT("    _elem->ival = gw_cint((double)("); break;
             case VT_SNG: EMIT("    _elem->fval = (float)("); break;
             case VT_DBL: EMIT("    _elem->dval = (double)("); break;
             default: EMIT("    _elem->fval = (float)("); break;
@@ -1086,7 +1086,12 @@ static void emit_stmt(void)
             /* Skip past USING token, then embed remaining bytes */
             advance(); /* skip TOK_USING */
             uint8_t *start = tp;
-            while (*tp && *tp != ':') tp++;
+            /* Scan to end of statement, skipping string literals */
+            while (*tp) {
+                if (*tp == '"') { tp++; while (*tp && *tp != '"') tp++; if (*tp) tp++; continue; }
+                if (*tp == ':') break;
+                tp++;
+            }
             int len = (int)(tp - start);
             /* Sync compiled variables to interpreter table so gw_eval works */
             EMIT("  {\n");
@@ -1760,7 +1765,38 @@ static void emit_stmt(void)
             if (is_letter(cur())) {
                 char name[2];
                 gw_valtype_t type = parse_var(name);
-                if (type == VT_STR) {
+                skip_spaces();
+                if (cur() == '(') {
+                    /* READ into array element */
+                    advance();
+                    char *sbufs[8]; int nd = 0;
+                    do {
+                        if (nd > 0 && cur() == ',') advance();
+                        sbufs[nd++] = emit_to_buf(emit_prec_wrapper, 0);
+                    } while (cur() == ',' && nd < 8);
+                    if (cur() == ')') advance();
+                    EMIT("  { gw_value_t *_re = gwrt_array_elem(");
+                    emit_name_str(name);
+                    EMIT(", %d, %d, (int[]){", type, nd);
+                    for (int d = 0; d < nd; d++) {
+                        if (d > 0) EMIT(",");
+                        EMIT("(int)(%s)", sbufs[d]);
+                        free(sbufs[d]);
+                    }
+                    EMIT("});\n");
+                    if (type == VT_STR) {
+                        EMIT("    gw_str_free(&_re->sval);\n");
+                        EMIT("    _re->sval = gw_str_from_cstr(gwrt_data_read());\n");
+                        EMIT("    _re->type = VT_STR; }\n");
+                    } else {
+                        EMIT("    _re->type = %d;\n", type);
+                        switch (type) {
+                        case VT_INT: EMIT("    _re->ival = (int16_t)atof(gwrt_data_read()); }\n"); break;
+                        case VT_DBL: EMIT("    _re->dval = atof(gwrt_data_read()); }\n"); break;
+                        default: EMIT("    _re->fval = (float)atof(gwrt_data_read()); }\n"); break;
+                        }
+                    }
+                } else if (type == VT_STR) {
                     EMIT("  gw_str_free(&");
                     emit_varname(name, type);
                     EMIT(");\n");
@@ -1770,7 +1806,10 @@ static void emit_stmt(void)
                 } else {
                     EMIT("  ");
                     emit_varname(name, type);
-                    EMIT(" = (%s)atof(gwrt_data_read());\n", c_type(type));
+                    if (type == VT_INT)
+                        EMIT(" = (int16_t)atof(gwrt_data_read());\n");
+                    else
+                        EMIT(" = (%s)atof(gwrt_data_read());\n", c_type(type));
                 }
             }
             skip_spaces();
