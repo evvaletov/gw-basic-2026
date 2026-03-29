@@ -357,10 +357,9 @@ static void emit_atom(void)
             if (cur() == '(') { advance(); emit_num_expr(); if (cur() == ')') advance(); }
             return;
         case FUNC_FRE:
-            EMIT("((float)strpool_free())");
+            EMIT("(strpool_gc(), (float)strpool_free())");
             if (cur() == '(') {
                 advance();
-                /* consume arg but ignore */
                 while (cur() && cur() != ')') tp++;
                 if (cur() == ')') advance();
             }
@@ -377,8 +376,33 @@ static void emit_atom(void)
             if (cur() == ')') advance();
             EMIT(")");
             return;
+        case FUNC_STICK:
+            /* Joystick position — return 128 (center) */
+            EMIT("128");
+            if (cur() == '(') { advance(); while (cur() && cur() != ')') tp++; if (cur() == ')') advance(); }
+            return;
+        case FUNC_STRIG:
+            EMIT("0"); /* No joystick button */
+            if (cur() == '(') { advance(); while (cur() && cur() != ')') tp++; if (cur() == ')') advance(); }
+            return;
+        case FUNC_PEN:
+        case FUNC_LPOS:
+            EMIT("0");
+            if (cur() == '(') { advance(); while (cur() && cur() != ')') tp++; if (cur() == ')') advance(); }
+            return;
+        case FUNC_EOF: {
+            EMIT("gw_file_eof((int)(");
+            advance(); emit_num_expr();
+            if (cur() == ')') advance();
+            EMIT("))");
+            return;
+        }
+        case FUNC_LOC:
+        case FUNC_LOF:
+            EMIT("0 /* LOC/LOF */");
+            if (cur() == '(') { advance(); while (cur() && cur() != ')') tp++; if (cur() == ')') advance(); }
+            return;
         default:
-            /* Fallback: emit 0 for unhandled functions */
             EMIT("0 /* unhandled func 0x%02x */", func);
             if (cur() == '(') { advance(); while (cur() && cur() != ')') tp++; if (cur() == ')') advance(); }
             return;
@@ -614,6 +638,9 @@ static void emit_num_prec(int min_prec)
             fprintf(cm, "((int16_t)(%s) / (int16_t)(%s))", left, right);
         } else if (op == TOK_POW) {
             fprintf(cm, "pow((double)(%s), (double)(%s))", left, right);
+        } else if (op == TOK_DIV) {
+            /* GW-BASIC / always produces float (unlike \ which is integer div) */
+            fprintf(cm, "((double)(%s) / (double)(%s))", left, right);
         } else {
             fprintf(cm, "(%s %s %s)", left, binop_c(op), right);
         }
@@ -1122,11 +1149,26 @@ static void emit_stmt(void)
             /* Skip past USING token, then embed remaining bytes */
             advance(); /* skip TOK_USING */
             uint8_t *start = tp;
-            /* Scan to end of statement, skipping string literals */
-            while (*tp) {
-                if (*tp == '"') { tp++; while (*tp && *tp != '"') tp++; if (*tp) tp++; continue; }
-                if (*tp == ':') break;
-                tp++;
+            /* Scan to end of statement, skipping strings and constants
+             * (float constants may contain 0x00 bytes) */
+            {
+                /* Find the token line end from the program_line_t */
+                program_line_t *cur_line = NULL;
+                for (program_line_t *pl = gw.prog_head; pl; pl = pl->next) {
+                    if (tp >= pl->tokens && tp < pl->tokens + pl->len + 1) {
+                        cur_line = pl; break;
+                    }
+                }
+                uint8_t *line_end = cur_line ? cur_line->tokens + cur_line->len : tp + 256;
+                while (tp < line_end) {
+                    if (*tp == '"') { tp++; while (tp < line_end && *tp != '"') tp++; if (tp < line_end) tp++; continue; }
+                    if (*tp == TOK_CONST_SNG) { tp += 5; continue; }
+                    if (*tp == TOK_CONST_DBL) { tp += 9; continue; }
+                    if (*tp == TOK_INT2) { tp += 3; continue; }
+                    if (*tp == TOK_INT1) { tp += 2; continue; }
+                    if (*tp == ':' || *tp == 0) break;
+                    tp++;
+                }
             }
             int len = (int)(tp - start);
             /* Sync compiled variables to interpreter table so gw_eval works */
