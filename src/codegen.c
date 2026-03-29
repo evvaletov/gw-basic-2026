@@ -634,8 +634,8 @@ static void emit_num_expr(void)
     emit_num_prec(0);
 }
 
-/* Emit a string expression */
-static void emit_str_expr(void)
+/* Emit a string atom (no concatenation) */
+static void emit_str_atom(void)
 {
     skip_spaces();
     uint8_t tok = cur();
@@ -858,6 +858,42 @@ static void emit_str_expr(void)
     EMIT("gw_str_from_cstr(\"\") /* unknown str expr */");
 }
 
+/* Emit a string expression with concatenation (A$ + B$ + C$) */
+static void emit_str_expr(void)
+{
+    char *left;
+    { FILE *orig = out; char *buf = NULL; size_t sz = 0;
+      out = open_memstream(&buf, &sz);
+      emit_str_atom();
+      fclose(out); out = orig; left = buf; }
+
+    while (1) {
+        skip_spaces();
+        if (cur() != TOK_PLUS) break;
+        advance();
+        char *right;
+        { FILE *orig = out; char *buf = NULL; size_t sz = 0;
+          out = open_memstream(&buf, &sz);
+          emit_str_atom();
+          fclose(out); out = orig; right = buf; }
+        /* Combine: gw_str_concat returns gw_value_t, we want .sval */
+        char *combined = NULL;
+        size_t csz = 0;
+        FILE *cm = open_memstream(&combined, &csz);
+        fprintf(cm, "gw_str_concat("
+                "&(gw_value_t){.type=VT_STR,.sval=%s},"
+                "&(gw_value_t){.type=VT_STR,.sval=%s}).sval",
+                left, right);
+        fclose(cm);
+        free(left);
+        free(right);
+        left = combined;
+    }
+
+    EMIT("%s", left);
+    free(left);
+}
+
 
 /* ---- Statement compilation ---- */
 
@@ -1040,14 +1076,14 @@ static void emit_assignment(void)
     advance();
 
     if (type == VT_STR) {
-        EMIT("  gw_str_free(&");
-        emit_varname(name, type);
-        EMIT(");\n");
-        EMIT("  ");
-        emit_varname(name, type);
-        EMIT(" = ");
+        /* Evaluate RHS to temp first (RHS may reference the same var) */
+        EMIT("  { gw_string_t _rhs = ");
         emit_str_expr();
-        EMIT(";\n");
+        EMIT("; gw_str_free(&");
+        emit_varname(name, type);
+        EMIT("); ");
+        emit_varname(name, type);
+        EMIT(" = _rhs; }\n");
     } else {
         EMIT("  ");
         emit_varname(name, type);
