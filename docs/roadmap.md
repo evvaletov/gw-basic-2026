@@ -23,8 +23,11 @@ operators (<=, >=, <>), PRINT USING (token embedding with variable sync),
 STRING$/INSTR single-byte token support, PRINT USING (token embedding
 with variable sync), RESUME, ERROR, ON TIMER/KEY skip, MID$ assign skip,
 FOR scope fix (static limit/step), SWAP with array elements, ENVIRON$/
-DATE$/TIME$ expression support, RESUME/ERROR statements. **Zero compile
-errors** — all 72 programs compile. 32 produce correct output.
+DATE$/TIME$/ENVIRON$ expression support, RESUME/ERROR statements,
+DEF FN (token embedding + variable sync), DEFINT/DEFSNG/DEFDBL/DEFSTR
+(pre-scan in analysis), gw_cint() rounding for integer assignment,
+STRING$(n,"c") string arg handling. **Zero compile errors** — all 72
+programs compile. **37 produce correct output.**
 
 **Phase 3**: random-access files, PRINT USING, graphics, sound, event
 trapping, remaining statements.
