@@ -20,7 +20,10 @@ WRITE, OPTION BASE, DEF type statements, extended statement dispatch.
 DIM/array subscript access (gwrt_array_elem runtime), number formatting
 via gw_print_value() with expression type tracking, combined relational
 operators (<=, >=, <>), PRINT USING (token embedding with variable sync),
-STRING$/INSTR single-byte token support. 27 of 72 tests passing.
+STRING$/INSTR single-byte token support, PRINT USING (token embedding
+with variable sync), RESUME, ERROR, ON TIMER/KEY skip, MID$ assign skip,
+FOR scope fix (static limit/step). 32 of 72 tests passing, only 2
+compile errors remaining.
 
 **Phase 3**: random-access files, PRINT USING, graphics, sound, event
 trapping, remaining statements.
