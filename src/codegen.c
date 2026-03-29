@@ -1853,6 +1853,20 @@ static void emit_stmt(void)
     }
 
     /* OPEN / CLOSE — file I/O (Phase 3: needs inline argument parsing) */
+    /* RUN ["file"] — if with string arg, delegate to runtime interpreter */
+    if (tok == TOK_RUN) {
+        uint8_t *start = tp;
+        advance();
+        skip_spaces();
+        if (cur() == '"') {
+            /* RUN "file" — load and run via interpreter. Doesn't return. */
+            emit_delegate_stmt(start, false);
+            EMIT("  gwrt_shutdown(); exit(0);\n");
+        }
+        /* RUN (without file) — restart compiled program. Just goto first line. */
+        return;
+    }
+
     /* SAVE / LOAD / MERGE / BSAVE / BLOAD — delegate to runtime */
     if (tok == TOK_SAVE || tok == TOK_LOAD) {
         uint8_t *start = tp;
@@ -2132,9 +2146,16 @@ static void emit_stmt(void)
             emit_delegate_stmt(fe_start, true);
             return;
         }
-        if (xstmt == XSTMT_COMMON || xstmt == XSTMT_CHAIN) {
-            EMIT("  /* CHAIN/COMMON — not supported in compiled mode */\n");
-            while (cur() && cur() != ':' && cur() != 0) tp++;
+        if (xstmt == XSTMT_COMMON) {
+            /* COMMON marks variables for CHAIN preservation — delegate */
+            emit_delegate_stmt(fe_start, false);
+            return;
+        }
+        if (xstmt == XSTMT_CHAIN) {
+            /* CHAIN loads + runs another .bas file via the runtime interpreter.
+             * Sync all variables, then delegate. CHAIN doesn't return. */
+            emit_delegate_stmt(fe_start, false);
+            EMIT("  gwrt_shutdown(); exit(0); /* CHAIN doesn't return */\n");
             return;
         }
         if (xstmt == XSTMT_ENVIRON || xstmt == XSTMT_DATE ||
