@@ -1,8 +1,8 @@
 # Roadmap
 
-## The Big One (In Progress)
+## Completed
 
-### Ahead-of-Time Compiler (v0.15.0, Phase 1)
+### Ahead-of-Time Compiler (v0.16.0)
 
 `gwbasic-compile` translates tokenized .bas programs to C source, then
 invokes GCC to produce native executables linked against `libgwrt.a`.
@@ -37,17 +37,8 @@ MID$ assignment delegation, ON ERROR GOTO with setjmp/gw_run_jmp,
 RESUME/RESUME NEXT, ERR/ERL, file I/O delegation (OPEN/CLOSE/PRINT#/
 INPUT#/WRITE#/LINE INPUT via emit_delegate_stmt), PMAP/POINT/PSET
 graphics, BSAVE/BLOAD/SAVE/LOAD, MKDIR/CHDIR/RMDIR/KILL file ops.
-**64 produce correct output (89%).** Division-by-zero detection,
-FIELD/GET variable read-back, CLS graphics flush, IOCTL$() handler.
-Only 5 failures remain: 3 structural (CHAIN/COMMON/RUN "file") and
-2 RNG-dependent.
-
-**Phase 3**: random-access files, PRINT USING, graphics, sound, event
-trapping, remaining statements.
-
-**Phase 4**: optimizations (constant folding, integer fast paths, dead code).
-
-## Completed
+**64 of 72 tests produce correct output (89%).** Only 5 failures remain:
+3 structural (CHAIN/COMMON/RUN "file" unsupported) and 2 RNG-dependent.
 
 ### Hardware I/O Simulator (v0.15.0)
 

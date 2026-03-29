@@ -18,7 +18,8 @@
 | 0.12.0 | | BSAVE/BLOAD, TUI ANSI 16-color rendering, CGA graphics framebuffer PEEK/POKE, keyboard shift flags |
 | 0.13.0 | | VIEW/WINDOW/PALETTE graphics, PMAP function, MBF float format for CVS/CVD/MKS$/MKD$ |
 | 0.14.0 | | MBF binary file compatibility (IEEE↔MBF at save/load boundary), fix binary loader null-byte truncation, fix DRAW M/S/A bugs, add TA/=var;/X substring |
-| 0.15.0 | | Hardware I/O simulator, gap-fill (100% token coverage), string pool + compacting GC, Jupyter kernel, ahead-of-time compiler (Phase 1) |
+| 0.15.0 | | Hardware I/O simulator, gap-fill (100% token coverage), string pool + compacting GC, Jupyter kernel (Sixel graphics, INPUT, Pygments), ahead-of-time compiler Phase 1 |
+| 0.16.0 | | AOT compiler complete: 64/72 tests pass (89%), zero compile errors. Token embedding for complex statements, string comparison, division-by-zero detection, FIELD read-back, PMAP/POINT, MID$ assignment, CVI/MKI$, CLEAR resize, ENVIRON/IOCTL$ delegation |
 
 ## Tests
 
