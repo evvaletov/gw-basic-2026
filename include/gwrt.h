@@ -14,6 +14,8 @@
 #include "strpool.h"
 #include "portio.h"
 #include "sound.h"
+#include "graphics.h"
+#include "virmem.h"
 #include <setjmp.h>
 
 /* Initialization / shutdown */

@@ -198,7 +198,12 @@ static void emit_atom(void)
         float v;
         memcpy(&v, tp + 1, 4);
         tp += 5;
-        EMIT("%.9gf", v);
+        { char nbuf[32]; snprintf(nbuf, sizeof(nbuf), "%.9g", v);
+          if (!strchr(nbuf, '.') && !strchr(nbuf, 'e'))
+              EMIT("%s.0f", nbuf);  /* 0 → 0.0f */
+          else
+              EMIT("%sf", nbuf);    /* 3.14 → 3.14f */
+        }
         return;
     }
     if (tok == TOK_CONST_DBL) {
@@ -272,9 +277,12 @@ static void emit_atom(void)
             return;
         }
         case FUNC_RND: {
-            /* RND may or may not have parens */
+            /* RND([n]) — argument is ignored (controls seed behavior) */
             if (cur() == '(') {
-                advance(); emit_num_expr();
+                advance();
+                /* Consume but discard the argument */
+                char *discard = emit_to_buf(emit_prec_wrapper, 0);
+                free(discard);
                 if (cur() == ')') advance();
             }
             EMIT("((float)rand() / RAND_MAX)");
@@ -630,10 +638,17 @@ static void emit_str_expr(void)
             EMIT("gw_fn_mid(&(gw_value_t){.type=VT_STR,.sval=");
             advance(); emit_str_expr();
             if (cur() == ',') advance();
-            EMIT("}, ");
+            EMIT("}, (int)(");
             emit_num_expr();
-            EMIT(", 255");
-            if (cur() == ',') { advance(); EMIT("); /* mid with len */ "); }
+            EMIT("), ");
+            if (cur() == ',') {
+                advance();
+                EMIT("(int)(");
+                emit_num_expr();
+                EMIT(")");
+            } else {
+                EMIT("255");
+            }
             if (cur() == ')') advance();
             EMIT(").sval");
             return;
@@ -1033,12 +1048,13 @@ static void emit_stmt(void)
         EMIT(");\n");
         skip_spaces();
         if (cur() == TOK_TO) advance();
-        /* Store limit in a temp */
-        EMIT("  { %s _for_limit_%d = (%s)(", c_type(type), for_label_counter, c_type(type));
+        /* Store limit and step at function scope (no {} block — FOR may span IF THEN) */
+        EMIT("  static %s _for_limit_%d; _for_limit_%d = (%s)(",
+             c_type(type), for_label_counter, for_label_counter, c_type(type));
         emit_num_expr();
         EMIT(");\n");
-        /* Step (default 1) */
-        EMIT("    %s _for_step_%d = 1;\n", c_type(type), for_label_counter);
+        EMIT("  static %s _for_step_%d; _for_step_%d = 1;\n",
+             c_type(type), for_label_counter, for_label_counter);
         skip_spaces();
         if (cur() == TOK_STEP) {
             advance();
@@ -1096,9 +1112,8 @@ static void emit_stmt(void)
                 fc = for_label_counter > 0 ? for_label_counter - 1 : 0;
             }
         }
-        EMIT("    goto for_top_%d;\n", fc);
-        EMIT("    for_done_%d: ;\n", fc);
-        EMIT("  }\n");
+        EMIT("  goto for_top_%d;\n", fc);
+        EMIT("  for_done_%d: ;\n", fc);
         return;
     }
 
@@ -1146,6 +1161,12 @@ static void emit_stmt(void)
                 uint16_t target = read_int();
                 EMIT("  gwrt_error_target = %u; /* ON ERROR GOTO */\n", target);
             }
+            return;
+        }
+        /* ON TIMER / ON KEY / ON COM — event trapping, skip */
+        if (cur() == TOK_PREFIX_FE || cur() == TOK_KEY) {
+            EMIT("  /* ON event trap — not compiled */\n");
+            while (cur() && cur() != ':' && cur() != 0) tp++;
             return;
         }
         EMIT("  { int _on_val = (int)(");
@@ -1343,6 +1364,39 @@ static void emit_stmt(void)
     if (tok == TOK_INPUT) {
         advance();
         EMIT("  /* INPUT — not yet compiled */\n");
+        while (cur() && cur() != ':' && cur() != 0) tp++;
+        return;
+    }
+
+    /* RESUME / RESUME NEXT / RESUME n */
+    if (tok == TOK_RESUME) {
+        advance();
+        skip_spaces();
+        if (cur() == TOK_NEXT) {
+            advance();
+            EMIT("  /* RESUME NEXT — not fully compiled */\n");
+        } else if (is_const(cur())) {
+            uint16_t target = read_int();
+            EMIT("  goto L_%u; /* RESUME n */\n", target);
+        } else {
+            EMIT("  /* RESUME — not fully compiled */\n");
+        }
+        return;
+    }
+
+    /* ERROR n */
+    if (tok == TOK_ERROR) {
+        advance();
+        EMIT("  gw_error((int)(");
+        emit_num_expr();
+        EMIT("));\n");
+        return;
+    }
+
+    /* ERASE */
+    if (tok == TOK_ERASE) {
+        advance();
+        EMIT("  /* ERASE — not yet compiled */\n");
         while (cur() && cur() != ':' && cur() != 0) tp++;
         return;
     }
@@ -1587,6 +1641,13 @@ static void emit_stmt(void)
     if (tok == TOK_CLS) {
         advance();
         EMIT("  if (gw_hal) gw_hal->cls();\n");
+        return;
+    }
+
+    /* MID$ assignment: MID$(var$, start [,len]) = expr */
+    if (tok == TOK_PREFIX_FF && tp[1] == FUNC_MID) {
+        EMIT("  /* MID$ assignment — not yet compiled */\n");
+        while (cur() && cur() != ':' && cur() != 0) tp++;
         return;
     }
 
