@@ -30,8 +30,10 @@ STRING$(n,"c") string arg handling, READ into arrays, array assignment
 self-reference fix, PRINT USING colon-in-string. **Zero compile errors**
 — all 72 programs compile. **46 produce correct output (64%).** String
 concatenation (A$+B$), READ into arrays, self-referencing array assignment
-fix, float division semantics (/ always float), PRINT USING null-byte
-token fix, FRE GC, STICK/EOF stubs.
+fix, float division semantics, PRINT USING null-byte token fix,
+string comparison (strcmp), ON ERROR GOTO (setjmp), graphics/sound
+delegation to runtime via token embedding. **48 produce correct
+output (67%).**
 
 **Phase 3**: random-access files, PRINT USING, graphics, sound, event
 trapping, remaining statements.
