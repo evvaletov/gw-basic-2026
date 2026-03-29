@@ -166,6 +166,11 @@ static const char *binop_c(uint8_t tok)
     }
 }
 
+/* Forward declarations for buffered expression emission */
+static char *emit_to_buf(void (*fn)(int), int arg);
+static void emit_num_prec(int min_prec);
+static void emit_prec_wrapper(int prec);
+
 /* Emit a numeric atom */
 static void emit_atom(void)
 {
@@ -370,6 +375,55 @@ static void emit_atom(void)
             if (cur() == '(') { advance(); while (cur() && cur() != ')') tp++; if (cur() == ')') advance(); }
             return;
         }
+    }
+
+    /* Single-byte function tokens (not 0xFF-prefixed) */
+    if (tok == TOK_INSTR) {
+        /* INSTR([start,] haystack$, needle$) */
+        tp++;
+        EMIT("({");
+        if (cur() == '(') advance();
+        /* Check if first arg is numeric (start position) */
+        uint8_t *save_p = tp;
+        bool has_start = false;
+        /* Heuristic: if first token after ( is a number, it's the start arg */
+        skip_spaces();
+        if (is_const(cur()) || (is_letter(cur()) && ({
+            uint8_t *sv = tp; char n[2]; gw_valtype_t t = parse_var(n); tp = sv; t != VT_STR; }))) {
+            has_start = true;
+        }
+        tp = save_p;
+        skip_spaces();
+        if (has_start) {
+            char *sbuf = emit_to_buf(emit_prec_wrapper, 0);
+            EMIT(" int _start = (int)(%s);", sbuf);
+            free(sbuf);
+            if (cur() == ',') advance();
+        }
+        EMIT(" gw_value_t _h = {.type=VT_STR,.sval=");
+        emit_str_expr();
+        EMIT("}; ");
+        if (cur() == ',') advance();
+        EMIT("gw_value_t _n = {.type=VT_STR,.sval=");
+        emit_str_expr();
+        EMIT("}; ");
+        if (cur() == ')') advance();
+        if (has_start)
+            EMIT("gw_fn_instr(_start, &_h, &_n).ival; })");
+        else
+            EMIT("gw_fn_instr(1, &_h, &_n).ival; })");
+        return;
+    }
+    if (tok == TOK_CSRLIN) {
+        tp++;
+        EMIT("(gw_hal ? gw_hal->get_cursor_row() + 1 : 1)");
+        return;
+    }
+    if (tok == TOK_VARPTR) {
+        tp++;
+        EMIT("0 /* VARPTR */");
+        if (cur() == '(') { advance(); while (cur() && cur() != ')') tp++; if (cur() == ')') advance(); }
+        return;
     }
 
     /* Variable or array element */
@@ -617,6 +671,30 @@ static void emit_str_expr(void)
         }
     }
 
+    /* STRING$ (single-byte token 0xD4) */
+    if (tok == TOK_STRINGS) {
+        tp++;
+        if (cur() == '(') advance();
+        char *arg1 = emit_to_buf(emit_prec_wrapper, 0);
+        if (cur() == ',') advance();
+        skip_spaces();
+        /* Second arg can be a number (char code) or a string */
+        if (cur() == '"' || (is_letter(cur()) && ({
+            uint8_t *sv = tp; char n[2]; gw_valtype_t t = parse_var(n); tp = sv; t == VT_STR; }))) {
+            /* String second arg — use first char's ASCII value */
+            char *arg2 = emit_to_buf(emit_prec_wrapper, 0);
+            EMIT("gw_fn_strings((int)(%s), (int)(%s)).sval", arg1, arg2);
+            free(arg2);
+        } else {
+            char *arg2 = emit_to_buf(emit_prec_wrapper, 0);
+            EMIT("gw_fn_strings((int)(%s), (int)(%s)).sval", arg1, arg2);
+            free(arg2);
+        }
+        free(arg1);
+        if (cur() == ')') advance();
+        return;
+    }
+
     /* String variable or array element */
     if (is_letter(tok)) {
         char name[2];
@@ -730,7 +808,7 @@ static void emit_print(void)
         /* Detect string vs numeric expression */
         /* String: starts with " or a string variable or string function */
         uint8_t tok = cur();
-        bool is_str = (tok == '"');
+        bool is_str = (tok == '"' || tok == TOK_STRINGS);
         if (is_letter(tok)) {
             /* Peek ahead for $ suffix */
             uint8_t *save = tp;
@@ -743,7 +821,7 @@ static void emit_print(void)
             uint8_t func = tp[1];
             is_str = (func == FUNC_CHR || func == FUNC_STR || func == FUNC_LEFT
                    || func == FUNC_RIGHT || func == FUNC_MID || func == FUNC_SPACE
-                   || func == 0xD4 /* STRING$ */ || func == FUNC_HEX || func == FUNC_OCT);
+                   || func == FUNC_HEX || func == FUNC_OCT);
         }
 
         if (is_str) {
@@ -866,6 +944,47 @@ static void emit_stmt(void)
     /* PRINT */
     if (tok == TOK_PRINT || tok == '?') {
         advance();
+        skip_spaces();
+        /* PRINT USING — embed token bytes and call runtime */
+        if (cur() == TOK_USING) {
+            /* Skip past USING token, then embed remaining bytes */
+            advance(); /* skip TOK_USING */
+            uint8_t *start = tp;
+            while (*tp && *tp != ':') tp++;
+            int len = (int)(tp - start);
+            /* Sync compiled variables to interpreter table so gw_eval works */
+            EMIT("  {\n");
+            for (int vi = 0; vi < ana->var_count; vi++) {
+                var_info_t *v = &ana->vars[vi];
+                char n0 = v->name[0], n1 = v->name[1];
+                if (n1)
+                    EMIT("    gw_var_find_or_create(\"%c%c\", %d)->val = ", n0, n1, v->type);
+                else
+                    EMIT("    gw_var_find_or_create(\"%c\", %d)->val = ", n0, v->type);
+                EMIT("(gw_value_t){.type=%d,", v->type);
+                switch (v->type) {
+                case VT_INT: EMIT(".ival="); break;
+                case VT_SNG: EMIT(".fval="); break;
+                case VT_DBL: EMIT(".dval="); break;
+                case VT_STR: EMIT(".sval="); break;
+                }
+                emit_varname(v->name, v->type);
+                EMIT("};\n");
+            }
+            EMIT("    static const uint8_t _pu[] = {");
+            for (int i = 0; i < len; i++)
+                EMIT("%s%u", i ? "," : "", start[i]);
+            EMIT(",0};\n");
+            EMIT("    gw.text_ptr = (uint8_t *)_pu;\n");
+            EMIT("    gw_print_using(NULL);\n  }\n");
+            return;
+        }
+        /* PRINT # (file) — skip for now */
+        if (cur() == '#') {
+            while (cur() && cur() != ':' && cur() != 0) tp++;
+            EMIT("  /* PRINT# — not yet compiled */\n");
+            return;
+        }
         emit_print();
         return;
     }
