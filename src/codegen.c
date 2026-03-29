@@ -388,18 +388,61 @@ static void emit_atom(void)
  * before emitting the left operand, check if the upcoming operator needs
  * a function wrapper, and if so, emit the function name + open paren first.
  */
+static void emit_num_prec(int min_prec);
+
+
+/* Buffer helper: emit to a memory buffer, return allocated string */
+static char *emit_to_buf(void (*fn)(int), int arg)
+{
+    FILE *orig = out;
+    char *buf = NULL;
+    size_t sz = 0;
+    out = open_memstream(&buf, &sz);
+    fn(arg);
+    fclose(out);
+    out = orig;
+    return buf;
+}
+
+static void emit_atom_wrapper(int unused) { (void)unused; emit_atom(); }
+static void emit_prec_wrapper(int prec) { emit_num_prec(prec); }
+
 static void emit_num_prec(int min_prec)
 {
-    emit_atom();
+    /* Buffer left operand so we can wrap it for MOD/IDIV/POW */
+    char *left = emit_to_buf(emit_atom_wrapper, 0);
+
     for (;;) {
         skip_spaces();
         int prec = op_prec(cur());
         if (prec < min_prec) break;
         uint8_t op = cur();
         advance();
-        EMIT(" %s ", binop_c(op));
-        emit_num_prec(prec + 1);
+
+        char *right = emit_to_buf(emit_prec_wrapper, prec + 1);
+
+        char *combined = NULL;
+        size_t csz = 0;
+        FILE *cm = open_memstream(&combined, &csz);
+
+        if (op == TOK_MOD) {
+            fprintf(cm, "((int16_t)(%s) %% (int16_t)(%s))", left, right);
+        } else if (op == TOK_IDIV) {
+            fprintf(cm, "((int16_t)(%s) / (int16_t)(%s))", left, right);
+        } else if (op == TOK_POW) {
+            fprintf(cm, "pow((double)(%s), (double)(%s))", left, right);
+        } else {
+            fprintf(cm, "(%s %s %s)", left, binop_c(op), right);
+        }
+        fclose(cm);
+
+        free(left);
+        free(right);
+        left = combined;
     }
+
+    EMIT("%s", left);
+    free(left);
 }
 
 
@@ -768,6 +811,272 @@ static void emit_stmt(void)
         return;
     }
 
+    /* WHILE */
+    if (tok == TOK_WHILE) {
+        int wl = for_label_counter++;
+        EMIT("  while_top_%d:\n", wl);
+        advance();
+        EMIT("  if (!(");
+        emit_num_expr();
+        EMIT(")) goto while_done_%d;\n", wl);
+        /* Push on FOR stack (reuse for WEND matching) */
+        if (for_stack_sp < FOR_STACK_MAX) {
+            for_stack[for_stack_sp].name[0] = 'W';
+            for_stack[for_stack_sp].name[1] = 0;
+            for_stack[for_stack_sp].type = VT_INT;
+            for_stack[for_stack_sp].label = wl;
+            for_stack_sp++;
+        }
+        return;
+    }
+
+    /* WEND */
+    if (tok == TOK_WEND) {
+        advance();
+        int wl = 0;
+        if (for_stack_sp > 0) {
+            for_stack_sp--;
+            wl = for_stack[for_stack_sp].label;
+        }
+        EMIT("  goto while_top_%d;\n", wl);
+        EMIT("  while_done_%d: ;\n", wl);
+        return;
+    }
+
+    /* ON n GOTO / ON n GOSUB */
+    if (tok == TOK_ON) {
+        advance();
+        skip_spaces();
+        /* Check for ON ERROR GOTO */
+        if (cur() == TOK_ERROR) {
+            advance(); skip_spaces();
+            if (cur() == TOK_GOTO) {
+                advance(); skip_spaces();
+                uint16_t target = read_int();
+                EMIT("  gwrt_error_target = %u; /* ON ERROR GOTO */\n", target);
+            }
+            return;
+        }
+        EMIT("  { int _on_val = (int)(");
+        emit_num_expr();
+        EMIT(");\n");
+        skip_spaces();
+        if (cur() == TOK_GOTO) {
+            advance(); skip_spaces();
+            int n = 1;
+            EMIT("    switch(_on_val) {\n");
+            while (is_const(cur())) {
+                uint16_t target = read_int();
+                EMIT("      case %d: goto L_%u;\n", n++, target);
+                skip_spaces();
+                if (cur() == ',') { advance(); skip_spaces(); }
+                else break;
+            }
+            EMIT("    }\n  }\n");
+        } else if (cur() == TOK_GOSUB) {
+            advance(); skip_spaces();
+            int n = 1;
+            int rl = ret_label_counter;
+            EMIT("    switch(_on_val) {\n");
+            while (is_const(cur())) {
+                uint16_t target = read_int();
+                EMIT("      case %d: gwrt_gosub_push(%d); goto L_%u;\n", n++, rl, target);
+                skip_spaces();
+                if (cur() == ',') { advance(); skip_spaces(); }
+                else break;
+            }
+            EMIT("    }\n  }\n");
+            EMIT("  ret_%d: ;\n", rl);
+            ret_label_counter++;
+        }
+        return;
+    }
+
+    /* DIM */
+    if (tok == TOK_DIM) {
+        advance();
+        /* DIM is handled at compile time for static arrays — skip for now */
+        EMIT("  /* DIM (compile-time) */\n");
+        while (cur() && cur() != ':' && cur() != 0) tp++;
+        return;
+    }
+
+    /* SWAP */
+    if (tok == TOK_SWAP) {
+        advance();
+        char n1[2]; gw_valtype_t t1 = parse_var(n1);
+        skip_spaces();
+        if (cur() == ',') advance();
+        char n2[2]; gw_valtype_t t2 = parse_var(n2);
+        EMIT("  { %s _swap = ", c_type(t1));
+        emit_varname(n1, t1);
+        EMIT("; ");
+        emit_varname(n1, t1);
+        EMIT(" = ");
+        emit_varname(n2, t2);
+        EMIT("; ");
+        emit_varname(n2, t2);
+        EMIT(" = _swap; }\n");
+        return;
+    }
+
+    /* POKE */
+    if (tok == TOK_POKE) {
+        advance();
+        EMIT("  virmem_poke(gw.def_seg, (uint16_t)(");
+        emit_num_expr();
+        EMIT("), (uint8_t)(");
+        skip_spaces();
+        if (cur() == ',') advance();
+        emit_num_expr();
+        EMIT("));\n");
+        return;
+    }
+
+    /* DEF SEG / DEF FN */
+    if (tok == TOK_DEF) {
+        advance();
+        skip_spaces();
+        /* DEF SEG = expr  or  DEF FN */
+        if (toupper(cur()) == 'S') {
+            /* Skip "SEG" */
+            while (is_letter(cur())) advance();
+            skip_spaces();
+            if (cur() == TOK_EQ) {
+                advance();
+                EMIT("  gw.def_seg = (uint16_t)(");
+                emit_num_expr();
+                EMIT(");\n");
+            } else {
+                EMIT("  gw.def_seg = 0;\n");
+            }
+        } else {
+            /* DEF FN — skip for now, handled by analysis */
+            while (cur() && cur() != ':' && cur() != 0) tp++;
+        }
+        return;
+    }
+
+    /* RANDOMIZE */
+    if (tok == TOK_RANDOMIZE) {
+        advance();
+        skip_spaces();
+        if (cur() && cur() != ':' && cur() != 0) {
+            EMIT("  srand((unsigned)(");
+            emit_num_expr();
+            EMIT("));\n");
+        } else {
+            EMIT("  srand((unsigned)time(NULL));\n");
+        }
+        return;
+    }
+
+    /* COLOR */
+    if (tok == TOK_COLOR) {
+        advance();
+        EMIT("  /* COLOR */\n");
+        while (cur() && cur() != ':' && cur() != 0) tp++;
+        return;
+    }
+
+    /* LOCATE */
+    if (tok == TOK_LOCATE) {
+        advance();
+        EMIT("  { int _row = (int)(");
+        emit_num_expr();
+        EMIT("); int _col = 1;\n");
+        skip_spaces();
+        if (cur() == ',') {
+            advance();
+            EMIT("  _col = (int)(");
+            emit_num_expr();
+            EMIT(");\n");
+        }
+        EMIT("  if (gw_hal) gw_hal->locate(_row - 1, _col - 1); }\n");
+        return;
+    }
+
+    /* WIDTH */
+    if (tok == TOK_WIDTH) {
+        advance();
+        EMIT("  /* WIDTH */\n");
+        while (cur() && cur() != ':' && cur() != 0) tp++;
+        return;
+    }
+
+    /* SCREEN */
+    if (tok == TOK_SCREEN) {
+        advance();
+        EMIT("  { int _mode = (int)(");
+        emit_num_expr();
+        EMIT("); if (_mode) gfx_init(_mode); else gfx_shutdown(); }\n");
+        while (cur() == ',') { advance(); emit_num_expr(); }
+        return;
+    }
+
+    /* TRON/TROFF */
+    if (tok == TOK_TRON) { advance(); return; }
+    if (tok == TOK_TROFF) { advance(); return; }
+
+    /* OPTION BASE */
+    if (tok == TOK_OPTION) {
+        advance(); /* skip OPTION */
+        skip_spaces();
+        /* expect BASE */
+        advance(); /* skip BASE */
+        skip_spaces();
+        EMIT("  gw.option_base = (int)(");
+        emit_num_expr();
+        EMIT(");\n");
+        return;
+    }
+
+    /* DEFINT/DEFSNG/DEFDBL/DEFSTR — compile-time only, skip */
+    if (tok == TOK_DEFINT || tok == TOK_DEFSNG ||
+        tok == TOK_DEFDBL || tok == TOK_DEFSTR) {
+        while (cur() && cur() != ':' && cur() != 0) tp++;
+        return;
+    }
+
+    /* KEY */
+    if (tok == TOK_KEY) {
+        advance();
+        EMIT("  /* KEY */\n");
+        while (cur() && cur() != ':' && cur() != 0) tp++;
+        return;
+    }
+
+    /* WRITE (output) */
+    if (tok == TOK_WRITE) {
+        advance();
+        skip_spaces();
+        /* Simple WRITE: comma-separated values with quotes around strings */
+        bool first = true;
+        while (cur() && cur() != ':' && cur() != 0) {
+            if (!first) EMIT("  gwrt_print_cstr(\",\");\n");
+            first = false;
+            skip_spaces();
+            if (cur() == '"' || (is_letter(cur()) && ({
+                uint8_t *s = tp; char n[2]; gw_valtype_t t = parse_var(n);
+                tp = s; t == VT_STR; }))) {
+                EMIT("  gwrt_print_cstr(\"\\\"\");\n");
+                EMIT("  { gw_string_t _s = ");
+                emit_str_expr();
+                EMIT("; gwrt_print_str(_s); gw_str_free(&_s); }\n");
+                EMIT("  gwrt_print_cstr(\"\\\"\");\n");
+            } else {
+                EMIT("  gwrt_print_sng((float)(");
+                emit_num_expr();
+                EMIT("));\n");
+            }
+            skip_spaces();
+            if (cur() == ',') advance();
+            else break;
+        }
+        EMIT("  gwrt_print_newline();\n");
+        return;
+    }
+
     /* IF / THEN / ELSE */
     if (tok == TOK_IF) {
         advance();
@@ -830,10 +1139,59 @@ static void emit_stmt(void)
             EMIT("  gwrt_shutdown(); exit(0);\n");
             return;
         }
+        if (xstmt == XSTMT_FILES || xstmt == XSTMT_SHELL ||
+            xstmt == XSTMT_CHDIR || xstmt == XSTMT_MKDIR ||
+            xstmt == XSTMT_RMDIR || xstmt == XSTMT_KILL ||
+            xstmt == XSTMT_NAME) {
+            /* These need a string argument — emit runtime call */
+            EMIT("  /* xstmt 0x%02x — runtime call needed */\n", xstmt);
+            while (cur() && cur() != ':' && cur() != 0) tp++;
+            return;
+        }
+        if (xstmt == XSTMT_TIMER) {
+            /* TIMER ON/OFF/STOP */
+            EMIT("  /* TIMER trap */\n");
+            while (cur() && cur() != ':' && cur() != 0) tp++;
+            return;
+        }
+        if (xstmt == XSTMT_CIRCLE || xstmt == XSTMT_DRAW ||
+            xstmt == XSTMT_PAINT || xstmt == XSTMT_PLAY) {
+            /* Graphics/sound — skip args for now */
+            EMIT("  /* graphics/sound xstmt 0x%02x */\n", xstmt);
+            while (cur() && cur() != ':' && cur() != 0) tp++;
+            return;
+        }
+        if (xstmt == XSTMT_VIEW || xstmt == XSTMT_WINDOW ||
+            xstmt == XSTMT_PALETTE) {
+            EMIT("  /* view/window/palette */\n");
+            while (cur() && cur() != ':' && cur() != 0) tp++;
+            return;
+        }
+        if (xstmt == XSTMT_FIELD || xstmt == XSTMT_LSET ||
+            xstmt == XSTMT_RSET || xstmt == XSTMT_PUT ||
+            xstmt == XSTMT_GET) {
+            EMIT("  /* file I/O xstmt */\n");
+            while (cur() && cur() != ':' && cur() != 0) tp++;
+            return;
+        }
+        if (xstmt == XSTMT_COMMON || xstmt == XSTMT_CHAIN) {
+            EMIT("  /* CHAIN/COMMON — not supported in compiled mode */\n");
+            while (cur() && cur() != ':' && cur() != 0) tp++;
+            return;
+        }
+        if (xstmt == XSTMT_ENVIRON || xstmt == XSTMT_ERDEV ||
+            xstmt == XSTMT_IOCTL || xstmt == XSTMT_LCOPY ||
+            xstmt == XSTMT_CALLS || xstmt == XSTMT_COM ||
+            xstmt == XSTMT_RESET || xstmt == XSTMT_DATE ||
+            xstmt == XSTMT_TIME || xstmt == XSTMT_PMAP) {
+            /* Minor statements — skip args */
+            while (cur() && cur() != ':' && cur() != 0) tp++;
+            return;
+        }
 
-        /* Fallback for unhandled extended statements */
-        EMIT("  /* TODO: xstmt 0x%02x */\n", xstmt);
-        while (cur() && cur() != ':') tp++;
+        /* Fallback */
+        EMIT("  /* unhandled xstmt 0x%02x */\n", xstmt);
+        while (cur() && cur() != ':' && cur() != 0) tp++;
         return;
     }
 
@@ -925,7 +1283,8 @@ void codegen_emit(FILE *f, analysis_t *a)
     EMIT("#include \"gwrt.h\"\n");
     EMIT("#include <math.h>\n");
     EMIT("#include <stdlib.h>\n");
-    EMIT("#include <string.h>\n\n");
+    EMIT("#include <string.h>\n");
+    EMIT("#include <time.h>\n\n");
 
     /* Variable declarations */
     for (int i = 0; i < a->var_count; i++) {
