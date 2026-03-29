@@ -53,3 +53,49 @@ if(PULSEAUDIO_FOUND)
     target_include_directories(gwbasic PRIVATE ${PULSEAUDIO_INCLUDE_DIRS})
     target_link_libraries(gwbasic ${PULSEAUDIO_LIBRARIES} pthread)
 endif()
+
+# Runtime library for compiled BASIC programs
+set(GWRT_SOURCES
+    src/tokens.c
+    src/tokenizer.c
+    src/error.c
+    src/eval.c
+    src/interp.c
+    src/vars.c
+    src/arrays.c
+    src/input.c
+    src/math_int.c
+    src/math_float.c
+    src/math_transcend.c
+    src/strings.c
+    src/print.c
+    src/fileio.c
+    src/program_io.c
+    src/print_using.c
+    src/graphics.c
+    src/virmem.c
+    src/portio.c
+    src/strpool.c
+    src/sound.c
+    src/tui.c
+    src/gwrt.c
+    platform/hal_posix.c
+)
+
+add_library(gwrt STATIC ${GWRT_SOURCES})
+target_link_libraries(gwrt m)
+if(PULSEAUDIO_FOUND)
+    target_compile_definitions(gwrt PRIVATE HAVE_PULSEAUDIO)
+    target_include_directories(gwrt PRIVATE ${PULSEAUDIO_INCLUDE_DIRS})
+    target_link_libraries(gwrt ${PULSEAUDIO_LIBRARIES} pthread)
+endif()
+
+# GW-BASIC compiler
+add_executable(gwbasic-compile
+    src/compiler_main.c
+    src/analysis.c
+    src/codegen.c
+    src/tokens.c
+    src/tokenizer.c
+)
+target_link_libraries(gwbasic-compile m)

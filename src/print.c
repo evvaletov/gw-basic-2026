@@ -2,8 +2,8 @@
 #include <string.h>
 #include <stdio.h>
 
-/* Screen print column tracking */
-static int print_col = 0;
+/* Screen print column tracking (non-static: accessed by gwrt.c for compiled programs) */
+int print_col = 0;
 
 /* Printer (LPT1) state */
 static FILE *lpt_fp;
