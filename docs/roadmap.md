@@ -19,7 +19,8 @@ SWAP, POKE, DEF SEG, RANDOMIZE, LOCATE, COLOR, SCREEN, WIDTH, KEY,
 WRITE, OPTION BASE, DEF type statements, extended statement dispatch.
 DIM/array subscript access (gwrt_array_elem runtime), number formatting
 via gw_print_value() with expression type tracking, combined relational
-operators (<=, >=, <>). 23 of 72 tests passing.
+operators (<=, >=, <>), PRINT USING (token embedding with variable sync),
+STRING$/INSTR single-byte token support. 27 of 72 tests passing.
 
 **Phase 3**: random-access files, PRINT USING, graphics, sound, event
 trapping, remaining statements.
