@@ -428,6 +428,36 @@ static void emit_atom(void)
         }
     }
 
+    /* Extended functions (0xFD prefix): CVI, CVS, CVD */
+    if (tok == TOK_PREFIX_FD) {
+        uint8_t xfunc = tp[1];
+        tp += 2;
+        skip_spaces();
+        if (xfunc == XFUNC_CVI) {
+            EMIT("gw_fn_cvi(&(gw_value_t){.type=VT_STR,.sval=");
+            if (cur() == '(') advance();
+            emit_str_atom();
+            if (cur() == ')') advance();
+            EMIT("}).ival");
+        } else if (xfunc == XFUNC_CVS) {
+            EMIT("gw_fn_cvs(&(gw_value_t){.type=VT_STR,.sval=");
+            if (cur() == '(') advance();
+            emit_str_atom();
+            if (cur() == ')') advance();
+            EMIT("}).fval");
+        } else if (xfunc == XFUNC_CVD) {
+            EMIT("gw_fn_cvd(&(gw_value_t){.type=VT_STR,.sval=");
+            if (cur() == '(') advance();
+            emit_str_atom();
+            if (cur() == ')') advance();
+            EMIT("}).dval");
+        } else {
+            EMIT("0 /* unhandled xfunc 0x%02x */", xfunc);
+            if (cur() == '(') { advance(); while (cur() && cur() != ')') tp++; if (cur() == ')') advance(); }
+        }
+        return;
+    }
+
     /* FN call: embed tokens and use interpreter's gw_eval_fn_call */
     if (tok == TOK_FN) {
         uint8_t *start = tp;
@@ -534,6 +564,16 @@ static void emit_atom(void)
     if (tok == TOK_CSRLIN) {
         tp++;
         EMIT("(gw_hal ? gw_hal->get_cursor_row() + 1 : 1)");
+        return;
+    }
+    if (tok == TOK_ERR) {
+        tp++;
+        EMIT("gw_errno");
+        return;
+    }
+    if (tok == TOK_ERL) {
+        tp++;
+        EMIT("gw.err_line_num");
         return;
     }
     if (tok == TOK_VARPTR) {
@@ -876,6 +916,35 @@ static void emit_str_atom(void)
         return;
     }
 
+    /* Extended string functions (0xFD prefix): MKI$, MKS$, MKD$ */
+    if (tok == TOK_PREFIX_FD) {
+        uint8_t xfunc = tp[1];
+        tp += 2;
+        skip_spaces();
+        if (xfunc == XFUNC_MKI) {
+            EMIT("gw_fn_mki((int16_t)(");
+            if (cur() == '(') advance();
+            emit_num_expr();
+            if (cur() == ')') advance();
+            EMIT(")).sval");
+        } else if (xfunc == XFUNC_MKS) {
+            EMIT("gw_fn_mks((float)(");
+            if (cur() == '(') advance();
+            emit_num_expr();
+            if (cur() == ')') advance();
+            EMIT(")).sval");
+        } else if (xfunc == XFUNC_MKD) {
+            EMIT("gw_fn_mkd((double)(");
+            if (cur() == '(') advance();
+            emit_num_expr();
+            if (cur() == ')') advance();
+            EMIT(")).sval");
+        } else {
+            EMIT("gw_str_from_cstr(\"\") /* unhandled xstr func 0x%02x */", xfunc);
+        }
+        return;
+    }
+
     /* STRING$ (single-byte token 0xD4) */
     if (tok == TOK_STRINGS) {
         tp++;
@@ -1018,6 +1087,15 @@ static gw_valtype_t peek_expr_type(void)
         default:
             return VT_SNG;
         }
+    }
+    /* Extended functions (FD prefix) */
+    if (tok == TOK_PREFIX_FD) {
+        uint8_t xf = tp[1];
+        tp = save;
+        if (xf == XFUNC_CVI) return VT_INT;
+        if (xf == XFUNC_CVS) return VT_SNG;
+        if (xf == XFUNC_CVD) return VT_DBL;
+        return VT_SNG;
     }
     /* Integer constants — only if truly standalone (PRINT 42 vs PRINT 4*X) */
     if ((tok >= 0x11 && tok <= 0x1A) || tok == TOK_INT1 || tok == TOK_INT2)
@@ -1419,7 +1497,9 @@ static void emit_stmt(void)
             if (cur() == TOK_GOTO) {
                 advance(); skip_spaces();
                 uint16_t target = read_int();
-                EMIT("  gwrt_error_target = %u; /* ON ERROR GOTO */\n", target);
+                EMIT("  gwrt_error_target = %u; gw.on_error_line = %u;\n", target, target);
+                EMIT("  { static program_line_t _el = {.num=%u,.tokens=(uint8_t*)\"\\0\"};\n", target);
+                EMIT("    if (!gw_find_line(%u)) { _el.next = gw.prog_head; gw.prog_head = &_el; } }\n", target);
             }
             return;
         }
@@ -1677,12 +1757,22 @@ static void emit_stmt(void)
         skip_spaces();
         if (cur() == TOK_NEXT) {
             advance();
-            EMIT("  /* RESUME NEXT — not fully compiled */\n");
+            EMIT("  gw.in_error_handler = false;\n");
+            EMIT("  { uint16_t _el = gw.err_line_num;\n");
+            for (int i = 0; i < ana->line_count - 1; i++)
+                EMIT("    if (_el == %u) goto L_%u;\n",
+                     ana->lines[i].line_num, ana->lines[i+1].line_num);
+            EMIT("  }\n");
         } else if (is_const(cur())) {
             uint16_t target = read_int();
-            EMIT("  goto L_%u; /* RESUME n */\n", target);
+            EMIT("  goto L_%u;\n", target);
         } else {
-            EMIT("  /* RESUME — not fully compiled */\n");
+            /* RESUME (same line) */
+            EMIT("  { uint16_t _el = gw.err_line_num;\n");
+            for (int i = 0; i < ana->line_count; i++)
+                EMIT("    if (_el == %u) goto L_%u;\n",
+                     ana->lines[i].line_num, ana->lines[i].line_num);
+            EMIT("  }\n");
         }
         return;
     }
@@ -2016,8 +2106,60 @@ static void emit_stmt(void)
 
     /* MID$ assignment: MID$(var$, start [,len]) = expr */
     if (tok == TOK_PREFIX_FF && tp[1] == FUNC_MID) {
-        EMIT("  /* MID$ assignment — not yet compiled */\n");
-        while (cur() && cur() != ':' && cur() != 0) tp++;
+        /* MID$ assignment: embed tokens and delegate to runtime */
+        uint8_t *mid_start = tp;
+        /* Find end of statement, skipping strings and constants */
+        program_line_t *cur_pl = NULL;
+        for (program_line_t *pl = gw.prog_head; pl; pl = pl->next) {
+            if (tp >= pl->tokens && tp <= pl->tokens + pl->len) {
+                cur_pl = pl; break;
+            }
+        }
+        uint8_t *line_end = cur_pl ? cur_pl->tokens + cur_pl->len : tp + 256;
+        while (tp < line_end) {
+            if (*tp == '"') { tp++; while (tp < line_end && *tp != '"') tp++; if (tp < line_end) tp++; continue; }
+            if (*tp == TOK_CONST_SNG) { tp += 5; continue; }
+            if (*tp == TOK_CONST_DBL) { tp += 9; continue; }
+            if (*tp == ':' || *tp == 0) break;
+            tp++;
+        }
+        int slen = (int)(tp - mid_start);
+        EMIT("  {\n");
+        /* Sync string variables to interpreter table */
+        for (int vi = 0; vi < ana->var_count; vi++) {
+            var_info_t *v = &ana->vars[vi];
+            if (v->name[1])
+                EMIT("    gw_var_find_or_create(\"%c%c\", %d)->val = ", v->name[0], v->name[1], v->type);
+            else
+                EMIT("    gw_var_find_or_create(\"%c\", %d)->val = ", v->name[0], v->type);
+            EMIT("(gw_value_t){.type=%d,", v->type);
+            switch (v->type) {
+            case VT_INT: EMIT(".ival="); break;
+            case VT_SNG: EMIT(".fval="); break;
+            case VT_DBL: EMIT(".dval="); break;
+            case VT_STR: EMIT(".sval="); break;
+            }
+            emit_varname(v->name, v->type);
+            EMIT("};\n");
+        }
+        EMIT("    static const uint8_t _ms[] = {");
+        for (int i = 0; i < slen; i++)
+            EMIT("%s%u", i ? "," : "", mid_start[i]);
+        EMIT(",0};\n");
+        EMIT("    gw.text_ptr = (uint8_t *)_ms;\n");
+        EMIT("    gw_stmt_mid_assign();\n");
+        /* Read back string variables that may have been modified */
+        for (int vi = 0; vi < ana->var_count; vi++) {
+            var_info_t *v = &ana->vars[vi];
+            if (v->type != VT_STR) continue;
+            EMIT("    ");
+            emit_varname(v->name, v->type);
+            if (v->name[1])
+                EMIT(" = gw_var_find_or_create(\"%c%c\", %d)->val.sval;\n", v->name[0], v->name[1], v->type);
+            else
+                EMIT(" = gw_var_find_or_create(\"%c\", %d)->val.sval;\n", v->name[0], v->type);
+        }
+        EMIT("  }\n");
         return;
     }
 
@@ -2090,26 +2232,30 @@ void codegen_emit(FILE *f, analysis_t *a)
         EMIT("  gwrt_data_set(_data_pool, NULL, 0);\n");
     EMIT("\n");
 
-    /* ON ERROR GOTO handler via setjmp */
-    EMIT("  { int _err = setjmp(gw_error_jmp);\n");
-    EMIT("    if (_err) {\n");
-    EMIT("      if (gwrt_error_target) {\n");
-    EMIT("        int _tgt = gwrt_error_target;\n");
-    /* Dispatch to all possible ON ERROR GOTO targets */
-    for (int i = 0; i < a->goto_count; i++)
-        EMIT("        if (_tgt == %u) goto L_%u;\n",
-             a->goto_targets[i], a->goto_targets[i]);
-    EMIT("      }\n");
-    EMIT("      gwrt_shutdown(); return 1;\n");
-    EMIT("    }\n  }\n\n");
+    /* Error handling: ALL errors longjmp to gw_error_jmp.
+     * gw_error() sets gw.on_error_line = 0 and prints if no handler.
+     * For compiled programs, we intercept the longjmp and check
+     * gw.on_error_line BEFORE gw_error() clears it.
+     * Trick: store a dummy program_line_t so gw_find_line succeeds
+     * and gw_error() takes the ON ERROR path → longjmp(gw_run_jmp). */
+    EMIT("  static program_line_t _dummy_line = {0};\n");
+    EMIT("  _err_entry:\n");
+    EMIT("  if (setjmp(gw_run_jmp)) {\n");
+    EMIT("    if (gw.on_error_line) {\n");
+    EMIT("      int _tgt = gw.on_error_line;\n");
+    EMIT("      gw.in_error_handler = true;\n");
+    for (int i = 0; i < a->line_count; i++)
+        EMIT("      if (_tgt == %u) goto L_%u;\n",
+             a->lines[i].line_num, a->lines[i].line_num);
+    EMIT("    }\n");
+    EMIT("    gwrt_shutdown(); return 1;\n");
+    EMIT("  }\n");
+    EMIT("  if (setjmp(gw_error_jmp)) { gwrt_shutdown(); return 1; }\n\n");
 
     /* Emit code for each program line */
     for (program_line_t *line = gw.prog_head; line; line = line->next) {
-        /* Label (always emit for targets, comment for others) */
-        if (analysis_is_target(a, line->num))
-            EMIT("L_%u:\n", line->num);
-        else
-            EMIT("/* %u */ ", line->num);
+        /* Label for every line (RESUME NEXT needs all lines addressable) */
+        EMIT("L_%u:\n", line->num);
 
         EMIT("  gwrt_check_line(%u);\n", line->num);
 
