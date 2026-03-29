@@ -122,7 +122,9 @@ static uint8_t com1_inp(uint16_t port)
     int reg = port - 0x3F8;
     if (reg == 5)  /* LSR: transmitter ready */
         return 0x60;
-    return com1_regs[reg];
+    if (reg >= 0 && reg < 7)
+        return com1_regs[reg];
+    return 0xFF;
 }
 
 static void com1_out(uint16_t port, uint8_t value)

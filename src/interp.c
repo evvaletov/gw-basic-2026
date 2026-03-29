@@ -1377,7 +1377,12 @@ void gw_exec_stmt(void)
             gw_value_t val = gw_eval_str();
             char *s = gw_str_to_cstr(&val.sval);
             gw_str_free(&val.sval);
-            putenv(s);  /* s is intentionally not freed — putenv requires it */
+            char *eq = strchr(s, '=');
+            if (eq) {
+                *eq = '\0';
+                setenv(s, eq + 1, 1);
+            }
+            free(s);
             return;
         }
 
@@ -2617,7 +2622,7 @@ void gw_exec_stmt(void)
         gw_skip_spaces();
         gw_expect(',');
         int mask = gw_eval_int();
-        if (mask < 0 || mask > 255) gw_error(ERR_FC);
+        if (mask < 0 || mask > 255 || mask == 0) gw_error(ERR_FC);
         int xor_mask = 0;
         gw_skip_spaces();
         if (gw_chrgot() == ',') {

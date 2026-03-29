@@ -34,8 +34,8 @@ from ipykernel.kernelbase import Kernel
 
 from . import __version__
 
-_SENTINEL = '<<<GWDONE>>>'
-_SENTINEL_CMD = f'PRINT "{_SENTINEL}"\n'
+_SENTINEL = '\x01GWDONE\x01'
+_SENTINEL_CMD = 'PRINT CHR$(1)+"GWDONE"+CHR$(1)\n'
 
 _ERROR_RE = re.compile(
     r'(?:Syntax error|Illegal function call|Type mismatch|Out of |'
@@ -378,13 +378,14 @@ class GWBasicKernel(Kernel):
                 return before, 'done'
 
             # Check for INPUT prompt: "? " at end of buffer (no newline after)
-            if allow_stdin and buf.endswith(b'? ') and b'\n' not in buf[buf.rfind(b'\n') + 1:]:
-                # Extract text before the "? " to show as prompt
+            if allow_stdin and buf.endswith(b'? '):
                 last_nl = buf.rfind(b'\n')
-                prompt_line = buf[last_nl + 1:].decode('utf-8', errors='replace')
-                reply = self.raw_input(prompt_line)
-                self._proc.stdin.write((reply + '\n').encode())
-                self._proc.stdin.flush()
+                tail = buf[last_nl + 1:] if last_nl >= 0 else buf
+                if b'\n' not in tail[:-2]:  # no embedded newline before "? "
+                    prompt_line = tail.decode('utf-8', errors='replace')
+                    reply = self.raw_input(prompt_line)
+                    self._proc.stdin.write((reply + '\n').encode())
+                    self._proc.stdin.flush()
 
     def _split_sixel(self, raw):
         """Split raw output into (text_parts, sixel_blobs) interleaved."""

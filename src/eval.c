@@ -641,10 +641,9 @@ static gw_value_t eval_function(uint8_t prefix, uint8_t func_tok)
         gw_expect('(');
         arg = gw_eval();  /* can be string or numeric */
         gw_expect_rparen();
-        if (arg.type == VT_STR) {
-            gw_str_free(&arg.sval);
-            strpool_gc();
-        }
+        if (arg.type == VT_STR) gw_str_free(&arg.sval);
+        /* No GC here — unsafe during expression eval (temps on C stack).
+         * The run loop compacts at statement boundaries instead. */
         v.type = VT_SNG;
         v.fval = (float)strpool_free();
         return v;
@@ -996,7 +995,7 @@ static gw_value_t eval_atom(void)
             gw_chrget();
             gw_value_t v;
             v.type = VT_STR;
-            char tbuf[16];
+            char tbuf[40];
             time_t now = time(NULL);
             struct tm *tm = localtime(&now);
             if (xtok == XSTMT_DATE) {
