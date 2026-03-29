@@ -22,8 +22,9 @@ via gw_print_value() with expression type tracking, combined relational
 operators (<=, >=, <>), PRINT USING (token embedding with variable sync),
 STRING$/INSTR single-byte token support, PRINT USING (token embedding
 with variable sync), RESUME, ERROR, ON TIMER/KEY skip, MID$ assign skip,
-FOR scope fix (static limit/step). 32 of 72 tests passing, only 2
-compile errors remaining.
+FOR scope fix (static limit/step), SWAP with array elements, ENVIRON$/
+DATE$/TIME$ expression support, RESUME/ERROR statements. **Zero compile
+errors** — all 72 programs compile. 32 produce correct output.
 
 **Phase 3**: random-access files, PRINT USING, graphics, sound, event
 trapping, remaining statements.
