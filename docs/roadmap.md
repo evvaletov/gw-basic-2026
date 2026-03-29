@@ -35,8 +35,9 @@ string comparison (strcmp), ON ERROR GOTO (setjmp), graphics/sound
 delegation to runtime via token embedding, CVI/MKI$/CVS/MKS$/CVD/MKD$,
 MID$ assignment delegation, ON ERROR GOTO with setjmp/gw_run_jmp,
 RESUME/RESUME NEXT, ERR/ERL, file I/O delegation (OPEN/CLOSE/PRINT#/
-INPUT#/WRITE#/LINE INPUT via emit_delegate_stmt). **50 produce correct
-output (69%).**
+INPUT#/WRITE#/LINE INPUT via emit_delegate_stmt), PMAP/POINT/PSET
+graphics, BSAVE/BLOAD/SAVE/LOAD, MKDIR/CHDIR/RMDIR/KILL file ops.
+**58 produce correct output (81%).**
 
 **Phase 3**: random-access files, PRINT USING, graphics, sound, event
 trapping, remaining statements.
