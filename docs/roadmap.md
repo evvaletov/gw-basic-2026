@@ -14,9 +14,11 @@ FOR/NEXT, END/STOP/SYSTEM, REM, DATA/READ/RESTORE, CLS, arithmetic,
 string functions, core math functions.
 
 **Phase 2** (current): WHILE/WEND, ON GOTO/GOSUB, ON ERROR GOTO,
-MOD/IDIV/POW operators, SWAP, POKE, DEF SEG, RANDOMIZE, LOCATE,
-COLOR, SCREEN, WIDTH, KEY, WRITE, OPTION BASE, DEF type statements,
-extended statement dispatch. 17 of 72 tests passing.
+MOD/IDIV/POW operators (buffered left operand for proper casting),
+SWAP, POKE, DEF SEG, RANDOMIZE, LOCATE, COLOR, SCREEN, WIDTH, KEY,
+WRITE, OPTION BASE, DEF type statements, extended statement dispatch.
+DIM/array subscript access (gwrt_array_elem runtime), number formatting
+via gw_print_value(). 19 of 72 tests passing.
 
 **Phase 3**: random-access files, PRINT USING, graphics, sound, event
 trapping, remaining statements.
