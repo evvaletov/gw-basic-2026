@@ -1104,6 +1104,83 @@ static gw_valtype_t peek_expr_type(void)
     return VT_SNG;
 }
 
+/*
+ * Delegate a statement to the runtime interpreter via token embedding.
+ * Syncs all compiled variables to the interpreter table, embeds the
+ * raw token bytes, calls gw_exec_stmt(), then reads back variables
+ * that may have been modified (strings, and optionally all).
+ *
+ * stmt_start: pointer to first token byte (before advancing)
+ * read_back: if true, read all variables back from interpreter table
+ */
+static void emit_delegate_stmt(uint8_t *stmt_start, bool read_back)
+{
+    /* Find end of statement, respecting strings and constants */
+    program_line_t *cur_pl = NULL;
+    for (program_line_t *pl = gw.prog_head; pl; pl = pl->next) {
+        if (tp >= pl->tokens && tp <= pl->tokens + pl->len) {
+            cur_pl = pl; break;
+        }
+    }
+    uint8_t *line_end = cur_pl ? cur_pl->tokens + cur_pl->len : tp + 256;
+    while (tp < line_end) {
+        if (*tp == '"') { tp++; while (tp < line_end && *tp != '"') tp++; if (tp < line_end) tp++; continue; }
+        if (*tp == TOK_CONST_SNG) { tp += 5; continue; }
+        if (*tp == TOK_CONST_DBL) { tp += 9; continue; }
+        if (*tp == TOK_INT2) { tp += 3; continue; }
+        if (*tp == TOK_INT1) { tp += 2; continue; }
+        if (*tp == ':' || *tp == 0) break;
+        tp++;
+    }
+    int slen = (int)(tp - stmt_start);
+
+    EMIT("  {\n");
+    /* Sync all variables to interpreter table */
+    for (int vi = 0; vi < ana->var_count; vi++) {
+        var_info_t *v = &ana->vars[vi];
+        if (v->name[1])
+            EMIT("    gw_var_find_or_create(\"%c%c\", %d)->val = ", v->name[0], v->name[1], v->type);
+        else
+            EMIT("    gw_var_find_or_create(\"%c\", %d)->val = ", v->name[0], v->type);
+        EMIT("(gw_value_t){.type=%d,", v->type);
+        switch (v->type) {
+        case VT_INT: EMIT(".ival="); break;
+        case VT_SNG: EMIT(".fval="); break;
+        case VT_DBL: EMIT(".dval="); break;
+        case VT_STR: EMIT(".sval="); break;
+        }
+        emit_varname(v->name, v->type);
+        EMIT("};\n");
+    }
+    /* Embed token bytes */
+    EMIT("    static const uint8_t _ds[] = {");
+    for (int i = 0; i < slen; i++)
+        EMIT("%s%u", i ? "," : "", stmt_start[i]);
+    EMIT(",0};\n");
+    EMIT("    gw.text_ptr = (uint8_t *)_ds;\n");
+    EMIT("    gw_exec_stmt();\n");
+
+    /* Read back variables from interpreter table */
+    if (read_back) {
+        for (int vi = 0; vi < ana->var_count; vi++) {
+            var_info_t *v = &ana->vars[vi];
+            EMIT("    ");
+            emit_varname(v->name, v->type);
+            if (v->name[1])
+                EMIT(" = gw_var_find_or_create(\"%c%c\", %d)->val.", v->name[0], v->name[1], v->type);
+            else
+                EMIT(" = gw_var_find_or_create(\"%c\", %d)->val.", v->name[0], v->type);
+            switch (v->type) {
+            case VT_INT: EMIT("ival;\n"); break;
+            case VT_SNG: EMIT("fval;\n"); break;
+            case VT_DBL: EMIT("dval;\n"); break;
+            case VT_STR: EMIT("sval;\n"); break;
+            }
+        }
+    }
+    EMIT("  }\n");
+}
+
 static void emit_print(void)
 {
     skip_spaces();
@@ -1276,6 +1353,7 @@ static void emit_stmt(void)
 
     /* PRINT */
     if (tok == TOK_PRINT || tok == '?') {
+        uint8_t *print_tok = tp;  /* save position of PRINT token */
         advance();
         skip_spaces();
         /* PRINT USING — embed token bytes and call runtime */
@@ -1332,10 +1410,9 @@ static void emit_stmt(void)
             EMIT("    gw_print_using(NULL);\n  }\n");
             return;
         }
-        /* PRINT # (file) — skip for now */
+        /* PRINT # (file) — delegate to runtime */
         if (cur() == '#') {
-            while (cur() && cur() != ':' && cur() != 0) tp++;
-            EMIT("  /* PRINT# — not yet compiled */\n");
+            emit_delegate_stmt(print_tok, false);
             return;
         }
         emit_print();
@@ -1738,16 +1815,36 @@ static void emit_stmt(void)
     }
 
     /* OPEN / CLOSE — file I/O (Phase 3: needs inline argument parsing) */
-    if (tok == TOK_OPEN || tok == TOK_CLOSE) {
-        EMIT("  /* %s — file I/O not yet compiled */\n", tok == TOK_OPEN ? "OPEN" : "CLOSE");
-        while (cur() && cur() != ':' && cur() != 0) tp++;
+    /* LPRINT / LLIST — delegate to runtime */
+    if (tok == TOK_LPRINT || tok == TOK_LLIST) {
+        uint8_t *start = tp;
+        advance();
+        emit_delegate_stmt(start, false);
         return;
     }
-    /* INPUT */
-    if (tok == TOK_INPUT) {
+
+    /* LINE — could be LINE INPUT or LINE (graphics). Delegate both. */
+    if (tok == TOK_LINE) {
+        uint8_t *start = tp;
         advance();
-        EMIT("  /* INPUT — not yet compiled */\n");
-        while (cur() && cur() != ':' && cur() != 0) tp++;
+        emit_delegate_stmt(start, true);
+        return;
+    }
+
+    /* OPEN / CLOSE — delegate to runtime */
+    if (tok == TOK_OPEN || tok == TOK_CLOSE) {
+        uint8_t *start = tp;
+        advance();  /* move past the token to begin scanning */
+        emit_delegate_stmt(start, tok == TOK_CLOSE);
+        return;
+    }
+    /* INPUT / LINE INPUT — delegate to runtime (reads variables) */
+    if (tok == TOK_INPUT) {
+        uint8_t *start = tp;
+        advance();
+        skip_spaces();
+        /* INPUT# (file) or regular INPUT — both delegate */
+        emit_delegate_stmt(start, true);  /* read_back = true */
         return;
     }
 
@@ -1828,8 +1925,14 @@ static void emit_stmt(void)
 
     /* WRITE (output) */
     if (tok == TOK_WRITE) {
+        uint8_t *write_start = tp;
         advance();
         skip_spaces();
+        /* WRITE # (file) — delegate to runtime */
+        if (cur() == '#') {
+            emit_delegate_stmt(write_start, false);
+            return;
+        }
         /* Simple WRITE: comma-separated values with quotes around strings */
         bool first = true;
         while (cur() && cur() != ':' && cur() != 0) {
