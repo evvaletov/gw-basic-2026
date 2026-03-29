@@ -3,6 +3,7 @@
 #include "graphics.h"
 #include "virmem.h"
 #include "portio.h"
+#include "strpool.h"
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
@@ -640,10 +641,12 @@ static gw_value_t eval_function(uint8_t prefix, uint8_t func_tok)
         gw_expect('(');
         arg = gw_eval();  /* can be string or numeric */
         gw_expect_rparen();
-        if (arg.type == VT_STR) gw_str_free(&arg.sval);
-        /* Return fake free memory value */
+        if (arg.type == VT_STR) {
+            gw_str_free(&arg.sval);
+            strpool_gc();
+        }
         v.type = VT_SNG;
-        v.fval = 60000.0f;
+        v.fval = (float)strpool_free();
         return v;
 
     case FUNC_POS:

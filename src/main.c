@@ -2,6 +2,7 @@
 #include "tui.h"
 #include "sound.h"
 #include "portio.h"
+#include "strpool.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -169,6 +170,7 @@ int main(int argc, char **argv)
     gw_hal = hal_posix_create();
     gw_hal->init();
     gw_init();
+    strpool_init(STRPOOL_DEFAULT_SIZE);
     snd_init();
     portio_reset();
 

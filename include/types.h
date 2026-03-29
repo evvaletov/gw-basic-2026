@@ -16,7 +16,7 @@ typedef enum {
 /* String descriptor - matches original's 3-byte layout concept */
 typedef struct {
     uint8_t len;
-    char *data;       /* malloc'd, NOT null-terminated */
+    char *data;       /* points into string pool, NOT null-terminated */
 } gw_string_t;
 
 /* Unified value - the FAC (floating accumulator) equivalent */

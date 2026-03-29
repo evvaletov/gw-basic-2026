@@ -3,6 +3,7 @@
 #include "graphics.h"
 #include "virmem.h"
 #include "portio.h"
+#include "strpool.h"
 #include "sound.h"
 #include <ctype.h>
 #include <string.h>
@@ -1462,6 +1463,7 @@ void gw_exec_stmt(void)
         gw_chrget();
         gfx_shutdown();
         portio_reset();
+        strpool_reset(0);
         gw_free_program();
         gw_vars_clear();
         gw_arrays_clear();
@@ -1483,9 +1485,20 @@ void gw_exec_stmt(void)
         return;
     }
 
-    /* CLEAR */
+    /* CLEAR [stringspace] */
     if (tok == TOK_CLEAR) {
         gw_chrget();
+        gw_skip_spaces();
+        size_t new_pool = 0;
+        /* Parse optional string space size */
+        if (gw_chrgot() == ',') {
+            gw_chrget();  /* skip comma */
+            gw_skip_spaces();
+            if (gw_chrgot() && gw_chrgot() != ',' && gw_chrgot() != ':' && gw_chrgot() != 0)
+                new_pool = (size_t)gw_eval_int();
+        } else if (gw_chrgot() && gw_chrgot() != ':' && gw_chrgot() != 0) {
+            new_pool = (size_t)gw_eval_int();
+        }
         portio_reset();
         gw_vars_clear();
         gw_arrays_clear();
@@ -1498,7 +1511,8 @@ void gw_exec_stmt(void)
         gw.data_line_ptr = NULL;
         gw.on_error_line = 0;
         gw.in_error_handler = false;
-        /* Skip optional args (memory size, stack size) */
+        strpool_reset(new_pool);
+        /* Skip remaining optional args (stack size) */
         while (gw_chrgot() && gw_chrgot() != ':')
             gw.text_ptr++;
         return;
@@ -1541,6 +1555,7 @@ void gw_exec_stmt(void)
         if (!start) return;
 
         portio_reset();
+        strpool_reset(0);
         gw_vars_clear();
         gw_arrays_clear();
         memset(gw.fn_defs, 0, sizeof(gw.fn_defs));
@@ -3151,6 +3166,10 @@ void gw_run_loop(void)
     }
 
     while (gw.running) {
+        /* Compact string pool if running low */
+        if (strpool_free() < STRPOOL_GC_THRESHOLD)
+            strpool_gc();
+
         /* Check for Ctrl+Break */
         if (tui.active)
             tui_check_break();

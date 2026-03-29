@@ -1,4 +1,5 @@
 #include "gwbasic.h"
+#include "strpool.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -10,9 +11,7 @@ gw_string_t gw_str_alloc(int len)
     if (len < 0 || len > 255)
         gw_error(ERR_LS);
     s.len = len;
-    s.data = len > 0 ? malloc(len) : NULL;
-    if (len > 0 && !s.data)
-        gw_error(ERR_OS);
+    s.data = len > 0 ? strpool_alloc(len) : NULL;
     return s;
 }
 
@@ -35,7 +34,7 @@ gw_string_t gw_str_copy(gw_string_t *s)
 
 void gw_str_free(gw_string_t *s)
 {
-    free(s->data);
+    /* Pool strings are reclaimed by GC, not individually freed */
     s->data = NULL;
     s->len = 0;
 }
