@@ -9,12 +9,14 @@ invokes GCC to produce native executables linked against `libgwrt.a`.
 
 Pipeline: `.bas` → `gw_crunch()` → analysis pass → C codegen → `gcc` → native binary.
 
-**Phase 1** (current): PRINT, LET, IF/THEN/ELSE, GOTO, GOSUB/RETURN,
+**Phase 1**: PRINT, LET, IF/THEN/ELSE, GOTO, GOSUB/RETURN,
 FOR/NEXT, END/STOP/SYSTEM, REM, DATA/READ/RESTORE, CLS, arithmetic,
 string functions, core math functions.
 
-**Phase 2** (next): WHILE/WEND, ON GOTO/GOSUB, DIM/arrays, DEF FN,
-file I/O, INPUT/LINE INPUT, ON ERROR GOTO, LOCATE/COLOR.
+**Phase 2** (current): WHILE/WEND, ON GOTO/GOSUB, ON ERROR GOTO,
+MOD/IDIV/POW operators, SWAP, POKE, DEF SEG, RANDOMIZE, LOCATE,
+COLOR, SCREEN, WIDTH, KEY, WRITE, OPTION BASE, DEF type statements,
+extended statement dispatch. 17 of 72 tests passing.
 
 **Phase 3**: random-access files, PRINT USING, graphics, sound, event
 trapping, remaining statements.
