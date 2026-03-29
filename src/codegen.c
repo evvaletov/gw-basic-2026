@@ -166,10 +166,12 @@ static const char *binop_c(uint8_t tok)
     }
 }
 
-/* Forward declarations for buffered expression emission */
+/* Forward declarations */
 static char *emit_to_buf(void (*fn)(int), int arg);
 static void emit_num_prec(int min_prec);
 static void emit_prec_wrapper(int prec);
+static void emit_str_atom(void);
+static gw_valtype_t peek_expr_type(void);
 
 /* Emit a numeric atom */
 static void emit_atom(void)
@@ -357,7 +359,24 @@ static void emit_atom(void)
             if (cur() == '(') { advance(); emit_num_expr(); if (cur() == ')') advance(); }
             return;
         case FUNC_FRE:
-            EMIT("(strpool_gc(), (float)strpool_free())");
+            /* In compiled code, GC can't find C-static variables.
+             * Sync vars to interpreter table before GC for FRE(""). */
+            if (cur() == '(' && tp[1] == '"') {
+                EMIT("({");
+                for (int vi = 0; vi < ana->var_count; vi++) {
+                    var_info_t *v = &ana->vars[vi];
+                    if (v->type != VT_STR) continue;
+                    if (v->name[1])
+                        EMIT("gw_var_find_or_create(\"%c%c\",%d)->val.sval=", v->name[0], v->name[1], v->type);
+                    else
+                        EMIT("gw_var_find_or_create(\"%c\",%d)->val.sval=", v->name[0], v->type);
+                    emit_varname(v->name, v->type);
+                    EMIT(";");
+                }
+                EMIT(" strpool_gc(); (float)strpool_free();})");
+            } else {
+                EMIT("((float)strpool_free())");
+            }
             if (cur() == '(') {
                 advance();
                 while (cur() && cur() != ')') tp++;
@@ -604,6 +623,9 @@ static void emit_prec_wrapper(int prec) { emit_num_prec(prec); }
 static void emit_num_prec(int min_prec)
 {
     /* Buffer left operand so we can wrap it for MOD/IDIV/POW */
+    /* Peek at atom type (for string comparison detection) */
+    gw_valtype_t left_type = peek_expr_type();
+    uint8_t *left_start = tp;  /* save position for string re-emit */
     char *left = emit_to_buf(emit_atom_wrapper, 0);
 
     for (;;) {
@@ -621,6 +643,40 @@ static void emit_num_prec(int min_prec)
         else if (op == TOK_GT && cur() == TOK_LT) { advance(); cop = "!="; }
         else if (op == TOK_EQ && cur() == TOK_LT) { advance(); cop = "<="; }
         else if (op == TOK_EQ && cur() == TOK_GT) { advance(); cop = ">="; }
+
+        /* For string comparisons, emit strcmp-based code */
+        bool is_relational = cop || op == TOK_GT || op == TOK_LT || op == TOK_EQ;
+        if (is_relational && left_type == VT_STR) {
+            /* Re-emit left as string (it was emitted as numeric atom) */
+            uint8_t *save_tp = tp;
+            tp = left_start;
+            char *left_str;
+            { FILE *orig = out; char *buf = NULL; size_t sz = 0;
+              out = open_memstream(&buf, &sz);
+              emit_str_atom();
+              fclose(out); out = orig; left_str = buf; }
+            tp = save_tp;
+            /* Buffer right as string expression */
+            char *right_str;
+            { FILE *orig = out; char *buf = NULL; size_t sz = 0;
+              out = open_memstream(&buf, &sz);
+              emit_str_atom();
+              fclose(out); out = orig; right_str = buf; }
+            const char *cmpop = cop ? cop : binop_c(op);
+            char *combined = NULL; size_t csz = 0;
+            FILE *cm = open_memstream(&combined, &csz);
+            fprintf(cm, "({gw_string_t _sl=%s; gw_string_t _sr=%s;"
+                    " char *_cl=gw_str_to_cstr(&_sl); char *_cr=gw_str_to_cstr(&_sr);"
+                    " int _cmp=strcmp(_cl,_cr); free(_cl); free(_cr);"
+                    " gw_str_free(&_sl); gw_str_free(&_sr);"
+                    " (_cmp %s 0) ? -1 : 0;})",
+                    left_str, right_str, cmpop);
+            fclose(cm);
+            free(left); free(left_str); free(right_str);
+            left = combined;
+            left_type = VT_INT;
+            continue;
+        }
 
         char *right = emit_to_buf(emit_prec_wrapper, prec + 1);
 
@@ -1765,6 +1821,7 @@ static void emit_stmt(void)
 
     /* Extended statements (0xFE prefix) */
     if (tok == TOK_PREFIX_FE) {
+        uint8_t *fe_start = tp;  /* save position of 0xFE prefix */
         uint8_t xstmt = tp[1];
         tp += 2;
         skip_spaces();
@@ -1788,24 +1845,56 @@ static void emit_stmt(void)
             while (cur() && cur() != ':' && cur() != 0) tp++;
             return;
         }
+        /* Graphics, sound, view/window/palette, file I/O extended stmts:
+         * embed tokens and delegate to runtime interpreter */
         if (xstmt == XSTMT_CIRCLE || xstmt == XSTMT_DRAW ||
-            xstmt == XSTMT_PAINT || xstmt == XSTMT_PLAY) {
-            /* Graphics/sound — skip args for now */
-            EMIT("  /* graphics/sound xstmt 0x%02x */\n", xstmt);
-            while (cur() && cur() != ':' && cur() != 0) tp++;
-            return;
-        }
-        if (xstmt == XSTMT_VIEW || xstmt == XSTMT_WINDOW ||
-            xstmt == XSTMT_PALETTE) {
-            EMIT("  /* view/window/palette */\n");
-            while (cur() && cur() != ':' && cur() != 0) tp++;
-            return;
-        }
-        if (xstmt == XSTMT_FIELD || xstmt == XSTMT_LSET ||
+            xstmt == XSTMT_PAINT || xstmt == XSTMT_PLAY ||
+            xstmt == XSTMT_VIEW || xstmt == XSTMT_WINDOW ||
+            xstmt == XSTMT_PALETTE ||
+            xstmt == XSTMT_FIELD || xstmt == XSTMT_LSET ||
             xstmt == XSTMT_RSET || xstmt == XSTMT_PUT ||
             xstmt == XSTMT_GET) {
-            EMIT("  /* file I/O xstmt */\n");
-            while (cur() && cur() != ':' && cur() != 0) tp++;
+            uint8_t *stmt_start = fe_start;
+            /* Find end of statement, skipping strings and constants */
+            program_line_t *cur_pl = NULL;
+            for (program_line_t *pl = gw.prog_head; pl; pl = pl->next) {
+                if (tp >= pl->tokens && tp <= pl->tokens + pl->len) {
+                    cur_pl = pl; break;
+                }
+            }
+            uint8_t *line_end = cur_pl ? cur_pl->tokens + cur_pl->len : tp + 256;
+            while (tp < line_end) {
+                if (*tp == '"') { tp++; while (tp < line_end && *tp != '"') tp++; if (tp < line_end) tp++; continue; }
+                if (*tp == TOK_CONST_SNG) { tp += 5; continue; }
+                if (*tp == TOK_CONST_DBL) { tp += 9; continue; }
+                if (*tp == ':' || *tp == 0) break;
+                tp++;
+            }
+            int slen = (int)(tp - stmt_start);
+            /* Sync variables and call interpreter */
+            EMIT("  {\n");
+            for (int vi = 0; vi < ana->var_count; vi++) {
+                var_info_t *v = &ana->vars[vi];
+                if (v->name[1])
+                    EMIT("    gw_var_find_or_create(\"%c%c\", %d)->val = ", v->name[0], v->name[1], v->type);
+                else
+                    EMIT("    gw_var_find_or_create(\"%c\", %d)->val = ", v->name[0], v->type);
+                EMIT("(gw_value_t){.type=%d,", v->type);
+                switch (v->type) {
+                case VT_INT: EMIT(".ival="); break;
+                case VT_SNG: EMIT(".fval="); break;
+                case VT_DBL: EMIT(".dval="); break;
+                case VT_STR: EMIT(".sval="); break;
+                }
+                emit_varname(v->name, v->type);
+                EMIT("};\n");
+            }
+            EMIT("    static const uint8_t _xs[] = {");
+            for (int i = 0; i < slen; i++)
+                EMIT("%s%u", i ? "," : "", stmt_start[i]);
+            EMIT(",0};\n");
+            EMIT("    gw.text_ptr = (uint8_t *)_xs;\n");
+            EMIT("    gw_exec_stmt();\n  }\n");
             return;
         }
         if (xstmt == XSTMT_COMMON || xstmt == XSTMT_CHAIN) {
@@ -2000,6 +2089,19 @@ void codegen_emit(FILE *f, analysis_t *a)
     if (a->data_count > 0)
         EMIT("  gwrt_data_set(_data_pool, NULL, 0);\n");
     EMIT("\n");
+
+    /* ON ERROR GOTO handler via setjmp */
+    EMIT("  { int _err = setjmp(gw_error_jmp);\n");
+    EMIT("    if (_err) {\n");
+    EMIT("      if (gwrt_error_target) {\n");
+    EMIT("        int _tgt = gwrt_error_target;\n");
+    /* Dispatch to all possible ON ERROR GOTO targets */
+    for (int i = 0; i < a->goto_count; i++)
+        EMIT("        if (_tgt == %u) goto L_%u;\n",
+             a->goto_targets[i], a->goto_targets[i]);
+    EMIT("      }\n");
+    EMIT("      gwrt_shutdown(); return 1;\n");
+    EMIT("    }\n  }\n\n");
 
     /* Emit code for each program line */
     for (program_line_t *line = gw.prog_head; line; line = line->next) {
