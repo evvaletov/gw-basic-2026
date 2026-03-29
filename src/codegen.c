@@ -1936,6 +1936,25 @@ static void emit_stmt(void)
         return;
     }
 
+    /* CLEAR [stringspace] */
+    if (tok == TOK_CLEAR) {
+        advance();
+        skip_spaces();
+        if (cur() && cur() != ':' && cur() != 0 && !is_const(cur()) && cur() == ',') {
+            advance(); skip_spaces();
+        }
+        if (is_const(cur())) {
+            EMIT("  strpool_reset((size_t)(");
+            emit_num_expr();
+            EMIT("));\n");
+        } else {
+            EMIT("  strpool_reset(0);\n");
+        }
+        /* Skip remaining args */
+        while (cur() && cur() != ':' && cur() != 0) tp++;
+        return;
+    }
+
     /* TRON/TROFF */
     if (tok == TOK_TRON) { advance(); return; }
     if (tok == TOK_TROFF) { advance(); return; }
@@ -2139,12 +2158,16 @@ static void emit_stmt(void)
             while (cur() && cur() != ':' && cur() != 0) tp++;
             return;
         }
-        if (xstmt == XSTMT_ENVIRON || xstmt == XSTMT_ERDEV ||
-            xstmt == XSTMT_IOCTL || xstmt == XSTMT_LCOPY ||
-            xstmt == XSTMT_CALLS || xstmt == XSTMT_COM ||
-            xstmt == XSTMT_RESET || xstmt == XSTMT_DATE ||
-            xstmt == XSTMT_TIME || xstmt == XSTMT_PMAP) {
-            /* Minor statements — skip args */
+        if (xstmt == XSTMT_ENVIRON || xstmt == XSTMT_DATE ||
+            xstmt == XSTMT_TIME || xstmt == XSTMT_RESET) {
+            /* Delegate to runtime (ENVIRON sets env vars, DATE$/TIME$ sets clock) */
+            emit_delegate_stmt(fe_start, false);
+            return;
+        }
+        if (xstmt == XSTMT_ERDEV || xstmt == XSTMT_IOCTL ||
+            xstmt == XSTMT_LCOPY || xstmt == XSTMT_CALLS ||
+            xstmt == XSTMT_COM || xstmt == XSTMT_PMAP) {
+            /* Minor stubs — skip args */
             while (cur() && cur() != ':' && cur() != 0) tp++;
             return;
         }
@@ -2293,7 +2316,9 @@ static void emit_stmt(void)
         for (int i = 0; i < slen; i++)
             EMIT("%s%u", i ? "," : "", mid_start[i]);
         EMIT(",0};\n");
-        EMIT("    gw.text_ptr = (uint8_t *)_ms;\n");
+        EMIT("    gw.text_ptr = (uint8_t *)_ms + 2;\n");  /* skip 0xFF,FUNC_MID */
+        EMIT("    while (*gw.text_ptr == ' ') gw.text_ptr++;\n");
+        /* gw_stmt_mid_assign expects text_ptr at '(' — it does gw_chrget to skip it */
         EMIT("    gw_stmt_mid_assign();\n");
         /* Read back string variables that may have been modified */
         for (int vi = 0; vi < ana->var_count; vi++) {
