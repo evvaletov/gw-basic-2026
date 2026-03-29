@@ -757,8 +757,9 @@ static void emit_num_prec(int min_prec)
         } else if (op == TOK_POW) {
             fprintf(cm, "pow((double)(%s), (double)(%s))", left, right);
         } else if (op == TOK_DIV) {
-            /* GW-BASIC / always produces float (unlike \ which is integer div) */
-            fprintf(cm, "((double)(%s) / (double)(%s))", left, right);
+            /* GW-BASIC / always produces float; check for division by zero */
+            fprintf(cm, "({double _dv=(double)(%s); if(_dv==0.0) gw_error(11); (double)(%s)/_dv;})",
+                    right, left);
         } else {
             fprintf(cm, "(%s %s %s)", left, binop_c(op), right);
         }
@@ -931,6 +932,18 @@ static void emit_str_atom(void)
         }
         if (xtok == XSTMT_ERDEV) {
             if (cur() == '$') advance();
+            EMIT("gw_str_from_cstr(\"\")");
+            return;
+        }
+        if (xtok == XSTMT_IOCTL) {
+            /* IOCTL$(#filenum) — always returns "" */
+            if (cur() == '$') advance();
+            if (cur() == '(') {
+                advance();
+                if (cur() == '#') advance();
+                while (cur() && cur() != ')') tp++;
+                if (cur() == ')') advance();
+            }
             EMIT("gw_str_from_cstr(\"\")");
             return;
         }
@@ -1243,9 +1256,12 @@ static void emit_print(void)
         /* FE-prefix string functions: ENVIRON$, DATE$, TIME$, ERDEV$ */
         if (tok == TOK_PREFIX_FE) {
             uint8_t xtok = tp[1];
-            /* Check if followed by $ (string form) */
-            if (xtok == XSTMT_ENVIRON || xtok == XSTMT_ERDEV)
-                is_str = true;  /* ENVIRON$/ERDEV$ detected at '$' in emit_str_expr */
+            /* Check if followed by $ (string form) — peek at byte after FE+xstmt */
+            /* Peek past FE+xstmt (and any spaces) for $ suffix */
+            uint8_t *pk = tp + 2;
+            while (*pk == ' ') pk++;
+            if ((xtok == XSTMT_ENVIRON || xtok == XSTMT_ERDEV || xtok == XSTMT_IOCTL) && *pk == '$')
+                is_str = true;
             if (xtok == XSTMT_DATE || xtok == XSTMT_TIME)
                 is_str = true;
         }
@@ -2101,56 +2117,19 @@ static void emit_stmt(void)
             while (cur() && cur() != ':' && cur() != 0) tp++;
             return;
         }
-        /* Graphics, sound, view/window/palette, file I/O extended stmts:
-         * embed tokens and delegate to runtime interpreter */
+        /* Graphics, sound, view/window/palette: delegate without read-back */
         if (xstmt == XSTMT_CIRCLE || xstmt == XSTMT_DRAW ||
             xstmt == XSTMT_PAINT || xstmt == XSTMT_PLAY ||
             xstmt == XSTMT_VIEW || xstmt == XSTMT_WINDOW ||
-            xstmt == XSTMT_PALETTE ||
-            xstmt == XSTMT_FIELD || xstmt == XSTMT_LSET ||
+            xstmt == XSTMT_PALETTE) {
+            emit_delegate_stmt(fe_start, false);
+            return;
+        }
+        /* File I/O extended stmts: delegate WITH read-back (FIELD/GET modify vars) */
+        if (xstmt == XSTMT_FIELD || xstmt == XSTMT_LSET ||
             xstmt == XSTMT_RSET || xstmt == XSTMT_PUT ||
             xstmt == XSTMT_GET) {
-            uint8_t *stmt_start = fe_start;
-            /* Find end of statement, skipping strings and constants */
-            program_line_t *cur_pl = NULL;
-            for (program_line_t *pl = gw.prog_head; pl; pl = pl->next) {
-                if (tp >= pl->tokens && tp <= pl->tokens + pl->len) {
-                    cur_pl = pl; break;
-                }
-            }
-            uint8_t *line_end = cur_pl ? cur_pl->tokens + cur_pl->len : tp + 256;
-            while (tp < line_end) {
-                if (*tp == '"') { tp++; while (tp < line_end && *tp != '"') tp++; if (tp < line_end) tp++; continue; }
-                if (*tp == TOK_CONST_SNG) { tp += 5; continue; }
-                if (*tp == TOK_CONST_DBL) { tp += 9; continue; }
-                if (*tp == ':' || *tp == 0) break;
-                tp++;
-            }
-            int slen = (int)(tp - stmt_start);
-            /* Sync variables and call interpreter */
-            EMIT("  {\n");
-            for (int vi = 0; vi < ana->var_count; vi++) {
-                var_info_t *v = &ana->vars[vi];
-                if (v->name[1])
-                    EMIT("    gw_var_find_or_create(\"%c%c\", %d)->val = ", v->name[0], v->name[1], v->type);
-                else
-                    EMIT("    gw_var_find_or_create(\"%c\", %d)->val = ", v->name[0], v->type);
-                EMIT("(gw_value_t){.type=%d,", v->type);
-                switch (v->type) {
-                case VT_INT: EMIT(".ival="); break;
-                case VT_SNG: EMIT(".fval="); break;
-                case VT_DBL: EMIT(".dval="); break;
-                case VT_STR: EMIT(".sval="); break;
-                }
-                emit_varname(v->name, v->type);
-                EMIT("};\n");
-            }
-            EMIT("    static const uint8_t _xs[] = {");
-            for (int i = 0; i < slen; i++)
-                EMIT("%s%u", i ? "," : "", stmt_start[i]);
-            EMIT(",0};\n");
-            EMIT("    gw.text_ptr = (uint8_t *)_xs;\n");
-            EMIT("    gw_exec_stmt();\n  }\n");
+            emit_delegate_stmt(fe_start, true);
             return;
         }
         if (xstmt == XSTMT_COMMON || xstmt == XSTMT_CHAIN) {
@@ -2271,6 +2250,7 @@ static void emit_stmt(void)
     if (tok == TOK_CLS) {
         advance();
         EMIT("  if (gw_hal) gw_hal->cls();\n");
+        EMIT("  if (gfx_active()) { gfx_cls(); gfx_flush(); }\n");
         return;
     }
 
