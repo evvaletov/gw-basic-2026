@@ -12,6 +12,9 @@ setup(
         'console_scripts': [
             'gwbasickernel-install = gwbasickernel.install:main',
         ],
+        'pygments.lexers': [
+            'gwbasic = gwbasickernel.basic_lexer:GWBasicLexer',
+        ],
     },
     package_data={
         'gwbasickernel': ['kernel.json'],
