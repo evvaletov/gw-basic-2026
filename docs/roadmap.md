@@ -30,16 +30,19 @@ replacing individual `malloc`/`free`.  32KB default pool, bump-pointer
 allocation, compaction at statement boundaries.  `FRE()` returns actual
 free space; `CLEAR n` resizes the pool.
 
+### Jupyter Kernel (v0.15.0)
+
+`gwbasickernel/` — Jupyter notebook kernel using the persistent subprocess
+model.  GW-BASIC reads BASIC from stdin in piped mode (no banner, no prompts,
+unbuffered stdout).  Sentinel protocol (`PRINT "<<<GWDONE>>>"`) delimits
+output per cell.  State persists across cells.  Tab completion for all
+GW-BASIC keywords.  Magic commands: `%reset`, `%timeout`, `%new`.
+
+Install: `pip install -e . && gwbasickernel-install --user`
+
 ## Next Up
 
-*(Looking for the next major feature — see IDE and Notebook Integration below.)*
-
-## IDE and Notebook Integration
-
-- **Jupyter kernel for GW-BASIC** — a Jupyter Notebook kernel that runs
-  GW-BASIC programs cell-by-cell, with rich output for `PRINT`, inline graphics
-  rendering for drawing commands, and interactive `INPUT` via notebook widgets.
-  Similar in spirit to [foxkernel](https://github.com/evvaletov/foxkernel).
+### IDE Integration
 - **JetBrains plugin (IntelliJ/CLion)** — full-featured language plugin with
   syntax highlighting, code completion, line number navigation, run
   configurations, debugger integration (breakpoints via `STOP`, variable

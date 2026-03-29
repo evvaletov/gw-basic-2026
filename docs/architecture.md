@@ -59,6 +59,7 @@ HAL writes straight to stdout.
 src/         — core interpreter (23 files)
 include/     — headers (15 files)
 platform/    — HAL backends (1 file)
+gwbasickernel/ — Jupyter notebook kernel (Python, 6 files)
 tests/       — 72 automated test programs, 4 classic interactive programs, compat harness
 docs/        — Sphinx documentation
 ```
