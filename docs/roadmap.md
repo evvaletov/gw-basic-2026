@@ -37,7 +37,8 @@ MID$ assignment delegation, ON ERROR GOTO with setjmp/gw_run_jmp,
 RESUME/RESUME NEXT, ERR/ERL, file I/O delegation (OPEN/CLOSE/PRINT#/
 INPUT#/WRITE#/LINE INPUT via emit_delegate_stmt), PMAP/POINT/PSET
 graphics, BSAVE/BLOAD/SAVE/LOAD, MKDIR/CHDIR/RMDIR/KILL file ops.
-**58 produce correct output (81%).**
+**60 produce correct output (83%).** MID$ assignment, CLEAR pool
+resize, ENVIRON/DATE$/TIME$ delegation, PMAP/POINT/PSET graphics.
 
 **Phase 3**: random-access files, PRINT USING, graphics, sound, event
 trapping, remaining statements.
