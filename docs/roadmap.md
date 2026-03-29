@@ -26,8 +26,9 @@ FOR scope fix (static limit/step), SWAP with array elements, ENVIRON$/
 DATE$/TIME$/ENVIRON$ expression support, RESUME/ERROR statements,
 DEF FN (token embedding + variable sync), DEFINT/DEFSNG/DEFDBL/DEFSTR
 (pre-scan in analysis), gw_cint() rounding for integer assignment,
-STRING$(n,"c") string arg handling. **Zero compile errors** — all 72
-programs compile. **37 produce correct output.**
+STRING$(n,"c") string arg handling, READ into arrays, array assignment
+self-reference fix, PRINT USING colon-in-string. **Zero compile errors**
+— all 72 programs compile. **41 produce correct output.**
 
 **Phase 3**: random-access files, PRINT USING, graphics, sound, event
 trapping, remaining statements.
