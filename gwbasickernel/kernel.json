@@ -1,0 +1,8 @@
+{
+  "argv": ["python", "-m", "gwbasickernel", "-f", "{connection_file}"],
+  "display_name": "GW-BASIC 2026",
+  "language": "basic",
+  "metadata": {
+    "debugger": false
+  }
+}

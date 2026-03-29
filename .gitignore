@@ -10,3 +10,6 @@ OUTPUT
 RANDOM
 test
 !tests/programs/*.bas
+gwbasickernel.egg-info/
+__pycache__/
+*.pyc
