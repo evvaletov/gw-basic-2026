@@ -250,6 +250,49 @@ void analysis_run(analysis_t *a)
     for (int i = 0; i < 26; i++)
         a->def_type[i] = VT_SNG;
 
+    /* Pass 0: scan for DEFINT/DEFSNG/DEFDBL/DEFSTR to set type defaults */
+    for (program_line_t *line = gw.prog_head; line; line = line->next) {
+        uint8_t *p = line->tokens;
+        while (*p) {
+            if (*p == TOK_DEFINT || *p == TOK_DEFSNG ||
+                *p == TOK_DEFDBL || *p == TOK_DEFSTR) {
+                gw_valtype_t dt;
+                switch (*p) {
+                case TOK_DEFINT: dt = VT_INT; break;
+                case TOK_DEFSNG: dt = VT_SNG; break;
+                case TOK_DEFDBL: dt = VT_DBL; break;
+                case TOK_DEFSTR: dt = VT_STR; break;
+                default: dt = VT_SNG; break;
+                }
+                p++;
+                while (*p == ' ') p++;
+                /* Parse letter ranges: A-Z, X-Z, etc. */
+                while (*p && *p != ':' && *p != 0) {
+                    if (is_letter(*p)) {
+                        int from = toupper(*p) - 'A';
+                        int to = from;
+                        p++;
+                        while (*p == ' ') p++;
+                        if (*p == TOK_MINUS || *p == '-') {
+                            p++;
+                            while (*p == ' ') p++;
+                            if (is_letter(*p)) {
+                                to = toupper(*p) - 'A';
+                                p++;
+                            }
+                        }
+                        for (int c = from; c <= to && c < 26; c++)
+                            a->def_type[c] = dt;
+                    }
+                    while (*p == ' ' || *p == ',') p++;
+                    if (!is_letter(*p)) break;
+                }
+                continue;
+            }
+            p++;
+        }
+    }
+
     /* Pass 1: collect line numbers and scan tokens */
     for (program_line_t *line = gw.prog_head; line; line = line->next) {
         if (a->line_count >= MAX_LINES) break;

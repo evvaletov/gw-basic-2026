@@ -289,7 +289,7 @@ static void emit_atom(void)
             return;
         }
         case FUNC_CINT: {
-            EMIT("((int16_t)gw_round(");
+            EMIT("((int16_t)gw_cint(");
             advance(); emit_num_expr();
             if (cur() == ')') advance();
             EMIT("))");
@@ -383,6 +383,52 @@ static void emit_atom(void)
             if (cur() == '(') { advance(); while (cur() && cur() != ')') tp++; if (cur() == ')') advance(); }
             return;
         }
+    }
+
+    /* FN call: embed tokens and use interpreter's gw_eval_fn_call */
+    if (tok == TOK_FN) {
+        uint8_t *start = tp;
+        tp++;  /* skip TOK_FN */
+        skip_spaces();
+        /* Skip function name + arguments */
+        while (is_letter(cur()) || (cur() >= '0' && cur() <= '9')) advance();
+        if (cur() == '(') {
+            int depth = 1; advance();
+            while (*tp && depth > 0) {
+                if (cur() == '(') depth++;
+                else if (cur() == ')') depth--;
+                advance();
+            }
+        }
+        int len = (int)(tp - start);
+        /* Sync variables, embed tokens, call evaluator */
+        EMIT("({");
+        for (int vi = 0; vi < ana->var_count; vi++) {
+            var_info_t *v = &ana->vars[vi];
+            if (v->name[1])
+                EMIT(" gw_var_find_or_create(\"%c%c\",%d)->val=(gw_value_t){.type=%d,",
+                     v->name[0], v->name[1], v->type, v->type);
+            else
+                EMIT(" gw_var_find_or_create(\"%c\",%d)->val=(gw_value_t){.type=%d,",
+                     v->name[0], v->type, v->type);
+            switch (v->type) {
+            case VT_INT: EMIT(".ival="); break;
+            case VT_SNG: EMIT(".fval="); break;
+            case VT_DBL: EMIT(".dval="); break;
+            case VT_STR: EMIT(".sval="); break;
+            }
+            emit_varname(v->name, v->type);
+            EMIT("};");
+        }
+        EMIT(" static const uint8_t _fn[]={");
+        for (int i = 0; i < len; i++)
+            EMIT("%s%u", i ? "," : "", start[i]);
+        EMIT(",0};");
+        EMIT(" gw.text_ptr=(uint8_t*)_fn+1;");  /* skip TOK_FN */
+        EMIT(" while(*gw.text_ptr==' ')gw.text_ptr++;");  /* skip spaces */
+        EMIT(" gw_value_t _fr=gw_eval_fn_call();");
+        EMIT(" _fr.type==VT_INT?_fr.ival:_fr.type==VT_DBL?_fr.dval:(double)_fr.fval; })");
+        return;
     }
 
     /* Extended expressions (0xFE prefix) — DATE$, TIME$, TIMER, etc. */
@@ -754,13 +800,13 @@ static void emit_str_expr(void)
         char *arg1 = emit_to_buf(emit_prec_wrapper, 0);
         if (cur() == ',') advance();
         skip_spaces();
-        /* Second arg can be a number (char code) or a string */
-        if (cur() == '"' || (is_letter(cur()) && ({
-            uint8_t *sv = tp; char n[2]; gw_valtype_t t = parse_var(n); tp = sv; t == VT_STR; }))) {
-            /* String second arg — use first char's ASCII value */
-            char *arg2 = emit_to_buf(emit_prec_wrapper, 0);
-            EMIT("gw_fn_strings((int)(%s), (int)(%s)).sval", arg1, arg2);
-            free(arg2);
+        if (cur() == '"') {
+            /* STRING$(n, "c") — use ASCII value of first char */
+            tp++;  /* skip opening " */
+            int ch = *tp ? *tp : 32;
+            while (*tp && *tp != '"') tp++;
+            if (*tp == '"') tp++;
+            EMIT("gw_fn_strings((int)(%s), %d).sval", arg1, ch);
         } else {
             char *arg2 = emit_to_buf(emit_prec_wrapper, 0);
             EMIT("gw_fn_strings((int)(%s), (int)(%s)).sval", arg1, arg2);
@@ -1005,9 +1051,15 @@ static void emit_assignment(void)
     } else {
         EMIT("  ");
         emit_varname(name, type);
-        EMIT(" = (%s)(", c_type(type));
-        emit_num_expr();
-        EMIT(");\n");
+        if (type == VT_INT) {
+            EMIT(" = gw_cint((double)(");
+            emit_num_expr();
+            EMIT("));\n");
+        } else {
+            EMIT(" = (%s)(", c_type(type));
+            emit_num_expr();
+            EMIT(");\n");
+        }
     }
 }
 
@@ -1390,8 +1442,20 @@ static void emit_stmt(void)
             } else {
                 EMIT("  gw.def_seg = 0;\n");
             }
+        } else if (cur() == TOK_FN) {
+            /* DEF FN — embed tokens for runtime interpreter */
+            uint8_t *start = tp - 2;  /* back to TOK_DEF */
+            while (*tp && *tp != ':') tp++;
+            int len = (int)(tp - start);
+            EMIT("  { static const uint8_t _df[] = {");
+            for (int i = 0; i < len; i++)
+                EMIT("%s%u", i ? "," : "", start[i]);
+            EMIT(",0};\n");
+            EMIT("    uint8_t *_save = gw.text_ptr;\n");
+            EMIT("    gw.text_ptr = (uint8_t *)_df;\n");
+            EMIT("    gw_exec_stmt();\n");
+            EMIT("    gw.text_ptr = _save; }\n");
         } else {
-            /* DEF FN — skip for now, handled by analysis */
             while (cur() && cur() != ':' && cur() != 0) tp++;
         }
         return;
