@@ -513,10 +513,15 @@ static void emit_atom(void)
             EMIT("((float)(time(NULL) %% 86400))");  /* seconds since midnight */
             return;
         }
-        /* PMAP as numeric function */
+        /* PMAP(coord, func) */
         if (xtok == XSTMT_PMAP) {
-            EMIT("0 /* PMAP */");
-            if (cur() == '(') { advance(); while (cur() && cur() != ')') tp++; if (cur() == ')') advance(); }
+            if (cur() == '(') advance();
+            char *arg1 = emit_to_buf(emit_prec_wrapper, 0);
+            if (cur() == ',') advance();
+            char *arg2 = emit_to_buf(emit_prec_wrapper, 0);
+            if (cur() == ')') advance();
+            EMIT("(float)gfx_pmap((double)(%s), (int)(%s))", arg1, arg2);
+            free(arg1); free(arg2);
             return;
         }
         /* Other FE tokens used as numeric expressions — emit 0 */
@@ -574,6 +579,23 @@ static void emit_atom(void)
     if (tok == TOK_ERL) {
         tp++;
         EMIT("gw.err_line_num");
+        return;
+    }
+    if (tok == TOK_POINT) {
+        tp++;
+        if (cur() == '(') advance();
+        char *x = emit_to_buf(emit_prec_wrapper, 0);
+        if (cur() == ',') {
+            advance();
+            char *y = emit_to_buf(emit_prec_wrapper, 0);
+            EMIT("gfx_point((int)(%s), (int)(%s))", x, y);
+            free(y);
+        } else {
+            /* POINT(n) — get current drawing position */
+            EMIT("0 /* POINT(n) */");
+        }
+        free(x);
+        if (cur() == ')') advance();
         return;
     }
     if (tok == TOK_VARPTR) {
@@ -1815,6 +1837,29 @@ static void emit_stmt(void)
     }
 
     /* OPEN / CLOSE — file I/O (Phase 3: needs inline argument parsing) */
+    /* SAVE / LOAD / MERGE / BSAVE / BLOAD — delegate to runtime */
+    if (tok == TOK_SAVE || tok == TOK_LOAD) {
+        uint8_t *start = tp;
+        advance();
+        emit_delegate_stmt(start, false);
+        return;
+    }
+    /* BSAVE / BLOAD — delegate to runtime */
+    if (tok == TOK_BSAVE || tok == TOK_BLOAD) {
+        uint8_t *start = tp;
+        advance();
+        emit_delegate_stmt(start, true);
+        return;
+    }
+
+    /* PSET / PRESET — delegate to runtime */
+    if (tok == TOK_PSET || tok == TOK_PRESET) {
+        uint8_t *start = tp;
+        advance();
+        emit_delegate_stmt(start, false);
+        return;
+    }
+
     /* LPRINT / LLIST — delegate to runtime */
     if (tok == TOK_LPRINT || tok == TOK_LLIST) {
         uint8_t *start = tp;
@@ -2027,9 +2072,8 @@ static void emit_stmt(void)
             xstmt == XSTMT_CHDIR || xstmt == XSTMT_MKDIR ||
             xstmt == XSTMT_RMDIR || xstmt == XSTMT_KILL ||
             xstmt == XSTMT_NAME) {
-            /* These need a string argument — emit runtime call */
-            EMIT("  /* xstmt 0x%02x — runtime call needed */\n", xstmt);
-            while (cur() && cur() != ':' && cur() != 0) tp++;
+            /* Delegate to runtime */
+            emit_delegate_stmt(fe_start, false);
             return;
         }
         if (xstmt == XSTMT_TIMER) {
