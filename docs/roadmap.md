@@ -32,8 +32,9 @@ self-reference fix, PRINT USING colon-in-string. **Zero compile errors**
 concatenation (A$+B$), READ into arrays, self-referencing array assignment
 fix, float division semantics, PRINT USING null-byte token fix,
 string comparison (strcmp), ON ERROR GOTO (setjmp), graphics/sound
-delegation to runtime via token embedding. **48 produce correct
-output (67%).**
+delegation to runtime via token embedding, CVI/MKI$/CVS/MKS$/CVD/MKD$,
+MID$ assignment delegation, ON ERROR GOTO with setjmp/gw_run_jmp,
+RESUME/RESUME NEXT, ERR/ERL. **49 produce correct output (68%).**
 
 **Phase 3**: random-access files, PRINT USING, graphics, sound, event
 trapping, remaining statements.
