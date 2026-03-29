@@ -30,6 +30,12 @@
 
 `EOF`, `LOC`, `LOF`
 
+## Memory Functions
+
+- `FRE(x)` — free bytes in the string space pool.  `FRE("")` triggers a
+  garbage collection pass before reporting; `FRE(0)` reports without collecting.
+- `VARPTR(var)` / `VARPTR$(var)` — variable address (internal index)
+
 ## Pseudo-variables
 
 `ERL`, `ERR`, `CSRLIN`, `INKEY$`, `DATE$`, `TIME$`, `TIMER`, `POS(0)`
@@ -224,6 +230,22 @@ BLOAD "screen.bin", 100         ' load to a different offset
 The file format is compatible with the original GW-BASIC: byte 0 = `0xFD`,
 bytes 1-2 = segment (LE), bytes 3-4 = offset (LE), bytes 5-6 = length (LE),
 followed by the raw data bytes.
+
+## String Space and Garbage Collection
+
+All string data lives in a contiguous pool (default 32,768 bytes), matching
+the original GW-BASIC's string space architecture.  Allocation is a bump
+pointer; dead strings are reclaimed by a compacting garbage collector that
+runs automatically at statement boundaries when the pool is running low.
+
+```
+CLEAR ,8192             ' set string space to 8KB and clear variables
+PRINT FRE("")           ' trigger GC and print free bytes
+```
+
+`CLEAR n` (or `CLEAR ,n`) resizes the string space to *n* bytes and clears
+all variables.  `FRE("")` forces a garbage collection pass and returns the
+free bytes; `FRE(0)` returns the current free count without collecting.
 
 ## Hardware I/O (OUT / INP / WAIT)
 

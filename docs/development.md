@@ -18,11 +18,11 @@
 | 0.12.0 | | BSAVE/BLOAD, TUI ANSI 16-color rendering, CGA graphics framebuffer PEEK/POKE, keyboard shift flags |
 | 0.13.0 | | VIEW/WINDOW/PALETTE graphics, PMAP function, MBF float format for CVS/CVD/MKS$/MKD$ |
 | 0.14.0 | | MBF binary file compatibility (IEEE↔MBF at save/load boundary), fix binary loader null-byte truncation, fix DRAW M/S/A bugs, add TA/=var;/X substring |
-| 0.15.0 | | Hardware I/O simulator: OUT/INP/WAIT/MOTOR statements, port emulation (8253 PIT, PPI speaker, CGA mode/color, COM1, game port), continuous tone via PulseAudio. Fill remaining gaps: RESET, ENVIRON/ENVIRON$, ERDEV/ERDEV$, IOCTL/IOCTL$, LCOPY, DATE$/TIME$ assignment, CALL, COM |
+| 0.15.0 | | Hardware I/O simulator: OUT/INP/WAIT/MOTOR, port emulation (PIT, PPI, CGA, COM1, game port), continuous tone. Gap-fill: RESET, ENVIRON, ERDEV, IOCTL, LCOPY, DATE$/TIME$ assign, CALL, COM (100% token coverage). String space pool with compacting GC |
 
 ## Tests
 
-71 test programs in `tests/programs/`, plus 4 classic interactive programs in
+72 test programs in `tests/programs/`, plus 4 classic interactive programs in
 `tests/classic/` (Hamurabi, Lunar Lander, Gunner, Diamond from David Ahl's
 *BASIC Computer Games*).
 
@@ -32,7 +32,7 @@ Run the full automated suite:
 bash tests/run_tests.sh
 ```
 
-Each test has a 5-second timeout. 66 tests have `.expected` golden files
+Each test has a 5-second timeout. 67 tests have `.expected` golden files
 for output regression detection. Tests without golden comparison: datetime,
 on_timer, timer_stop (timing-dependent), color_test (visual), play_music
 (audio duration).

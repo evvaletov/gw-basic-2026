@@ -25,6 +25,11 @@ Also in v0.15.0: filled remaining statement/function gaps — `RESET`,
 `DATE$`/`TIME$` assignment, `CALL`/`CALLS`, `COM`.  All 144 defined
 tokens are now handled (100% token coverage).
 
+String space pool with compacting garbage collector (`strpool.c`),
+replacing individual `malloc`/`free`.  32KB default pool, bump-pointer
+allocation, compaction at statement boundaries.  `FRE()` returns actual
+free space; `CLEAR n` resizes the pool.
+
 ## Next Up
 
 *(Looking for the next major feature — see IDE and Notebook Integration below.)*
@@ -45,7 +50,6 @@ tokens are now handled (100% token coverage).
 
 ## Known Limitations
 
-- String garbage collection not implemented (uses `malloc`/`free` instead)
 - Maximum 256 variables, 64 arrays, 16 FOR nesting, 24 GOSUB nesting,
   16 WHILE nesting
 - `CALL`/`CALLS` (machine code execution) raises Illegal function call

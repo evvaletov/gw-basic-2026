@@ -50,15 +50,16 @@ HAL writes straight to stdout.
 | Sound engine | `sound.c` | — |
 | Virtual memory (PEEK/POKE) | `virmem.c` | — |
 | Hardware I/O ports | `portio.c` | — |
+| String space pool + GC | `strpool.c` | GWEVAL.ASM (GETSPA/GARBAG) |
 | Platform abstraction | `hal_posix.c` | OEM*.ASM |
 
 ## Source Layout
 
 ```
-src/         — core interpreter (22 files)
-include/     — headers (14 files)
+src/         — core interpreter (23 files)
+include/     — headers (15 files)
 platform/    — HAL backends (1 file)
-tests/       — 71 automated test programs, 4 classic interactive programs, compat harness
+tests/       — 72 automated test programs, 4 classic interactive programs, compat harness
 docs/        — Sphinx documentation
 ```
 
@@ -96,7 +97,8 @@ algorithms are reimplemented in idiomatic C with modern data structures.
   at the binary save/load boundary and for file I/O (CVI/CVS/CVD, MKI$/MKS$/MKD$),
   matching the original's on-disk format
 - **Dynamic memory allocation** — `malloc`/`free` instead of a 64KB segment layout
-- **malloc'd strings** — instead of a compacting garbage collector
+- **String space pool** — 32KB contiguous pool with compacting GC at statement
+  boundaries, matching the original's GETSPA/GARBAG approach
 - **`setjmp`/`longjmp`** — for error recovery, matching the original's stack reset
   behavior
 - **ANSI terminal** — TUI uses ANSI escape sequences and alternate screen buffer
