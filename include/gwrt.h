@@ -41,6 +41,12 @@ extern jmp_buf gwrt_error_jmp;
 extern int gwrt_error_target;    /* ON ERROR GOTO label, 0 = none */
 extern int gwrt_resume_label;    /* label for RESUME NEXT */
 
+/* Array element access (wraps gw_array_element) */
+gw_value_t *gwrt_array_elem(const char *name, int type, int ndims, int *subs);
+
+/* DIM statement (wraps gw_stmt_dim via text_ptr) */
+void gwrt_dim(const char *name, int type, int ndims, int *dims);
+
 /* Print helpers (wrappers around existing print.c) */
 void gwrt_print_sng(float v);
 void gwrt_print_dbl(double v);

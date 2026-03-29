@@ -144,6 +144,74 @@ int gwrt_gosub_pop(void)
     return gosub_stack[--gosub_sp];
 }
 
+/* --- Array support --- */
+
+/* Find or auto-create an array, then index into it */
+gw_value_t *gwrt_array_elem(const char *name, int type, int ndims, int *subs)
+{
+    char n[2] = {name[0], name[1]};
+
+    /* Find or auto-create the array */
+    array_entry_t *arr = NULL;
+    for (int i = 0; i < gw.array_count; i++) {
+        if (gw.arrays[i].name[0] == n[0] && gw.arrays[i].name[1] == n[1]
+            && (int)gw.arrays[i].type == type) {
+            arr = &gw.arrays[i];
+            break;
+        }
+    }
+    if (!arr) {
+        /* Auto-DIM with default size 10 per dimension */
+        if (gw.array_count >= 64) gw_error(ERR_OM);
+        arr = &gw.arrays[gw.array_count++];
+        arr->name[0] = n[0];
+        arr->name[1] = n[1];
+        arr->type = type;
+        arr->ndims = ndims;
+        arr->total_elements = 1;
+        for (int d = 0; d < ndims; d++) {
+            arr->dims[d] = 10;
+            arr->total_elements *= (11 - gw.option_base);
+        }
+        arr->data = calloc(arr->total_elements, sizeof(gw_value_t));
+        if (!arr->data) gw_error(ERR_OM);
+        for (int j = 0; j < arr->total_elements; j++)
+            arr->data[j].type = type;
+    }
+
+    /* Compute flat index (column-major) */
+    int index = 0;
+    int stride = 1;
+    for (int d = 0; d < ndims; d++) {
+        int sub = subs[d] - gw.option_base;
+        int dim_size = arr->dims[d] + 1 - gw.option_base;
+        if (sub < 0 || sub >= dim_size) gw_error(ERR_FC);
+        index += sub * stride;
+        stride *= dim_size;
+    }
+    if (index < 0 || index >= arr->total_elements) gw_error(ERR_FC);
+    return &arr->data[index];
+}
+
+void gwrt_dim(const char *name, int type, int ndims, int *dims)
+{
+    if (gw.array_count >= 64) gw_error(ERR_OM);
+    array_entry_t *arr = &gw.arrays[gw.array_count++];
+    arr->name[0] = name[0];
+    arr->name[1] = name[1];
+    arr->type = type;
+    arr->ndims = ndims;
+    arr->total_elements = 1;
+    for (int d = 0; d < ndims; d++) {
+        arr->dims[d] = dims[d];
+        arr->total_elements *= (dims[d] + 1 - gw.option_base);
+    }
+    arr->data = calloc(arr->total_elements, sizeof(gw_value_t));
+    if (!arr->data) gw_error(ERR_OM);
+    for (int j = 0; j < arr->total_elements; j++)
+        arr->data[j].type = type;
+}
+
 /* --- Event + GC check (called at each line boundary) --- */
 
 void gwrt_check_line(uint16_t line_num)

@@ -140,6 +140,13 @@ static void scan_tokens(analysis_t *a, uint8_t *tokens, int len)
             continue;
         }
 
+        /* OPEN — skip the mode/filename tokens to avoid misidentifying
+         * OUTPUT/INPUT/APPEND/RANDOM as variable names */
+        if (tok == TOK_OPEN) {
+            while (p < end && *p && *p != ':') p++;
+            continue;
+        }
+
         /* GOTO/GOSUB/THEN/RESTORE/RESUME/RUN — mark targets */
         if (tok == TOK_GOTO || tok == TOK_GOSUB || tok == TOK_THEN ||
             tok == TOK_RESTORE || tok == TOK_RESUME || tok == TOK_RUN) {

@@ -363,12 +363,45 @@ static void emit_atom(void)
         }
     }
 
-    /* Variable */
+    /* Variable or array element */
     if (is_letter(tok)) {
         char name[2];
         gw_valtype_t type = parse_var(name);
+        skip_spaces();
+        if (cur() == '(') {
+            /* Array element access — buffer subscripts to get ndims */
+            advance(); /* skip ( */
+            char *sub_bufs[8];
+            int ndims = 0;
+            do {
+                if (ndims > 0 && cur() == ',') advance();
+                FILE *orig = out;
+                char *sbuf = NULL; size_t ssz = 0;
+                out = open_memstream(&sbuf, &ssz);
+                emit_num_expr();
+                fclose(out);
+                out = orig;
+                sub_bufs[ndims++] = sbuf;
+            } while (cur() == ',' && ndims < 8);
+            if (cur() == ')') advance();
+
+            EMIT("gwrt_array_elem(\"%c%c\", %d, %d, (int[]){",
+                 name[0], name[1] ? name[1] : 0, type, ndims);
+            for (int d = 0; d < ndims; d++) {
+                if (d > 0) EMIT(", ");
+                EMIT("(int)(%s)", sub_bufs[d]);
+                free(sub_bufs[d]);
+            }
+            EMIT("})->");
+            switch (type) {
+            case VT_INT: EMIT("ival"); break;
+            case VT_SNG: EMIT("fval"); break;
+            case VT_DBL: EMIT("dval"); break;
+            default: EMIT("fval"); break;
+            }
+            return;
+        }
         if (type == VT_STR) {
-            /* String var used in numeric context — likely LEN or similar */
             EMIT("0 /* str var in num ctx */");
         } else {
             emit_varname(name, type);
@@ -562,10 +595,34 @@ static void emit_str_expr(void)
         }
     }
 
-    /* String variable */
+    /* String variable or array element */
     if (is_letter(tok)) {
         char name[2];
         gw_valtype_t type = parse_var(name);
+        skip_spaces();
+        if (cur() == '(' && type == VT_STR) {
+            /* String array element */
+            advance();
+            char *sub_bufs[8]; int ndims = 0;
+            do {
+                if (ndims > 0 && cur() == ',') advance();
+                FILE *orig = out; char *sb = NULL; size_t ss = 0;
+                out = open_memstream(&sb, &ss);
+                emit_num_expr();
+                fclose(out); out = orig;
+                sub_bufs[ndims++] = sb;
+            } while (cur() == ',' && ndims < 8);
+            if (cur() == ')') advance();
+            EMIT("gw_str_copy(&gwrt_array_elem(\"%c%c\", %d, %d, (int[]){",
+                 name[0], name[1] ? name[1] : 0, type, ndims);
+            for (int d = 0; d < ndims; d++) {
+                if (d > 0) EMIT(", ");
+                EMIT("(int)(%s)", sub_bufs[d]);
+                free(sub_bufs[d]);
+            }
+            EMIT("})->sval)");
+            return;
+        }
         if (type == VT_STR) {
             EMIT("gw_str_copy(&");
             emit_varname(name, type);
@@ -628,9 +685,9 @@ static void emit_print(void)
             emit_str_expr();
             EMIT("; gwrt_print_str(_s); gw_str_free(&_s); }\n");
         } else {
-            EMIT("  gwrt_print_sng((float)(");
+            EMIT("  { gw_value_t _pv = {.type = VT_SNG, .fval = (float)(");
             emit_num_expr();
-            EMIT("));\n");
+            EMIT(")}; gw_print_value(&_pv); }\n");
         }
         need_newline = true;
     }
@@ -645,11 +702,44 @@ static void emit_assignment(void)
     gw_valtype_t type = parse_var(name);
     skip_spaces();
 
-    /* Array element? */
+    /* Array element assignment: A(i) = expr */
     if (cur() == '(') {
-        /* TODO: array assignment */
-        EMIT("  /* TODO: array assignment */\n");
-        while (cur() && cur() != ':') tp++;
+        advance(); /* skip ( */
+        EMIT("  { int _subs[] = {(int)(");
+        emit_num_expr();
+        int ndims = 1;
+        while (cur() == ',') {
+            advance();
+            EMIT("), (int)(");
+            emit_num_expr();
+            ndims++;
+        }
+        EMIT(")};\n");
+        if (cur() == ')') advance();
+        skip_spaces();
+        if (cur() == TOK_EQ) advance();
+
+        /* Call runtime to get element pointer */
+        EMIT("    gw_value_t *_elem = gwrt_array_elem(\"%c%c\", %d, %d, _subs);\n",
+             name[0], name[1] ? name[1] : 0, type, ndims);
+
+        if (type == VT_STR) {
+            EMIT("    gw_str_free(&_elem->sval);\n");
+            EMIT("    _elem->sval = ");
+            emit_str_expr();
+            EMIT(";\n    _elem->type = VT_STR;\n");
+        } else {
+            EMIT("    *_elem = (gw_value_t){.type=%d};\n", type);
+            switch (type) {
+            case VT_INT: EMIT("    _elem->ival = (int16_t)("); break;
+            case VT_SNG: EMIT("    _elem->fval = (float)("); break;
+            case VT_DBL: EMIT("    _elem->dval = (double)("); break;
+            default: EMIT("    _elem->fval = (float)("); break;
+            }
+            emit_num_expr();
+            EMIT(");\n");
+        }
+        EMIT("  }\n");
         return;
     }
 
@@ -895,9 +985,37 @@ static void emit_stmt(void)
     /* DIM */
     if (tok == TOK_DIM) {
         advance();
-        /* DIM is handled at compile time for static arrays — skip for now */
-        EMIT("  /* DIM (compile-time) */\n");
-        while (cur() && cur() != ':' && cur() != 0) tp++;
+        while (cur() && cur() != ':' && cur() != 0) {
+            skip_spaces();
+            if (!is_letter(cur())) break;
+            char name[2];
+            gw_valtype_t type = parse_var(name);
+            skip_spaces();
+            if (cur() != '(') break;
+            advance();
+            /* Buffer dimensions */
+            char *dim_bufs[8]; int ndims = 0;
+            do {
+                if (ndims > 0 && cur() == ',') advance();
+                FILE *orig = out; char *db = NULL; size_t ds = 0;
+                out = open_memstream(&db, &ds);
+                emit_num_expr();
+                fclose(out); out = orig;
+                dim_bufs[ndims++] = db;
+            } while (cur() == ',' && ndims < 8);
+            if (cur() == ')') advance();
+            EMIT("  gwrt_dim(\"%c%c\", %d, %d, (int[]){",
+                 name[0], name[1] ? name[1] : 0, type, ndims);
+            for (int d = 0; d < ndims; d++) {
+                if (d > 0) EMIT(", ");
+                EMIT("(int)(%s)", dim_bufs[d]);
+                free(dim_bufs[d]);
+            }
+            EMIT("});\n");
+            skip_spaces();
+            if (cur() == ',') advance();
+            else break;
+        }
         return;
     }
 
@@ -1014,6 +1132,20 @@ static void emit_stmt(void)
         return;
     }
 
+    /* OPEN / CLOSE — file I/O (Phase 3: needs inline argument parsing) */
+    if (tok == TOK_OPEN || tok == TOK_CLOSE) {
+        EMIT("  /* %s — file I/O not yet compiled */\n", tok == TOK_OPEN ? "OPEN" : "CLOSE");
+        while (cur() && cur() != ':' && cur() != 0) tp++;
+        return;
+    }
+    /* INPUT */
+    if (tok == TOK_INPUT) {
+        advance();
+        EMIT("  /* INPUT — not yet compiled */\n");
+        while (cur() && cur() != ':' && cur() != 0) tp++;
+        return;
+    }
+
     /* TRON/TROFF */
     if (tok == TOK_TRON) { advance(); return; }
     if (tok == TOK_TROFF) { advance(); return; }
@@ -1065,9 +1197,9 @@ static void emit_stmt(void)
                 EMIT("; gwrt_print_str(_s); gw_str_free(&_s); }\n");
                 EMIT("  gwrt_print_cstr(\"\\\"\");\n");
             } else {
-                EMIT("  gwrt_print_sng((float)(");
+                EMIT("  { gw_value_t _pv = {.type = VT_SNG, .fval = (float)(");
                 emit_num_expr();
-                EMIT("));\n");
+                EMIT(")}; gw_print_value(&_pv); }\n");
             }
             skip_spaces();
             if (cur() == ',') advance();
