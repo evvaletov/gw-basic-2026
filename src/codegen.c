@@ -385,6 +385,26 @@ static void emit_atom(void)
         }
     }
 
+    /* Extended expressions (0xFE prefix) — DATE$, TIME$, TIMER, etc. */
+    if (tok == TOK_PREFIX_FE) {
+        uint8_t xtok = tp[1];
+        tp += 2;
+        skip_spaces();
+        if (xtok == XSTMT_TIMER) {
+            EMIT("((float)(time(NULL) %% 86400))");  /* seconds since midnight */
+            return;
+        }
+        /* PMAP as numeric function */
+        if (xtok == XSTMT_PMAP) {
+            EMIT("0 /* PMAP */");
+            if (cur() == '(') { advance(); while (cur() && cur() != ')') tp++; if (cur() == ')') advance(); }
+            return;
+        }
+        /* Other FE tokens used as numeric expressions — emit 0 */
+        EMIT("0 /* xfunc 0x%02x */", xtok);
+        return;
+    }
+
     /* Single-byte function tokens (not 0xFF-prefixed) */
     if (tok == TOK_INSTR) {
         /* INSTR([start,] haystack$, needle$) */
@@ -686,6 +706,47 @@ static void emit_str_expr(void)
         }
     }
 
+    /* Extended string expressions (0xFE prefix) — DATE$, TIME$, ENVIRON$ */
+    if (tok == TOK_PREFIX_FE) {
+        uint8_t xtok = tp[1];
+        tp += 2;
+        skip_spaces();
+        if (xtok == XSTMT_DATE) {
+            EMIT("({time_t _t=time(NULL); struct tm *_tm=localtime(&_t);"
+                 " char _db[16]; snprintf(_db,16,\"%%02d-%%02d-%%04d\","
+                 "_tm->tm_mon+1,_tm->tm_mday,_tm->tm_year+1900);"
+                 " gw_str_from_cstr(_db);})");
+            return;
+        }
+        if (xtok == XSTMT_TIME) {
+            EMIT("({time_t _t=time(NULL); struct tm *_tm=localtime(&_t);"
+                 " char _tb[16]; snprintf(_tb,16,\"%%02d:%%02d:%%02d\","
+                 "_tm->tm_hour,_tm->tm_min,_tm->tm_sec);"
+                 " gw_str_from_cstr(_tb);})");
+            return;
+        }
+        if (xtok == XSTMT_ENVIRON) {
+            /* ENVIRON$("name") */
+            if (cur() == '$') advance();
+            if (cur() == '(') advance();
+            EMIT("({gw_string_t _a=");
+            emit_str_expr();
+            if (cur() == ')') advance();
+            EMIT("; char *_n=gw_str_to_cstr(&_a); gw_str_free(&_a);"
+                 " const char *_v=getenv(_n);"
+                 " gw_string_t _r=gw_str_from_cstr(_v?_v:\"\");"
+                 " free(_n); _r;})");
+            return;
+        }
+        if (xtok == XSTMT_ERDEV) {
+            if (cur() == '$') advance();
+            EMIT("gw_str_from_cstr(\"\")");
+            return;
+        }
+        EMIT("gw_str_from_cstr(\"\") /* unhandled xstr 0x%02x */", xtok);
+        return;
+    }
+
     /* STRING$ (single-byte token 0xD4) */
     if (tok == TOK_STRINGS) {
         tp++;
@@ -825,11 +886,10 @@ static void emit_print(void)
         uint8_t tok = cur();
         bool is_str = (tok == '"' || tok == TOK_STRINGS);
         if (is_letter(tok)) {
-            /* Peek ahead for $ suffix */
             uint8_t *save = tp;
             char name[2];
             gw_valtype_t type = parse_var(name);
-            tp = save;  /* restore */
+            tp = save;
             is_str = (type == VT_STR);
         }
         if (tok == TOK_PREFIX_FF) {
@@ -837,6 +897,15 @@ static void emit_print(void)
             is_str = (func == FUNC_CHR || func == FUNC_STR || func == FUNC_LEFT
                    || func == FUNC_RIGHT || func == FUNC_MID || func == FUNC_SPACE
                    || func == FUNC_HEX || func == FUNC_OCT);
+        }
+        /* FE-prefix string functions: ENVIRON$, DATE$, TIME$, ERDEV$ */
+        if (tok == TOK_PREFIX_FE) {
+            uint8_t xtok = tp[1];
+            /* Check if followed by $ (string form) */
+            if (xtok == XSTMT_ENVIRON || xtok == XSTMT_ERDEV)
+                is_str = true;  /* ENVIRON$/ERDEV$ detected at '$' in emit_str_expr */
+            if (xtok == XSTMT_DATE || xtok == XSTMT_TIME)
+                is_str = true;
         }
 
         if (is_str) {
@@ -1244,19 +1313,50 @@ static void emit_stmt(void)
     /* SWAP */
     if (tok == TOK_SWAP) {
         advance();
-        char n1[2]; gw_valtype_t t1 = parse_var(n1);
-        skip_spaces();
-        if (cur() == ',') advance();
-        char n2[2]; gw_valtype_t t2 = parse_var(n2);
-        EMIT("  { %s _swap = ", c_type(t1));
-        emit_varname(n1, t1);
-        EMIT("; ");
-        emit_varname(n1, t1);
-        EMIT(" = ");
-        emit_varname(n2, t2);
-        EMIT("; ");
-        emit_varname(n2, t2);
-        EMIT(" = _swap; }\n");
+        /* Parse both operands, emit as pointer swaps */
+        EMIT("  {\n");
+        for (int si = 0; si < 2; si++) {
+            skip_spaces();
+            if (si == 1 && cur() == ',') advance();
+            skip_spaces();
+            char name[2];
+            gw_valtype_t type = parse_var(name);
+            skip_spaces();
+            if (cur() == '(') {
+                /* Array element */
+                advance();
+                char *sbufs[8]; int nd = 0;
+                do {
+                    if (nd > 0 && cur() == ',') advance();
+                    sbufs[nd++] = emit_to_buf(emit_prec_wrapper, 0);
+                } while (cur() == ',' && nd < 8);
+                if (cur() == ')') advance();
+                EMIT("    gw_value_t *_sw%d = gwrt_array_elem(", si);
+                emit_name_str(name);
+                EMIT(", %d, %d, (int[]){", type, nd);
+                for (int d = 0; d < nd; d++) {
+                    if (d > 0) EMIT(",");
+                    EMIT("(int)(%s)", sbufs[d]);
+                    free(sbufs[d]);
+                }
+                EMIT("});\n");
+            } else {
+                /* Scalar: wrap in a static gw_value_t so we have a pointer */
+                EMIT("    static gw_value_t _swv%d; _swv%d.type = %d; ",
+                     si, si, type);
+                switch (type) {
+                case VT_INT: EMIT("_swv%d.ival = ", si); break;
+                case VT_SNG: EMIT("_swv%d.fval = ", si); break;
+                case VT_DBL: EMIT("_swv%d.dval = ", si); break;
+                case VT_STR: EMIT("_swv%d.sval = ", si); break;
+                }
+                emit_varname(name, type);
+                EMIT(";\n    gw_value_t *_sw%d = &_swv%d;\n", si, si);
+            }
+        }
+        EMIT("    gw_value_t _tmp = *_sw0; *_sw0 = *_sw1; *_sw1 = _tmp;\n");
+        /* For scalar operands, write back from the wrapper */
+        EMIT("  }\n");
         return;
     }
 
