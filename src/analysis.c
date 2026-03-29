@@ -264,17 +264,15 @@ void analysis_run(analysis_t *a)
         }
 
         /* Record data line mapping */
-        if (a->lines[li].has_data) {
-            int before = a->data_count;
-            /* DATA scanning happens in scan_tokens below */
+        if (a->lines[li].has_data && a->data_line_count < MAX_LINES) {
             a->data_line_map[a->data_line_count][0] = line->num;
-            a->data_line_map[a->data_line_count][1] = before;
+            a->data_line_map[a->data_line_count][1] = a->data_count;
         }
 
         scan_tokens(a, line->tokens, line->len);
 
         /* Finalize data line mapping */
-        if (a->lines[li].has_data) {
+        if (a->lines[li].has_data && a->data_line_count < MAX_LINES) {
             a->data_line_map[a->data_line_count][1] = a->lines[li].data_start;
             a->data_line_count++;
         }

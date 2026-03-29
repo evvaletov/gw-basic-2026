@@ -43,24 +43,6 @@ static uint16_t read_int(void)
     return 0;
 }
 
-static float read_sng(void)
-{
-    float v;
-    tp++; /* skip TOK_CONST_SNG */
-    memcpy(&v, tp, 4);
-    tp += 4;
-    return v;
-}
-
-static double read_dbl(void)
-{
-    double v;
-    tp++; /* skip TOK_CONST_DBL */
-    memcpy(&v, tp, 8);
-    tp += 8;
-    return v;
-}
-
 static bool is_const(uint8_t tok)
 {
     return (tok >= 0x11 && tok <= 0x1A) || tok == TOK_INT1 || tok == TOK_INT2
@@ -129,7 +111,6 @@ static gw_valtype_t parse_var(char name_out[2])
 /* ---- Expression compilation ---- */
 
 /* Forward declarations */
-static void emit_expr(void);
 static void emit_str_expr(void);
 static void emit_num_expr(void);
 
@@ -244,32 +225,26 @@ static void emit_atom(void)
         skip_spaces();
         switch (func) {
         case FUNC_ABS:
-            EMIT("fabs("); advance(); /* ( */ emit_num_expr();
-            if (cur() == ')') advance(); EMIT(")"); return;
         case FUNC_INT:
-            EMIT("floor("); advance(); emit_num_expr();
-            if (cur() == ')') advance(); EMIT(")"); return;
         case FUNC_SQR:
-            EMIT("sqrt("); advance(); emit_num_expr();
-            if (cur() == ')') advance(); EMIT(")"); return;
         case FUNC_SIN:
-            EMIT("sin("); advance(); emit_num_expr();
-            if (cur() == ')') advance(); EMIT(")"); return;
         case FUNC_COS:
-            EMIT("cos("); advance(); emit_num_expr();
-            if (cur() == ')') advance(); EMIT(")"); return;
         case FUNC_TAN:
-            EMIT("tan("); advance(); emit_num_expr();
-            if (cur() == ')') advance(); EMIT(")"); return;
         case FUNC_ATN:
-            EMIT("atan("); advance(); emit_num_expr();
-            if (cur() == ')') advance(); EMIT(")"); return;
         case FUNC_LOG:
-            EMIT("log("); advance(); emit_num_expr();
-            if (cur() == ')') advance(); EMIT(")"); return;
-        case FUNC_EXP:
-            EMIT("exp("); advance(); emit_num_expr();
-            if (cur() == ')') advance(); EMIT(")"); return;
+        case FUNC_EXP: {
+            const char *cfn[] = {
+                [FUNC_ABS] = "fabs", [FUNC_INT] = "floor", [FUNC_SQR] = "sqrt",
+                [FUNC_SIN] = "sin", [FUNC_COS] = "cos", [FUNC_TAN] = "tan",
+                [FUNC_ATN] = "atan", [FUNC_LOG] = "log", [FUNC_EXP] = "exp",
+            };
+            EMIT("%s(", cfn[func]);
+            advance();
+            emit_num_expr();
+            if (cur() == ')') advance();
+            EMIT(")");
+            return;
+        }
         case FUNC_SGN: {
             EMIT("({ double _v = (");
             advance(); emit_num_expr();
@@ -286,18 +261,34 @@ static void emit_atom(void)
             EMIT("((float)rand() / RAND_MAX)");
             return;
         }
-        case FUNC_CINT:
-            EMIT("((int16_t)gw_round("); advance(); emit_num_expr();
-            if (cur() == ')') advance(); EMIT("))"); return;
-        case FUNC_CSNG:
-            EMIT("((float)("); advance(); emit_num_expr();
-            if (cur() == ')') advance(); EMIT("))"); return;
-        case FUNC_CDBL:
-            EMIT("((double)("); advance(); emit_num_expr();
-            if (cur() == ')') advance(); EMIT("))"); return;
-        case FUNC_FIX:
-            EMIT("((int16_t)("); advance(); emit_num_expr();
-            if (cur() == ')') advance(); EMIT("))"); return;
+        case FUNC_CINT: {
+            EMIT("((int16_t)gw_round(");
+            advance(); emit_num_expr();
+            if (cur() == ')') advance();
+            EMIT("))");
+            return;
+        }
+        case FUNC_CSNG: {
+            EMIT("((float)(");
+            advance(); emit_num_expr();
+            if (cur() == ')') advance();
+            EMIT("))");
+            return;
+        }
+        case FUNC_CDBL: {
+            EMIT("((double)(");
+            advance(); emit_num_expr();
+            if (cur() == ')') advance();
+            EMIT("))");
+            return;
+        }
+        case FUNC_FIX: {
+            EMIT("((int16_t)(");
+            advance(); emit_num_expr();
+            if (cur() == ')') advance();
+            EMIT("))");
+            return;
+        }
         case FUNC_LEN: {
             EMIT("gw_fn_len(&(gw_value_t){.type=VT_STR,.sval=");
             advance(); emit_str_expr();
@@ -533,11 +524,6 @@ static void emit_str_expr(void)
     EMIT("gw_str_from_cstr(\"\") /* unknown str expr */");
 }
 
-/* Emit a general expression (caller determines context) */
-static void emit_expr(void)
-{
-    emit_num_expr();
-}
 
 /* ---- Statement compilation ---- */
 
@@ -728,7 +714,7 @@ static void emit_stmt(void)
     if (tok == TOK_NEXT) {
         advance();
         skip_spaces();
-        int fc = for_label_counter - 1;  /* match most recent FOR */
+        int fc = for_label_counter > 0 ? for_label_counter - 1 : 0;
         if (is_letter(cur())) {
             char name[2];
             gw_valtype_t type = parse_var(name);
@@ -915,8 +901,14 @@ void codegen_emit(FILE *f, analysis_t *a)
     /* DATA pool */
     if (a->data_count > 0) {
         EMIT("static const char *_data_pool[] = {\n");
-        for (int i = 0; i < a->data_count; i++)
-            EMIT("  \"%s\",\n", a->data_pool[i]);
+        for (int i = 0; i < a->data_count; i++) {
+            EMIT("  \"");
+            for (const char *p = a->data_pool[i]; *p; p++) {
+                if (*p == '"' || *p == '\\') EMIT("\\");
+                EMIT("%c", *p);
+            }
+            EMIT("\",\n");
+        }
         EMIT("  NULL\n};\n");
 
         /* Data line map (for RESTORE n) */
