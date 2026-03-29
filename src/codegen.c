@@ -83,6 +83,15 @@ static const char *c_type(gw_valtype_t t)
     }
 }
 
+/* Emit a 2-char name as a C string literal: "AB" or "A" */
+static void emit_name_str(const char name[2])
+{
+    if (name[1])
+        EMIT("\"%c%c\"", name[0], name[1]);
+    else
+        EMIT("\"%c\"", name[0]);
+}
+
 /* Emit C variable name: var_AB_int */
 static void emit_varname(const char name[2], gw_valtype_t type)
 {
@@ -385,8 +394,8 @@ static void emit_atom(void)
             } while (cur() == ',' && ndims < 8);
             if (cur() == ')') advance();
 
-            EMIT("gwrt_array_elem(\"%c%c\", %d, %d, (int[]){",
-                 name[0], name[1] ? name[1] : 0, type, ndims);
+            EMIT("gwrt_array_elem("); emit_name_str(name);
+            EMIT(", %d, %d, (int[]){", type, ndims);
             for (int d = 0; d < ndims; d++) {
                 if (d > 0) EMIT(", ");
                 EMIT("(int)(%s)", sub_bufs[d]);
@@ -452,13 +461,26 @@ static void emit_num_prec(int min_prec)
         uint8_t op = cur();
         advance();
 
+        /* Handle combined relationals: <=, >=, <> */
+        const char *cop = NULL;
+        if (op == TOK_LT && cur() == TOK_EQ) { advance(); cop = "<="; }
+        else if (op == TOK_GT && cur() == TOK_EQ) { advance(); cop = ">="; }
+        else if (op == TOK_LT && cur() == TOK_GT) { advance(); cop = "!="; }
+        else if (op == TOK_GT && cur() == TOK_LT) { advance(); cop = "!="; }
+        else if (op == TOK_EQ && cur() == TOK_LT) { advance(); cop = "<="; }
+        else if (op == TOK_EQ && cur() == TOK_GT) { advance(); cop = ">="; }
+
         char *right = emit_to_buf(emit_prec_wrapper, prec + 1);
 
         char *combined = NULL;
         size_t csz = 0;
         FILE *cm = open_memstream(&combined, &csz);
 
-        if (op == TOK_MOD) {
+        if (cop) {
+            fprintf(cm, "((%s %s %s) ? -1 : 0)", left, cop, right);
+        } else if (op == TOK_GT || op == TOK_LT || op == TOK_EQ) {
+            fprintf(cm, "((%s %s %s) ? -1 : 0)", left, binop_c(op), right);
+        } else if (op == TOK_MOD) {
             fprintf(cm, "((int16_t)(%s) %% (int16_t)(%s))", left, right);
         } else if (op == TOK_IDIV) {
             fprintf(cm, "((int16_t)(%s) / (int16_t)(%s))", left, right);
@@ -613,8 +635,8 @@ static void emit_str_expr(void)
                 sub_bufs[ndims++] = sb;
             } while (cur() == ',' && ndims < 8);
             if (cur() == ')') advance();
-            EMIT("gw_str_copy(&gwrt_array_elem(\"%c%c\", %d, %d, (int[]){",
-                 name[0], name[1] ? name[1] : 0, type, ndims);
+            EMIT("gw_str_copy(&gwrt_array_elem("); emit_name_str(name);
+            EMIT(", %d, %d, (int[]){", type, ndims);
             for (int d = 0; d < ndims; d++) {
                 if (d > 0) EMIT(", ");
                 EMIT("(int)(%s)", sub_bufs[d]);
@@ -640,6 +662,50 @@ static void emit_str_expr(void)
 /* ---- Statement compilation ---- */
 
 static void emit_stmt(void);
+
+/* Peek at the next expression to guess its result type.
+ * Only returns VT_INT for pure integer atoms (no operators).
+ * For anything involving operators, returns the variable/constant type. */
+static gw_valtype_t peek_expr_type(void)
+{
+    uint8_t *save = tp;
+    skip_spaces();
+    uint8_t tok = cur();
+
+    /* Variable — check suffix (most important case) */
+    if (is_letter(tok)) {
+        char name[2];
+        gw_valtype_t type = parse_var(name);
+        tp = save;
+        return type;
+    }
+    /* Double constant */
+    if (tok == TOK_CONST_DBL) { tp = save; return VT_DBL; }
+    /* Single constant */
+    if (tok == TOK_CONST_SNG) { tp = save; return VT_SNG; }
+    /* Unary minus — peek past it */
+    if (tok == TOK_MINUS) { advance(); gw_valtype_t t = peek_expr_type(); tp = save; return t; }
+    /* Functions */
+    if (tok == TOK_PREFIX_FF) {
+        uint8_t func = tp[1];
+        tp = save;
+        switch (func) {
+        case FUNC_LEN: case FUNC_ASC: case FUNC_CINT: case FUNC_FIX:
+        case FUNC_POS: case FUNC_PEEK: case FUNC_INP:
+            return VT_INT;
+        case FUNC_VAL: case FUNC_ATN: case FUNC_LOG: case FUNC_EXP:
+        case FUNC_CDBL:
+            return VT_DBL;
+        default:
+            return VT_SNG;
+        }
+    }
+    /* Integer constants — only if truly standalone (PRINT 42 vs PRINT 4*X) */
+    if ((tok >= 0x11 && tok <= 0x1A) || tok == TOK_INT1 || tok == TOK_INT2)
+        { tp = save; return VT_SNG; }  /* default to SNG for safety */
+    tp = save;
+    return VT_SNG;
+}
 
 static void emit_print(void)
 {
@@ -685,9 +751,24 @@ static void emit_print(void)
             emit_str_expr();
             EMIT("; gwrt_print_str(_s); gw_str_free(&_s); }\n");
         } else {
-            EMIT("  { gw_value_t _pv = {.type = VT_SNG, .fval = (float)(");
-            emit_num_expr();
-            EMIT(")}; gw_print_value(&_pv); }\n");
+            gw_valtype_t etype = peek_expr_type();
+            switch (etype) {
+            case VT_INT:
+                EMIT("  { gw_value_t _pv = {.type = VT_INT, .ival = (int16_t)(");
+                emit_num_expr();
+                EMIT(")}; gw_print_value(&_pv); }\n");
+                break;
+            case VT_DBL:
+                EMIT("  { gw_value_t _pv = {.type = VT_DBL, .dval = (double)(");
+                emit_num_expr();
+                EMIT(")}; gw_print_value(&_pv); }\n");
+                break;
+            default:
+                EMIT("  { gw_value_t _pv = {.type = VT_SNG, .fval = (float)(");
+                emit_num_expr();
+                EMIT(")}; gw_print_value(&_pv); }\n");
+                break;
+            }
         }
         need_newline = true;
     }
@@ -720,8 +801,9 @@ static void emit_assignment(void)
         if (cur() == TOK_EQ) advance();
 
         /* Call runtime to get element pointer */
-        EMIT("    gw_value_t *_elem = gwrt_array_elem(\"%c%c\", %d, %d, _subs);\n",
-             name[0], name[1] ? name[1] : 0, type, ndims);
+        EMIT("    gw_value_t *_elem = gwrt_array_elem(");
+        emit_name_str(name);
+        EMIT(", %d, %d, _subs);\n", type, ndims);
 
         if (type == VT_STR) {
             EMIT("    gw_str_free(&_elem->sval);\n");
@@ -1004,8 +1086,8 @@ static void emit_stmt(void)
                 dim_bufs[ndims++] = db;
             } while (cur() == ',' && ndims < 8);
             if (cur() == ')') advance();
-            EMIT("  gwrt_dim(\"%c%c\", %d, %d, (int[]){",
-                 name[0], name[1] ? name[1] : 0, type, ndims);
+            EMIT("  gwrt_dim("); emit_name_str(name);
+            EMIT(", %d, %d, (int[]){", type, ndims);
             for (int d = 0; d < ndims; d++) {
                 if (d > 0) EMIT(", ");
                 EMIT("(int)(%s)", dim_bufs[d]);
