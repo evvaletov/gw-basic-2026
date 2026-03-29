@@ -27,8 +27,8 @@ version is structured as modular C suitable for new feature development.
 - **Printer output** — `LPRINT`/`LLIST` to file or real hardware via `--lpt`
 - **Classic programs** — Hamurabi, Lunar Lander, Gunner, and Diamond from
   David Ahl's *BASIC Computer Games* (1978) run out of the box
-- **Jupyter kernel** — `pip install -e . && gwbasickernel-install --user`,
-  then select "GW-BASIC 2026" in Jupyter
+- **Jupyter kernel** — inline Sixel graphics, INPUT support, Pygments syntax
+  highlighting; `pip install -e . && gwbasickernel-install --user`
 - **72 test programs** with golden-file regression testing and DOSBox-X
   compatibility testing against real GWBASIC.EXE
 - **MIT License**

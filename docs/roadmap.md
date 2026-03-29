@@ -35,8 +35,17 @@ free space; `CLEAR n` resizes the pool.
 `gwbasickernel/` — Jupyter notebook kernel using the persistent subprocess
 model.  GW-BASIC reads BASIC from stdin in piped mode (no banner, no prompts,
 unbuffered stdout).  Sentinel protocol (`PRINT "<<<GWDONE>>>"`) delimits
-output per cell.  State persists across cells.  Tab completion for all
-GW-BASIC keywords.  Magic commands: `%reset`, `%timeout`, `%new`.
+output per cell.  State persists across cells.
+
+- **Inline Sixel graphics** — `SCREEN 1`/`SCREEN 2` drawing commands render
+  as inline PNG images in the notebook.  Pure-Python Sixel decoder (no PIL
+  or Ghostscript dependency).
+- **INPUT statement support** — when a program executes `INPUT`, the kernel
+  requests input from the notebook front-end via the Jupyter stdin protocol.
+- **Pygments syntax highlighting** — GW-BASIC lexer registered as a Pygments
+  entry point for code cell highlighting.
+- **Tab completion** for all GW-BASIC keywords.
+- **Magic commands**: `%reset`, `%timeout`, `%new`.
 
 Install: `pip install -e . && gwbasickernel-install --user`
 
