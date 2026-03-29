@@ -28,7 +28,8 @@ DEF FN (token embedding + variable sync), DEFINT/DEFSNG/DEFDBL/DEFSTR
 (pre-scan in analysis), gw_cint() rounding for integer assignment,
 STRING$(n,"c") string arg handling, READ into arrays, array assignment
 self-reference fix, PRINT USING colon-in-string. **Zero compile errors**
-— all 72 programs compile. **41 produce correct output.**
+— all 72 programs compile. **43 produce correct output.** String concatenation
+(A$+B$), READ into arrays, self-referencing array assignment fix.
 
 **Phase 3**: random-access files, PRINT USING, graphics, sound, event
 trapping, remaining statements.
