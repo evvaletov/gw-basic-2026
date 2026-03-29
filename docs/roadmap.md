@@ -37,8 +37,10 @@ MID$ assignment delegation, ON ERROR GOTO with setjmp/gw_run_jmp,
 RESUME/RESUME NEXT, ERR/ERL, file I/O delegation (OPEN/CLOSE/PRINT#/
 INPUT#/WRITE#/LINE INPUT via emit_delegate_stmt), PMAP/POINT/PSET
 graphics, BSAVE/BLOAD/SAVE/LOAD, MKDIR/CHDIR/RMDIR/KILL file ops.
-**60 produce correct output (83%).** MID$ assignment, CLEAR pool
-resize, ENVIRON/DATE$/TIME$ delegation, PMAP/POINT/PSET graphics.
+**64 produce correct output (89%).** Division-by-zero detection,
+FIELD/GET variable read-back, CLS graphics flush, IOCTL$() handler.
+Only 5 failures remain: 3 structural (CHAIN/COMMON/RUN "file") and
+2 RNG-dependent.
 
 **Phase 3**: random-access files, PRINT USING, graphics, sound, event
 trapping, remaining statements.
