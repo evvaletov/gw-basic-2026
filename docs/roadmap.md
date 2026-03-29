@@ -1,12 +1,25 @@
 # Roadmap
 
-## The Big One
+## The Big One (In Progress)
 
-- **GW-BASIC 2026 Compiler** — ahead-of-time compilation of BASIC programs to
-  native executables.  Because nothing says "premature optimization" like
-  compiling a language designed for an interpreter running on a 4.77 MHz 8088.
-  But we've come this far, so why not?  Likely approach: translate the token
-  stream to C and lean on GCC/Clang for the heavy lifting.
+### Ahead-of-Time Compiler (v0.15.0, Phase 1)
+
+`gwbasic-compile` translates tokenized .bas programs to C source, then
+invokes GCC to produce native executables linked against `libgwrt.a`.
+
+Pipeline: `.bas` → `gw_crunch()` → analysis pass → C codegen → `gcc` → native binary.
+
+**Phase 1** (current): PRINT, LET, IF/THEN/ELSE, GOTO, GOSUB/RETURN,
+FOR/NEXT, END/STOP/SYSTEM, REM, DATA/READ/RESTORE, CLS, arithmetic,
+string functions, core math functions.
+
+**Phase 2** (next): WHILE/WEND, ON GOTO/GOSUB, DIM/arrays, DEF FN,
+file I/O, INPUT/LINE INPUT, ON ERROR GOTO, LOCATE/COLOR.
+
+**Phase 3**: random-access files, PRINT USING, graphics, sound, event
+trapping, remaining statements.
+
+**Phase 4**: optimizations (constant folding, integer fast paths, dead code).
 
 ## Completed
 

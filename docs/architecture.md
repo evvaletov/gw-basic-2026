@@ -51,6 +51,9 @@ HAL writes straight to stdout.
 | Virtual memory (PEEK/POKE) | `virmem.c` | — |
 | Hardware I/O ports | `portio.c` | — |
 | String space pool + GC | `strpool.c` | GWEVAL.ASM (GETSPA/GARBAG) |
+| AOT compiler analysis | `analysis.c` | — |
+| AOT compiler codegen | `codegen.c` | — |
+| Compiled program runtime | `gwrt.c` | — |
 | Platform abstraction | `hal_posix.c` | OEM*.ASM |
 
 ## Source Layout
