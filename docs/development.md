@@ -19,7 +19,7 @@
 | 0.13.0 | | VIEW/WINDOW/PALETTE graphics, PMAP function, MBF float format for CVS/CVD/MKS$/MKD$ |
 | 0.14.0 | | MBF binary file compatibility (IEEE↔MBF at save/load boundary), fix binary loader null-byte truncation, fix DRAW M/S/A bugs, add TA/=var;/X substring |
 | 0.15.0 | | Hardware I/O simulator, gap-fill (100% token coverage), string pool + compacting GC, Jupyter kernel (Sixel graphics, INPUT, Pygments), ahead-of-time compiler Phase 1 |
-| 0.16.0 | | AOT compiler: 67/72 tests pass (93%), zero compile errors. CHAIN/COMMON/RUN "file" via runtime delegation, token embedding, string comparison, division-by-zero detection, FIELD read-back, graphics (PMAP/POINT/PSET), MID$ assignment, CVI/MKI$, file I/O delegation |
+| 0.16.0 | | AOT compiler: 69/69 tests pass (100%). CHAIN/COMMON/RUN "file" via runtime delegation, token embedding, string comparison, division-by-zero detection, FIELD read-back, graphics, file I/O delegation, RNG matching, dead code elimination |
 
 ## Tests
 

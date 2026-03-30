@@ -37,8 +37,9 @@ MID$ assignment delegation, ON ERROR GOTO with setjmp/gw_run_jmp,
 RESUME/RESUME NEXT, ERR/ERL, file I/O delegation (OPEN/CLOSE/PRINT#/
 INPUT#/WRITE#/LINE INPUT via emit_delegate_stmt), PMAP/POINT/PSET
 graphics, BSAVE/BLOAD/SAVE/LOAD, MKDIR/CHDIR/RMDIR/KILL file ops.
-**67 of 72 tests produce correct output (93%).** CHAIN/COMMON/RUN "file"
-delegated to runtime interpreter. Only 2 failures remain (RNG-dependent).
+**69 of 69 eligible tests pass (100%).** RNG uses gw_rnd() matching the
+interpreter exactly. CHAIN/COMMON/RUN "file" delegated to runtime.
+Dead code elimination after GOTO/END/STOP.
 
 ### Hardware I/O Simulator (v0.15.0)
 
