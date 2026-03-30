@@ -79,7 +79,11 @@ int gwrt_resume_label;
 
 void gwrt_init(void)
 {
+#ifdef __MSDOS__
+    gw_hal = hal_dos_create();
+#else
     gw_hal = hal_posix_create();
+#endif
     gw_hal->init();
     memset(&gw, 0, sizeof(gw));
     for (int i = 0; i < 26; i++)

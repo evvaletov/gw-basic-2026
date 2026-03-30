@@ -1,0 +1,59 @@
+# Makefile for building GW-BASIC 2026 with OpenWatcom for DOS
+#
+# Usage:
+#   wmake -f Makefile.dos           (from OpenWatcom environment)
+#   wmake -f Makefile.dos clean
+#
+# Requires: OpenWatcom 2.0+ with DOS/4GW 32-bit target
+# Produces: GWBASIC.EXE (interpreter), GWBASCOM.EXE (compiler), GWRT.LIB (runtime)
+
+CC = wcc386
+CFLAGS = -bt=dos -mf -ox -w4 -zq -Iinclude -D__MSDOS__
+LINKER = wlink
+LIBRARIAN = wlib
+
+# Interpreter sources (excludes compiler_main, analysis, codegen, gwrt)
+INTERP_OBJS = &
+    src/main.obj src/tokens.obj src/tokenizer.obj src/error.obj &
+    src/eval.obj src/interp.obj src/vars.obj src/arrays.obj &
+    src/input.obj src/math_int.obj src/math_float.obj &
+    src/math_transcend.obj src/strings.obj src/print.obj &
+    src/fileio.obj src/program_io.obj src/print_using.obj &
+    src/graphics.obj src/virmem.obj src/portio.obj src/strpool.obj &
+    src/sound.obj src/tui.obj platform/hal_dos.obj
+
+# Runtime library (for compiled programs)
+GWRT_OBJS = &
+    src/tokens.obj src/tokenizer.obj src/error.obj &
+    src/eval.obj src/interp.obj src/vars.obj src/arrays.obj &
+    src/input.obj src/math_int.obj src/math_float.obj &
+    src/math_transcend.obj src/strings.obj src/print.obj &
+    src/fileio.obj src/program_io.obj src/print_using.obj &
+    src/graphics.obj src/virmem.obj src/portio.obj src/strpool.obj &
+    src/sound.obj src/tui.obj src/gwrt.obj platform/hal_dos.obj
+
+# Compiler sources
+COMP_OBJS = &
+    src/compiler_main.obj src/analysis.obj src/codegen.obj &
+    src/tokens.obj src/tokenizer.obj
+
+.c.obj:
+    $(CC) $(CFLAGS) -fo=$@ $<
+
+all: gwbasic.exe gwbascom.exe gwrt.lib
+
+gwbasic.exe: $(INTERP_OBJS)
+    $(LINKER) system dos4g name $@ file { $< }
+
+gwrt.lib: $(GWRT_OBJS)
+    $(LIBRARIAN) -q -n $@ $(GWRT_OBJS)
+
+gwbascom.exe: $(COMP_OBJS)
+    $(LINKER) system dos4g name $@ file { $< }
+
+clean: .SYMBOLIC
+    del src\*.obj
+    del platform\*.obj
+    del gwbasic.exe
+    del gwbascom.exe
+    del gwrt.lib

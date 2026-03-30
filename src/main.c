@@ -167,7 +167,11 @@ static void print_banner(int interactive)
 
 int main(int argc, char **argv)
 {
+#ifdef __MSDOS__
+    gw_hal = hal_dos_create();
+#else
     gw_hal = hal_posix_create();
+#endif
     gw_hal->init();
     gw_init();
     strpool_init(STRPOOL_DEFAULT_SIZE);

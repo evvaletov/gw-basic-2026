@@ -38,5 +38,8 @@ extern hal_ops_t *gw_hal;
 
 /* Platform implementations */
 hal_ops_t *hal_posix_create(void);
+#ifdef __MSDOS__
+hal_ops_t *hal_dos_create(void);
+#endif
 
 #endif
