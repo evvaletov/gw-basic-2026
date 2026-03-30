@@ -287,7 +287,7 @@ static void emit_atom(void)
                 free(discard);
                 if (cur() == ')') advance();
             }
-            EMIT("((float)rand() / RAND_MAX)");
+            EMIT("((float)gw_rnd(1.0))");
             return;
         }
         case FUNC_CINT: {
@@ -1800,11 +1800,11 @@ static void emit_stmt(void)
         advance();
         skip_spaces();
         if (cur() && cur() != ':' && cur() != 0) {
-            EMIT("  srand((unsigned)(");
+            EMIT("  { extern uint32_t gw_rnd_seed; gw_rnd_seed = (uint32_t)(");
             emit_num_expr();
-            EMIT("));\n");
+            EMIT("); }\n");
         } else {
-            EMIT("  srand((unsigned)time(NULL));\n");
+            EMIT("  { extern uint32_t gw_rnd_seed; gw_rnd_seed = (uint32_t)time(NULL); }\n");
         }
         return;
     }
@@ -2427,10 +2427,12 @@ void codegen_emit(FILE *f, analysis_t *a)
 
     /* Emit code for each program line */
     for (program_line_t *line = gw.prog_head; line; line = line->next) {
-        /* Label for every line (RESUME NEXT needs all lines addressable) */
         EMIT("L_%u:\n", line->num);
 
-        EMIT("  gwrt_check_line(%u);\n", line->num);
+        /* Skip GC/break check for REM-only lines */
+        bool is_rem = (line->tokens[0] == TOK_REM || line->tokens[0] == TOK_SQUOTE);
+        if (!is_rem)
+            EMIT("  gwrt_check_line(%u);\n", line->num);
 
         /* Walk statements on this line */
         tp = line->tokens;
@@ -2438,7 +2440,18 @@ void codegen_emit(FILE *f, analysis_t *a)
             skip_spaces();
             if (*tp == ':') { tp++; continue; }
             if (*tp == 0) break;
+
+            /* Check for dead code after unconditional transfers */
+            uint8_t first = *tp;
             emit_stmt();
+
+            /* Dead code elimination: skip remaining after GOTO/END/STOP/SYSTEM */
+            if (first == TOK_GOTO || first == TOK_END || first == TOK_STOP)
+                break;
+            if (first == TOK_PREFIX_FE && tp > line->tokens) {
+                /* Check if it was SYSTEM (xstmt after FE prefix) */
+                /* Already emitted and consumed — just continue */
+            }
         }
     }
 
