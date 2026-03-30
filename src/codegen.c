@@ -1208,7 +1208,16 @@ static gw_valtype_t peek_expr_type(void)
  * stmt_start: pointer to first token byte (before advancing)
  * read_back: if true, read all variables back from interpreter table
  */
+/* sync_all: if true, sync ALL variables (needed for CHAIN which passes
+ * variables to another program). If false, use selective sync. */
+static void emit_delegate_stmt_ex(uint8_t *stmt_start, bool read_back, bool sync_all);
+
 static void emit_delegate_stmt(uint8_t *stmt_start, bool read_back)
+{
+    emit_delegate_stmt_ex(stmt_start, read_back, false);
+}
+
+static void emit_delegate_stmt_ex(uint8_t *stmt_start, bool read_back, bool sync_all)
 {
     /* Find end of statement, respecting strings and constants */
     program_line_t *cur_pl = NULL;
@@ -1230,9 +1239,25 @@ static void emit_delegate_stmt(uint8_t *stmt_start, bool read_back)
     int slen = (int)(tp - stmt_start);
 
     EMIT("  {\n");
-    /* Sync all variables to interpreter table */
+    /* Variable sync: selective (scan tokens for referenced names) or full */
     for (int vi = 0; vi < ana->var_count; vi++) {
         var_info_t *v = &ana->vars[vi];
+        if (!sync_all) {
+            bool found = false;
+            uint8_t *sc = stmt_start;
+            while (sc < tp) {
+                if (*sc == '"') { sc++; while (sc < tp && *sc != '"') sc++; if (sc < tp) sc++; continue; }
+                if (*sc == TOK_CONST_SNG) { sc += 5; continue; }
+                if (*sc == TOK_CONST_DBL) { sc += 9; continue; }
+                if (*sc == (uint8_t)v->name[0]) {
+                    if (!v->name[1] || (sc + 1 < tp && sc[1] == (uint8_t)v->name[1])) {
+                        found = true; break;
+                    }
+                }
+                sc++;
+            }
+            if (!found) continue;
+        }
         if (v->name[1])
             EMIT("    gw_var_find_or_create(\"%c%c\", %d)->val = ", v->name[0], v->name[1], v->type);
         else
@@ -1571,10 +1596,12 @@ static void emit_stmt(void)
              c_type(type), for_label_counter, for_label_counter, c_type(type));
         emit_num_expr();
         EMIT(");\n");
+        bool has_step = false;
         EMIT("  static %s _for_step_%d; _for_step_%d = 1;\n",
              c_type(type), for_label_counter, for_label_counter);
         skip_spaces();
         if (cur() == TOK_STEP) {
+            has_step = true;
             advance();
             EMIT("    _for_step_%d = (%s)(", for_label_counter, c_type(type));
             emit_num_expr();
@@ -1582,11 +1609,19 @@ static void emit_stmt(void)
         }
         int fc = for_label_counter++;
         EMIT("    for_top_%d:\n", fc);
-        EMIT("    if (_for_step_%d >= 0 ? ", fc);
-        emit_varname(name, type);
-        EMIT(" > _for_limit_%d : ", fc);
-        emit_varname(name, type);
-        EMIT(" < _for_limit_%d) goto for_done_%d;\n", fc, fc);
+        if (has_step) {
+            /* Variable step: need sign check */
+            EMIT("    if (_for_step_%d >= 0 ? ", fc);
+            emit_varname(name, type);
+            EMIT(" > _for_limit_%d : ", fc);
+            emit_varname(name, type);
+            EMIT(" < _for_limit_%d) goto for_done_%d;\n", fc, fc);
+        } else {
+            /* Default step=1: simple comparison */
+            EMIT("    if (");
+            emit_varname(name, type);
+            EMIT(" > _for_limit_%d) goto for_done_%d;\n", fc, fc);
+        }
         /* Push onto FOR stack */
         if (for_stack_sp < FOR_STACK_MAX) {
             for_stack[for_stack_sp].name[0] = name[0];
@@ -2201,7 +2236,10 @@ static void emit_stmt(void)
             xstmt == XSTMT_PAINT || xstmt == XSTMT_PLAY ||
             xstmt == XSTMT_VIEW || xstmt == XSTMT_WINDOW ||
             xstmt == XSTMT_PALETTE) {
-            emit_delegate_stmt(fe_start, false);
+            /* DRAW/PLAY use =variable; substitution in strings, so
+             * need full sync (selective would miss string-embedded refs) */
+            bool full = (xstmt == XSTMT_DRAW || xstmt == XSTMT_PLAY);
+            emit_delegate_stmt_ex(fe_start, false, full);
             return;
         }
         /* File I/O extended stmts: delegate WITH read-back (FIELD/GET modify vars) */
@@ -2218,8 +2256,8 @@ static void emit_stmt(void)
         }
         if (xstmt == XSTMT_CHAIN) {
             /* CHAIN loads + runs another .bas file via the runtime interpreter.
-             * Sync all variables, then delegate. CHAIN doesn't return. */
-            emit_delegate_stmt(fe_start, false);
+             * Must sync ALL variables (chained program reads COMMON vars). */
+            emit_delegate_stmt_ex(fe_start, false, true);
             EMIT("  gwrt_shutdown(); exit(0); /* CHAIN doesn't return */\n");
             return;
         }
