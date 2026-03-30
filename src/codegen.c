@@ -12,6 +12,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <math.h>
 
 /* ---- Emit helpers ---- */
 
@@ -23,7 +24,7 @@ static int for_label_counter;
 
 /* FOR stack: maps variable to its for_label_counter */
 #define FOR_STACK_MAX 16
-static struct { char name[2]; gw_valtype_t type; int label; } for_stack[FOR_STACK_MAX];
+static struct { char name[2]; gw_valtype_t type; int label; bool has_step; } for_stack[FOR_STACK_MAX];
 static int for_stack_sp;
 
 #define EMIT(...) fprintf(out, __VA_ARGS__)
@@ -801,6 +802,40 @@ static void emit_num_prec(int min_prec)
         }
 
         char *right = emit_to_buf(emit_prec_wrapper, prec + 1);
+
+        /* Constant folding: if both sides are numeric literals, compute now */
+        char *end_l, *end_r;
+        double lv = strtod(left, &end_l);
+        double rv = strtod(right, &end_r);
+        bool const_fold = (*end_l == '\0' && *end_r == '\0' &&
+                           !cop && op != TOK_GT && op != TOK_LT && op != TOK_EQ);
+        if (const_fold) {
+            double result = 0;
+            bool folded = true;
+            switch (op) {
+            case TOK_PLUS:  result = lv + rv; break;
+            case TOK_MINUS: result = lv - rv; break;
+            case TOK_MUL:   result = lv * rv; break;
+            case TOK_DIV:   result = rv != 0 ? lv / rv : 0; folded = (rv != 0); break;
+            case TOK_POW:   result = pow(lv, rv); break;
+            case TOK_MOD:   result = rv != 0 ? (int16_t)lv % (int16_t)rv : 0; folded = (rv != 0); break;
+            case TOK_IDIV:  result = rv != 0 ? (int16_t)lv / (int16_t)rv : 0; folded = (rv != 0); break;
+            case TOK_AND:   result = (int16_t)lv & (int16_t)rv; break;
+            case TOK_OR:    result = (int16_t)lv | (int16_t)rv; break;
+            case TOK_XOR:   result = (int16_t)lv ^ (int16_t)rv; break;
+            default: folded = false; break;
+            }
+            if (folded) {
+                free(left); free(right);
+                char buf[32];
+                if (result == (int)result && result >= -32768 && result <= 32767)
+                    snprintf(buf, sizeof(buf), "%d", (int)result);
+                else
+                    snprintf(buf, sizeof(buf), "%.9g", result);
+                left = strdup(buf);
+                continue;
+            }
+        }
 
         char *combined = NULL;
         size_t csz = 0;
@@ -1597,13 +1632,12 @@ static void emit_stmt(void)
         emit_num_expr();
         EMIT(");\n");
         bool has_step = false;
-        EMIT("  static %s _for_step_%d; _for_step_%d = 1;\n",
-             c_type(type), for_label_counter, for_label_counter);
         skip_spaces();
         if (cur() == TOK_STEP) {
             has_step = true;
+            EMIT("  static %s _for_step_%d; _for_step_%d = (%s)(",
+                 c_type(type), for_label_counter, for_label_counter, c_type(type));
             advance();
-            EMIT("    _for_step_%d = (%s)(", for_label_counter, c_type(type));
             emit_num_expr();
             EMIT(");\n");
         }
@@ -1628,6 +1662,7 @@ static void emit_stmt(void)
             for_stack[for_stack_sp].name[1] = name[1];
             for_stack[for_stack_sp].type = type;
             for_stack[for_stack_sp].label = fc;
+            for_stack[for_stack_sp].has_step = has_step;
             for_stack_sp++;
         }
         return;
@@ -1643,19 +1678,24 @@ static void emit_stmt(void)
             char name[2];
             gw_valtype_t type = parse_var(name);
             /* Search stack from top for matching variable */
+            bool step_custom = true;
             for (int i = for_stack_sp - 1; i >= 0; i--) {
                 if (for_stack[i].name[0] == name[0] &&
                     for_stack[i].name[1] == name[1] &&
                     for_stack[i].type == type) {
                     fc = for_stack[i].label;
-                    for_stack_sp = i;  /* pop this and everything above */
+                    step_custom = for_stack[i].has_step;
+                    for_stack_sp = i;
                     break;
                 }
             }
             if (fc < 0) fc = for_label_counter > 0 ? for_label_counter - 1 : 0;
-            EMIT("    ");
+            EMIT("  ");
             emit_varname(name, type);
-            EMIT(" += _for_step_%d;\n", fc);
+            if (step_custom)
+                EMIT(" += _for_step_%d;\n", fc);
+            else
+                EMIT("++;\n");
         } else {
             /* NEXT without variable — match most recent FOR */
             if (for_stack_sp > 0) {
