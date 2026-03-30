@@ -5,8 +5,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
+#ifndef __MSDOS__
 #include <unistd.h>
 #include <sys/ioctl.h>
+#endif
 
 tui_state_t tui;
 
@@ -612,11 +614,15 @@ static void sigint_handler(int sig)
 
 void tui_install_break_handler(void)
 {
+#ifdef __MSDOS__
+    signal(SIGINT, sigint_handler);
+#else
     struct sigaction sa;
     sa.sa_handler = sigint_handler;
     sa.sa_flags = 0;
     sigemptyset(&sa.sa_mask);
     sigaction(SIGINT, &sa, NULL);
+#endif
 }
 
 void tui_check_break(void)
@@ -640,6 +646,7 @@ void tui_init(bool fullscreen)
     tui.rows = TUI_DEFAULT_ROWS;
     tui.cols = TUI_DEFAULT_COLS;
     if (fullscreen) {
+#ifndef __MSDOS__
         struct winsize ws;
         if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 0 && ws.ws_col > 0) {
             tui.rows = ws.ws_row;
@@ -647,6 +654,10 @@ void tui_init(bool fullscreen)
             if (tui.rows > TUI_MAX_ROWS) tui.rows = TUI_MAX_ROWS;
             if (tui.cols > TUI_MAX_COLS) tui.cols = TUI_MAX_COLS;
         }
+#else
+        tui.rows = gw_hal ? gw_hal->screen_height : TUI_DEFAULT_ROWS;
+        tui.cols = gw_hal ? gw_hal->screen_width : TUI_DEFAULT_COLS;
+#endif
     }
 
     tui.view_bottom = tui.rows - 1;

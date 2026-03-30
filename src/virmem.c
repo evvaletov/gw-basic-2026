@@ -40,12 +40,10 @@ static uint8_t bios_peek(uint16_t offset)
 
     case 0x6C: case 0x6D: case 0x6E: case 0x6F: {
         /* Timer ticks since midnight (~18.2065 Hz) */
-        struct timespec ts;
-        clock_gettime(CLOCK_REALTIME, &ts);
-        struct tm tm;
-        localtime_r(&ts.tv_sec, &tm);
-        long secs = tm.tm_hour * 3600L + tm.tm_min * 60L + tm.tm_sec;
-        uint32_t ticks = (uint32_t)(secs * 18.2065 + ts.tv_nsec / 54925400.0);
+        time_t now = time(NULL);
+        struct tm *tm = localtime(&now);
+        long secs = tm->tm_hour * 3600L + tm->tm_min * 60L + tm->tm_sec;
+        uint32_t ticks = (uint32_t)(secs * 18.2065);
         return (ticks >> ((offset - 0x6C) * 8)) & 0xFF;
     }
 

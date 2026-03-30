@@ -3,6 +3,10 @@
 #include "hal.h"
 #include <stdlib.h>
 #include <string.h>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 #include <stdio.h>
 #include <math.h>
 #include <ctype.h>
@@ -287,7 +291,8 @@ static int draw_parse_varref(const char **pp)
     p++;
     /* Parse variable name (1-2 chars + optional type suffix) */
     if (!isalpha((unsigned char)*p)) return 0;
-    char vname[2] = {toupper(*p), 0};
+    char vname[2];
+    vname[0] = toupper(*p); vname[1] = 0;
     p++;
     if (isalpha((unsigned char)*p)) { vname[1] = toupper(*p); p++; }
     gw_valtype_t vtype = VT_SNG;
@@ -350,7 +355,8 @@ static void draw_engine(const char *cmd, int *px, int *py,
                 /* X stringvar; — execute substring */
                 while (*p == ' ') p++;
                 if (!isalpha((unsigned char)*p)) continue;
-                char vn[2] = {toupper(*p), 0};
+                char vn[2];
+                vn[0] = toupper(*p); vn[1] = 0;
                 p++;
                 if (isalpha((unsigned char)*p)) { vn[1] = toupper(*p); p++; }
                 gw_valtype_t vt = VT_STR;

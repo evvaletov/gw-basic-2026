@@ -8,7 +8,7 @@
 # Produces: GWBASIC.EXE (interpreter), GWBASCOM.EXE (compiler), GWRT.LIB (runtime)
 
 CC = wcc386
-CFLAGS = -bt=dos -mf -ox -w4 -zq -Iinclude -D__MSDOS__
+CFLAGS = -bt=dos -mf -ox -w4 -zq -za99 -Iinclude -D__MSDOS__
 LINKER = wlink
 LIBRARIAN = wlib
 

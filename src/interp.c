@@ -10,11 +10,28 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#ifdef __MSDOS__
+#include <dos.h>
+#include <direct.h>
+#else
 #include <dirent.h>
-#include <sys/stat.h>
 #include <unistd.h>
+#endif
+#include <sys/stat.h>
 #include <errno.h>
 #include <time.h>
+
+/* Portable monotonic time (seconds as double) */
+static double monotonic_time(void)
+{
+#ifdef __MSDOS__
+    return (double)clock() / CLOCKS_PER_SEC;
+#else
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec + ts.tv_nsec / 1e9;
+#endif
+}
 
 /*
  * Execution loop and control flow - the heart of the interpreter.
@@ -1135,6 +1152,26 @@ void gw_exec_stmt(void)
                 }
                 if (wild && !*wild) wild = NULL;
             }
+#ifdef __MSDOS__
+            /* DOS: use findfirst/findnext */
+            { char search[260];
+              snprintf(search, sizeof(search), "%s%s%s", dir,
+                       dir[strlen(dir)-1] == '\\' ? "" : "\\",
+                       wild ? wild : "*.*");
+              struct find_t ft;
+              int col = 0;
+              unsigned rc = _dos_findfirst(search, _A_NORMAL | _A_RDONLY | _A_SUBDIR, &ft);
+              while (rc == 0) {
+                  char entry[270];
+                  snprintf(entry, sizeof(entry), "%-14s", ft.name);
+                  if (gw_hal) gw_hal->puts(entry); else fputs(entry, stdout);
+                  col += 14;
+                  if (col >= 70) { if (gw_hal) gw_hal->puts("\n"); else fputs("\n", stdout); col = 0; }
+                  rc = _dos_findnext(&ft);
+              }
+              if (col > 0) { if (gw_hal) gw_hal->puts("\n"); else fputs("\n", stdout); }
+            }
+#else
             DIR *dp = opendir(dir);
             if (!dp) { free(pattern); gw_error(ERR_PE); }
             struct dirent *ent;
@@ -1142,31 +1179,22 @@ void gw_exec_stmt(void)
             while ((ent = readdir(dp)) != NULL) {
                 if (ent->d_name[0] == '.') continue;
                 if (wild) {
-                    /* Simple *.ext matching: if wild starts with *. check extension */
                     if (wild[0] == '*' && wild[1] == '.') {
                         const char *ext = strrchr(ent->d_name, '.');
                         if (!ext || ci_strcmp(ext + 1, wild + 2) != 0) continue;
                     } else if (strcmp(wild, "*.*") != 0 && strcmp(wild, "*") != 0) {
-                        /* Exact match */
                         if (ci_strcmp(ent->d_name, wild) != 0) continue;
                     }
                 }
                 char entry[270];
                 snprintf(entry, sizeof(entry), "%-14s", ent->d_name);
-                if (gw_hal) gw_hal->puts(entry);
-                else fputs(entry, stdout);
+                if (gw_hal) gw_hal->puts(entry); else fputs(entry, stdout);
                 col += 14;
-                if (col >= 70) {
-                    if (gw_hal) gw_hal->puts("\n");
-                    else fputs("\n", stdout);
-                    col = 0;
-                }
+                if (col >= 70) { if (gw_hal) gw_hal->puts("\n"); else fputs("\n", stdout); col = 0; }
             }
-            if (col > 0) {
-                if (gw_hal) gw_hal->puts("\n");
-                else fputs("\n", stdout);
-            }
+            if (col > 0) { if (gw_hal) gw_hal->puts("\n"); else fputs("\n", stdout); }
             closedir(dp);
+#endif
             free(pattern);
             return;
         }
@@ -1205,7 +1233,11 @@ void gw_exec_stmt(void)
             gw_value_t v = gw_eval_str();
             char *path = gw_str_to_cstr(&v.sval);
             gw_str_free(&v.sval);
+#ifdef __MSDOS__
+            if (mkdir(path) != 0) {
+#else
             if (mkdir(path, 0755) != 0) {
+#endif
                 int e = errno;
                 free(path);
                 gw_error(e == EEXIST ? ERR_FE : ERR_PE);
@@ -2277,10 +2309,7 @@ void gw_exec_stmt(void)
             gw.timer_trap.trap.gosub_line = line;
             gw.timer_trap.trap.pending = false;
             gw.timer_trap.trap.in_handler = false;
-            /* Reset the clock */
-            struct timespec ts;
-            clock_gettime(CLOCK_MONOTONIC, &ts);
-            gw.timer_trap.last_fire = ts.tv_sec + ts.tv_nsec / 1e9;
+            gw.timer_trap.last_fire = monotonic_time();
             return;
         }
 
@@ -3086,9 +3115,7 @@ static void gw_check_events(void)
 {
     /* Timer trap */
     if (gw.timer_trap.trap.gosub_line && !gw.timer_trap.trap.in_handler) {
-        struct timespec ts;
-        clock_gettime(CLOCK_MONOTONIC, &ts);
-        double now = ts.tv_sec + ts.tv_nsec / 1e9;
+        double now = monotonic_time();
         double elapsed = now - gw.timer_trap.last_fire;
 
         if (elapsed >= gw.timer_trap.interval) {
@@ -3105,9 +3132,7 @@ static void gw_check_events(void)
     /* Check for pending timer event after TIMER ON */
     if (gw.timer_trap.trap.pending && gw.timer_trap.trap.mode == TRAP_ON &&
         !gw.timer_trap.trap.in_handler) {
-        struct timespec ts;
-        clock_gettime(CLOCK_MONOTONIC, &ts);
-        gw.timer_trap.last_fire = ts.tv_sec + ts.tv_nsec / 1e9;
+        gw.timer_trap.last_fire = monotonic_time();
         fire_event_trap(&gw.timer_trap.trap);
         return;
     }

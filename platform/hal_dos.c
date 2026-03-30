@@ -2,15 +2,10 @@
  * DOS HAL backend for GW-BASIC 2026.
  *
  * Uses BIOS/DOS interrupts for terminal I/O, keyboard input,
- * and screen control.  Replaces the POSIX HAL (hal_posix.c)
- * when targeting FreeDOS or other DOS-compatible systems.
+ * and screen control.  Selected at compile time via __MSDOS__.
+ * Linux HAL (hal_posix.c) is unchanged -- full backward compatibility.
  *
- * Build with OpenWatcom:  wcl386 -bt=dos -l=dos4g ...
- * Build with DJGPP:       gcc -o gwbasic.exe ...
- *
- * Linux compatibility is retained -- hal_posix.c is used on
- * POSIX systems, hal_dos.c on DOS.  The hal_ops_t vtable
- * provides the compile-time abstraction.
+ * Build: wcc386 -bt=dos -mf -ox -za99 -D__MSDOS__ -Iinclude
  */
 
 #ifdef __MSDOS__
@@ -20,8 +15,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <conio.h>
+#include <i86.h>
 #include <dos.h>
-#include <i86.h>     /* OpenWatcom int86() */
 
 static int cursor_row = 0;
 static int cursor_col = 0;
@@ -33,11 +28,12 @@ static int screen_rows = 25;
 static void bios_set_cursor(int row, int col)
 {
     union REGS r;
-    r.h.ah = 0x02;      /* Set cursor position */
-    r.h.bh = 0;         /* Page 0 */
-    r.h.dh = (uint8_t)row;
-    r.h.dl = (uint8_t)col;
-    int86(0x10, &r, &r);
+    memset(&r, 0, sizeof(r));
+    r.h.ah = 0x02;
+    r.h.bh = 0;
+    r.h.dh = (unsigned char)row;
+    r.h.dl = (unsigned char)col;
+    int386(0x10, &r, &r);
     cursor_row = row;
     cursor_col = col;
 }
@@ -45,9 +41,10 @@ static void bios_set_cursor(int row, int col)
 static void bios_get_cursor(int *row, int *col)
 {
     union REGS r;
-    r.h.ah = 0x03;      /* Get cursor position */
+    memset(&r, 0, sizeof(r));
+    r.h.ah = 0x03;
     r.h.bh = 0;
-    int86(0x10, &r, &r);
+    int386(0x10, &r, &r);
     *row = r.h.dh;
     *col = r.h.dl;
 }
@@ -55,25 +52,27 @@ static void bios_get_cursor(int *row, int *col)
 static void bios_scroll_up(int lines, int attr, int r1, int c1, int r2, int c2)
 {
     union REGS r;
-    r.h.ah = 0x06;      /* Scroll window up */
-    r.h.al = (uint8_t)lines;
-    r.h.bh = (uint8_t)attr;
-    r.h.ch = (uint8_t)r1;
-    r.h.cl = (uint8_t)c1;
-    r.h.dh = (uint8_t)r2;
-    r.h.dl = (uint8_t)c2;
-    int86(0x10, &r, &r);
+    memset(&r, 0, sizeof(r));
+    r.h.ah = 0x06;
+    r.h.al = (unsigned char)lines;
+    r.h.bh = (unsigned char)attr;
+    r.h.ch = (unsigned char)r1;
+    r.h.cl = (unsigned char)c1;
+    r.h.dh = (unsigned char)r2;
+    r.h.dl = (unsigned char)c2;
+    int386(0x10, &r, &r);
 }
 
 static void bios_write_char(int ch, int attr)
 {
     union REGS r;
-    r.h.ah = 0x09;      /* Write char + attribute */
-    r.h.al = (uint8_t)ch;
+    memset(&r, 0, sizeof(r));
+    r.h.ah = 0x09;
+    r.h.al = (unsigned char)ch;
     r.h.bh = 0;
-    r.h.bl = (uint8_t)attr;
-    r.x.cx = 1;
-    int86(0x10, &r, &r);
+    r.h.bl = (unsigned char)attr;
+    r.w.cx = 1;
+    int386(0x10, &r, &r);
 }
 
 /* --- Terminal I/O --- */
@@ -111,17 +110,16 @@ static void dos_putch(int ch)
 
 static void dos_puts(const char *s)
 {
-    while (*s)
-        dos_putch(*s++);
+    while (*s) dos_putch(*s++);
 }
 
 static int dos_getch(void)
 {
-    /* INT 16h AH=00: wait for key, return AL=ASCII, AH=scan */
     union REGS r;
+    memset(&r, 0, sizeof(r));
     r.h.ah = 0x00;
-    int86(0x16, &r, &r);
-    return r.h.al ? r.h.al : (0x100 | r.h.ah); /* extended key */
+    int386(0x16, &r, &r);
+    return r.h.al ? r.h.al : (0x100 | r.h.ah);
 }
 
 static bool dos_kbhit(void)
@@ -143,71 +141,37 @@ static void dos_cls(void)
     bios_set_cursor(0, 0);
 }
 
-static void dos_set_width(int cols)
-{
-    (void)cols;
-}
-
-/* DOS doesn't have raw/cooked mode distinction for console */
+static void dos_set_width(int cols) { (void)cols; }
 static void dos_enable_raw(void)  { }
 static void dos_disable_raw(void) { }
 
 static void dos_write_raw(const char *data, int len)
 {
-    /* On DOS, write directly to screen buffer for graphics.
-     * For text, just output character by character. */
     for (int i = 0; i < len; i++)
         dos_putch(data[i]);
 }
 
-/* --- Lifecycle --- */
-
 static void dos_init(void)
 {
-    /* Get current video mode to determine screen size */
     union REGS r;
-    r.h.ah = 0x0F;  /* Get video mode */
-    int86(0x10, &r, &r);
+    memset(&r, 0, sizeof(r));
+    r.h.ah = 0x0F;
+    int386(0x10, &r, &r);
     screen_cols = r.h.ah;
-
-    /* Get screen rows from BIOS data area */
-    /* 0040:0084 = rows - 1 */
-    screen_rows = *(uint8_t far *)MK_FP(0x0040, 0x0084) + 1;
-    if (screen_rows < 25) screen_rows = 25;
-
+    screen_rows = 25;  /* safe default; BIOS data area read needs far ptr */
     bios_get_cursor(&cursor_row, &cursor_col);
 }
 
-static void dos_shutdown(void)
-{
-    /* Nothing to clean up on DOS */
-}
-
-/* --- HAL vtable --- */
+static void dos_shutdown(void) { }
 
 static hal_ops_t dos_hal = {
-    .putch       = dos_putch,
-    .puts        = dos_puts,
-    .getch       = dos_getch,
-    .kbhit       = dos_kbhit,
-    .locate      = dos_locate,
-    .get_cursor_row = dos_get_cursor_row,
-    .get_cursor_col = dos_get_cursor_col,
-    .cls         = dos_cls,
-    .set_width   = dos_set_width,
-    .enable_raw  = dos_enable_raw,
-    .disable_raw = dos_disable_raw,
-    .write_raw   = dos_write_raw,
-    .screen_width  = 80,
-    .screen_height = 25,
-    .is_tty      = true,  /* DOS console is always a TTY */
-    .init        = dos_init,
-    .shutdown    = dos_shutdown,
+    dos_putch, dos_puts, dos_getch, dos_kbhit,
+    dos_locate, dos_get_cursor_row, dos_get_cursor_col,
+    dos_cls, dos_set_width, dos_enable_raw, dos_disable_raw,
+    dos_write_raw, 80, 25, 1 /* is_tty */,
+    dos_init, dos_shutdown
 };
 
-hal_ops_t *hal_dos_create(void)
-{
-    return &dos_hal;
-}
+hal_ops_t *hal_dos_create(void) { return &dos_hal; }
 
 #endif /* __MSDOS__ */
