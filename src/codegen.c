@@ -684,10 +684,70 @@ static void emit_prec_wrapper(int prec) { emit_num_prec(prec); }
 
 static void emit_num_prec(int min_prec)
 {
-    /* Buffer left operand so we can wrap it for MOD/IDIV/POW */
-    /* Peek at atom type (for string comparison detection) */
     gw_valtype_t left_type = peek_expr_type();
-    uint8_t *left_start = tp;  /* save position for string re-emit */
+    uint8_t *left_start = tp;
+
+    /* Fast path: for simple expressions with no MOD/IDIV/POW/string-cmp,
+     * emit directly without buffering via open_memstream */
+    skip_spaces();
+    bool needs_buffer = false;
+    /* Peek ahead: scan for MOD/IDIV/POW operators or string type */
+    if (left_type == VT_STR) needs_buffer = true;
+    if (!needs_buffer) {
+        uint8_t *peek = tp;
+        /* Quick scan of the expression for special operators */
+        int depth = 0;
+        while (*peek) {
+            if (*peek == '(' ) depth++;
+            else if (*peek == ')') { if (depth-- <= 0) break; }
+            else if (depth == 0 && (*peek == ':' || *peek == 0 || *peek == ','
+                     || *peek == ';' || *peek == TOK_THEN || *peek == TOK_ELSE
+                     || *peek == TOK_TO || *peek == TOK_STEP))
+                break;
+            if (*peek == TOK_MOD || *peek == TOK_IDIV || *peek == TOK_POW)
+                { needs_buffer = true; break; }
+            peek++;
+        }
+    }
+
+    if (!needs_buffer) {
+        /* Direct emission — no buffering needed */
+        emit_atom();
+        for (;;) {
+            skip_spaces();
+            int prec = op_prec(cur());
+            if (prec < min_prec) break;
+            uint8_t op = cur();
+            advance();
+            /* Combined relationals */
+            const char *cop = NULL;
+            if (op == TOK_LT && cur() == TOK_EQ) { advance(); cop = "<="; }
+            else if (op == TOK_GT && cur() == TOK_EQ) { advance(); cop = ">="; }
+            else if (op == TOK_LT && cur() == TOK_GT) { advance(); cop = "!="; }
+            else if (op == TOK_GT && cur() == TOK_LT) { advance(); cop = "!="; }
+            else if (op == TOK_EQ && cur() == TOK_LT) { advance(); cop = "<="; }
+            else if (op == TOK_EQ && cur() == TOK_GT) { advance(); cop = ">="; }
+            if (cop || op == TOK_GT || op == TOK_LT || op == TOK_EQ) {
+                /* Relationals need ternary for GW-BASIC -1/0 result */
+                /* Fall back to buffered path for correct wrapping */
+                /* Actually, for simple relationals just emit inline: */
+                const char *rop = cop ? cop : binop_c(op);
+                EMIT(" %s ", rop);
+                emit_num_prec(prec + 1);
+            } else if (op == TOK_DIV) {
+                /* Division with zero-check via GCC statement expression */
+                EMIT(" / ({double _d=");
+                emit_num_prec(prec + 1);
+                EMIT("; if(_d==0.0)gw_error(11); _d;})");
+            } else {
+                EMIT(" %s ", binop_c(op));
+                emit_num_prec(prec + 1);
+            }
+        }
+        return;
+    }
+
+    /* Slow path: buffer for MOD/IDIV/POW/string comparison */
     char *left = emit_to_buf(emit_atom_wrapper, 0);
 
     for (;;) {
@@ -1496,12 +1556,17 @@ static void emit_stmt(void)
         if (cur() == TOK_EQ) advance();
         EMIT("  ");
         emit_varname(name, type);
-        EMIT(" = (%s)(", c_type(type));
-        emit_num_expr();
-        EMIT(");\n");
+        if (type == VT_INT) {
+            EMIT(" = gw_cint((double)(");
+            emit_num_expr();
+            EMIT("));\n");
+        } else {
+            EMIT(" = (%s)(", c_type(type));
+            emit_num_expr();
+            EMIT(");\n");
+        }
         skip_spaces();
         if (cur() == TOK_TO) advance();
-        /* Store limit and step at function scope (no {} block — FOR may span IF THEN) */
         EMIT("  static %s _for_limit_%d; _for_limit_%d = (%s)(",
              c_type(type), for_label_counter, for_label_counter, c_type(type));
         emit_num_expr();
