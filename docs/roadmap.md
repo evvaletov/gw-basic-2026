@@ -40,7 +40,8 @@ graphics, BSAVE/BLOAD/SAVE/LOAD, MKDIR/CHDIR/RMDIR/KILL file ops.
 **69 of 69 eligible tests pass (100%).** RNG uses gw_rnd() matching the
 interpreter exactly. CHAIN/COMMON/RUN "file" delegated to runtime.
 Dead code elimination, fast-path expression emitter, selective variable
-sync in delegate, FOR simplification (step=1 fast path).
+sync, FOR step=1 elision (var++ instead of step variable), constant
+folding (compile-time arithmetic on literals).
 
 ### Hardware I/O Simulator (v0.15.0)
 
