@@ -23,20 +23,21 @@
 
 ## Tests
 
-72 test programs in `tests/programs/`, plus 4 classic interactive programs in
-`tests/classic/` (Hamurabi, Lunar Lander, Gunner, Diamond from David Ahl's
-*BASIC Computer Games*).
+72 automated test programs in `tests/programs/`, plus 4 classic interactive
+programs in `tests/classic/` (Hamurabi, Lunar Lander, Gunner, Diamond from
+David Ahl's *BASIC Computer Games*).  14 Jupyter kernel tests.  69 compiler
+tests (all numbered programs compiled to native executables via `gwbasic-compile`).
 
 Run the full automated suite:
 
 ```bash
-bash tests/run_tests.sh
+bash tests/run_tests.sh              # interpreter (72 tests)
+python -m gwbasickernel.test_kernel  # Jupyter kernel (14 tests)
 ```
 
-Each test has a 5-second timeout. 67 tests have `.expected` golden files
-for output regression detection. Tests without golden comparison: datetime,
-on_timer, timer_stop (timing-dependent), color_test (visual), play_music
-(audio duration).
+Each interpreter test has a 5-second timeout. 68 tests have `.expected` golden
+files for output regression detection.  Tests without golden comparison:
+datetime, on_timer, timer_stop (timing-dependent), color_test (visual).
 
 ### Compatibility Testing
 

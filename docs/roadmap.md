@@ -9,39 +9,34 @@ invokes GCC to produce native executables linked against `libgwrt.a`.
 
 Pipeline: `.bas` → `gw_crunch()` → analysis pass → C codegen → `gcc` → native binary.
 
-**Phase 1**: PRINT, LET, IF/THEN/ELSE, GOTO, GOSUB/RETURN,
-FOR/NEXT, END/STOP/SYSTEM, REM, DATA/READ/RESTORE, CLS, arithmetic,
-string functions, core math functions.
+**69 of 69 eligible tests pass (100%).** Zero compile errors.
 
-**Phase 2** (current): WHILE/WEND, ON GOTO/GOSUB, ON ERROR GOTO,
-MOD/IDIV/POW operators (buffered left operand for proper casting),
-SWAP, POKE, DEF SEG, RANDOMIZE, LOCATE, COLOR, SCREEN, WIDTH, KEY,
-WRITE, OPTION BASE, DEF type statements, extended statement dispatch.
-DIM/array subscript access (gwrt_array_elem runtime), number formatting
-via gw_print_value() with expression type tracking, combined relational
-operators (<=, >=, <>), PRINT USING (token embedding with variable sync),
-STRING$/INSTR single-byte token support, PRINT USING (token embedding
-with variable sync), RESUME, ERROR, ON TIMER/KEY skip, MID$ assign skip,
-FOR scope fix (static limit/step), SWAP with array elements, ENVIRON$/
-DATE$/TIME$/ENVIRON$ expression support, RESUME/ERROR statements,
-DEF FN (token embedding + variable sync), DEFINT/DEFSNG/DEFDBL/DEFSTR
-(pre-scan in analysis), gw_cint() rounding for integer assignment,
-STRING$(n,"c") string arg handling, READ into arrays, array assignment
-self-reference fix, PRINT USING colon-in-string. **Zero compile errors**
-— all 72 programs compile. **46 produce correct output (64%).** String
-concatenation (A$+B$), READ into arrays, self-referencing array assignment
-fix, float division semantics, PRINT USING null-byte token fix,
-string comparison (strcmp), ON ERROR GOTO (setjmp), graphics/sound
-delegation to runtime via token embedding, CVI/MKI$/CVS/MKS$/CVD/MKD$,
-MID$ assignment delegation, ON ERROR GOTO with setjmp/gw_run_jmp,
-RESUME/RESUME NEXT, ERR/ERL, file I/O delegation (OPEN/CLOSE/PRINT#/
-INPUT#/WRITE#/LINE INPUT via emit_delegate_stmt), PMAP/POINT/PSET
-graphics, BSAVE/BLOAD/SAVE/LOAD, MKDIR/CHDIR/RMDIR/KILL file ops.
-**69 of 69 eligible tests pass (100%).** RNG uses gw_rnd() matching the
-interpreter exactly. CHAIN/COMMON/RUN "file" delegated to runtime.
-Dead code elimination, fast-path expression emitter, selective variable
-sync, FOR step=1 elision (var++ instead of step variable), constant
-folding (compile-time arithmetic on literals).
+Language coverage:
+
+- All statements: PRINT, LET, IF/THEN/ELSE, GOTO, GOSUB/RETURN, FOR/NEXT,
+  WHILE/WEND, ON GOTO/GOSUB, ON ERROR GOTO, RESUME/RESUME NEXT, DIM, DEF FN,
+  SWAP, READ/DATA/RESTORE, INPUT/LINE INPUT, OPEN/CLOSE/PRINT#/INPUT#/WRITE#,
+  FIELD/LSET/RSET/GET/PUT, BSAVE/BLOAD, SAVE/LOAD, CHAIN/COMMON, SCREEN,
+  PSET/PRESET, COLOR/LOCATE/CLS, CIRCLE/DRAW/PAINT/PLAY, VIEW/WINDOW/PALETTE,
+  POKE/OUT/WAIT, DEF SEG, RANDOMIZE, CLEAR, MID$ assignment, ERROR,
+  KILL/NAME/FILES/SHELL/MKDIR/CHDIR/RMDIR, ENVIRON, LPRINT/LLIST, WIDTH, KEY
+- All operators: `+` `-` `*` `/` `\` `MOD` `^` `AND` `OR` `XOR` `NOT` `EQV` `IMP`
+  `>` `<` `=` `<=` `>=` `<>` (including string comparison via strcmp)
+- All functions: math, string, file, conversion (CVI/CVS/CVD/MKI$/MKS$/MKD$),
+  graphics (POINT/PMAP), system (FRE/ERR/ERL/TIMER/DATE$/TIME$/ENVIRON$/INKEY$)
+- Token embedding for complex statements (PRINT USING, DEF FN, graphics,
+  file I/O, MID$ assignment) with selective variable sync
+- Division-by-zero detection, RNG matching (gw_rnd), ON ERROR GOTO via
+  setjmp/longjmp
+
+Optimizations:
+
+- Constant folding (compile-time arithmetic on literals)
+- Dead code elimination (skip statements after GOTO/END/STOP)
+- FOR step=1 elision (var++ instead of step variable, simple comparison)
+- Fast-path expression emitter (skip buffering for common case)
+- Selective variable sync in delegated statements
+- REM-line skip (no runtime check for comment-only lines)
 
 ### Hardware I/O Simulator (v0.15.0)
 
@@ -51,47 +46,32 @@ pattern.  Emulates 8253 PIT channel 2 (speaker frequency), PPI port B
 registers, game port (joystick stub), and COM1 serial (transmitter-ready
 stub).  Default: reads return 0xFF (floating bus), writes discarded.
 
-Statements: `OUT`, `WAIT`, `MOTOR`.  Functions: `INP()`, `STICK()`, `STRIG()`.
-
-Also in v0.15.0: filled remaining statement/function gaps — `RESET`,
-`ENVIRON`/`ENVIRON$`, `ERDEV`/`ERDEV$`, `IOCTL`/`IOCTL$`, `LCOPY`,
-`DATE$`/`TIME$` assignment, `CALL`/`CALLS`, `COM`.  All 144 defined
-tokens are now handled (100% token coverage).
-
-String space pool with compacting garbage collector (`strpool.c`),
-replacing individual `malloc`/`free`.  32KB default pool, bump-pointer
-allocation, compaction at statement boundaries.  `FRE()` returns actual
-free space; `CLEAR n` resizes the pool.
+Also in v0.15.0: 100% token coverage (all 144 GW-BASIC tokens handled),
+string space pool with compacting garbage collector, RESET, ENVIRON/ENVIRON$,
+ERDEV/ERDEV$, IOCTL/IOCTL$, LCOPY, DATE$/TIME$ assignment, CALL, COM.
 
 ### Jupyter Kernel (v0.15.0)
 
 `gwbasickernel/` — Jupyter notebook kernel using the persistent subprocess
-model.  GW-BASIC reads BASIC from stdin in piped mode (no banner, no prompts,
-unbuffered stdout).  Sentinel protocol (`PRINT "<<<GWDONE>>>"`) delimits
-output per cell.  State persists across cells.
+model with sentinel protocol.
 
-- **Inline Sixel graphics** — `SCREEN 1`/`SCREEN 2` drawing commands render
-  as inline PNG images in the notebook.  Pure-Python Sixel decoder (no PIL
-  or Ghostscript dependency).
-- **INPUT statement support** — when a program executes `INPUT`, the kernel
-  requests input from the notebook front-end via the Jupyter stdin protocol.
-- **Pygments syntax highlighting** — GW-BASIC lexer registered as a Pygments
-  entry point for code cell highlighting.
-- **Tab completion** for all GW-BASIC keywords.
-- **Magic commands**: `%reset`, `%timeout`, `%new`.
+- **Inline Sixel graphics** — pure-Python Sixel decoder renders SCREEN
+  commands as inline PNG images in the notebook
+- **INPUT statement support** via Jupyter stdin protocol
+- **Pygments syntax highlighting** for code cells
+- **Tab completion** for all GW-BASIC keywords
+- **Magic commands**: `%reset`, `%timeout`, `%new`
 
 Install: `pip install -e . && gwbasickernel-install --user`
 
 ## Next Up
 
 ### IDE Integration
-- **JetBrains plugin (IntelliJ/CLion)** — full-featured language plugin with
-  syntax highlighting, code completion, line number navigation, run
-  configurations, debugger integration (breakpoints via `STOP`, variable
-  inspection), structure view (line number outline), and error annotations.
-- **VS Code extension** — language extension providing syntax highlighting
-  (TextMate grammar), snippets, run/debug tasks, integrated terminal runner,
-  and Language Server Protocol support for diagnostics and hover info.
+- **VS Code extension** — syntax highlighting (TextMate grammar), snippets,
+  run/debug tasks, integrated terminal runner
+- **JetBrains plugin (IntelliJ/CLion)** — syntax highlighting, code completion,
+  run configurations, debugger integration (breakpoints via `STOP`, variable
+  inspection), structure view (line number outline)
 
 ## Known Limitations
 
@@ -99,5 +79,4 @@ Install: `pip install -e . && gwbasickernel-install --user`
   16 WHILE nesting
 - `CALL`/`CALLS` (machine code execution) raises Illegal function call
 - `DATE$`/`TIME$` assignment accepted but does not modify the system clock
-- Device stubs (`ERDEV`, `IOCTL`, `COM`, `LCOPY`) return defaults — no real
-  device emulation
+- Device stubs (`ERDEV`, `IOCTL`, `COM`, `LCOPY`) return defaults

@@ -10,12 +10,16 @@ with modern data structures while targeting bug-compatible behavior.
 ## Building
 
 ```bash
-mkdir -p build && cd build
-cmake .. && make
+cmake -B build && cmake --build build
 ```
 
 Requires a C11 compiler and CMake 3.10+. PulseAudio (`libpulse-simple`)
 is optional — detected at build time for `SOUND`/`BEEP`/`PLAY` support.
+
+Builds three targets:
+- `gwbasic` — the interpreter
+- `gwbasic-compile` — the ahead-of-time compiler
+- `libgwrt.a` — runtime library for compiled programs
 
 ## Usage
 
@@ -23,15 +27,12 @@ Interactive mode launches the authentic GW-BASIC full-screen editor:
 
 ```
 $ ./gwbasic
-GW-BASIC 2026 0.14.0
+GW-BASIC 2026 0.16.0
 (C) Eremey Valetov 2026. MIT License.
 Based on Microsoft GW-BASIC assembly source.
 Ok
 PRINT 2+2
  4
-Ok
-FOR I=1 TO 5:PRINT I;:NEXT
- 1  2  3  4  5
 Ok
 ```
 
@@ -41,23 +42,47 @@ Run a program file (ASCII or binary tokenized):
 ./gwbasic tests/programs/prime_sieve.bas
 ```
 
-Pipe input:
+Compile to a native executable:
 
 ```bash
-echo '10 FOR I=1 TO 10:PRINT I*I;:NEXT' | ./gwbasic
+./gwbasic-compile tests/programs/fibonacci.bas -c --runtime .
+```
+
+## Ahead-of-Time Compiler
+
+`gwbasic-compile` translates BASIC programs to C source, then invokes GCC
+to produce native executables linked against `libgwrt.a`.
+
+Pipeline: `.bas` → tokenizer → analysis → C codegen → `gcc` → native binary.
+
+69 of 69 eligible test programs compile and produce correct output (100%).
+
+```bash
+# Generate C source
+./gwbasic-compile myprog.bas -o myprog.c
+
+# Compile to executable (automatic)
+./gwbasic-compile myprog.bas -c --runtime /path/to/gw-basic-2026
+```
+
+## Jupyter Kernel
+
+A Jupyter notebook kernel for GW-BASIC with inline Sixel graphics
+rendering, INPUT support, and Pygments syntax highlighting.
+
+```bash
+pip install -e .
+gwbasickernel-install --user
+jupyter notebook  # select "GW-BASIC 2026" kernel
 ```
 
 ## What Works
 
+100% token coverage — all 144 GW-BASIC tokens are implemented.
+
 **Data types:** INTEGER (%), SINGLE (!), DOUBLE (#), STRING ($)
 
 **Operators:** `+ - * / ^ \ MOD AND OR XOR EQV IMP NOT < = > <= >= <>`
-
-**Numeric functions:** SGN, INT, ABS, SQR, SIN, COS, TAN, ATN, LOG, EXP,
-RND, FIX, CINT, CSNG, CDBL
-
-**String functions:** LEN, ASC, CHR$, VAL, STR$, LEFT$, RIGHT$, MID$,
-SPACE$, STRING$, HEX$, OCT$, INSTR, INPUT$
 
 **Statements:**
 
@@ -67,171 +92,36 @@ SPACE$, STRING$, HEX$, OCT$, INSTR, INPUT$
 | Variables | LET, DIM, ERASE, SWAP, DEFINT/SNG/DBL/STR |
 | Control flow | GOTO, GOSUB/RETURN, FOR/NEXT, IF/THEN/ELSE, WHILE/WEND, ON...GOTO/GOSUB |
 | Input | INPUT, LINE INPUT, DATA/READ/RESTORE, INKEY$ |
-| Program | RUN, RUN "file", CONT, STOP, END, NEW, LIST, CLEAR, AUTO, RENUM, DELETE, EDIT |
+| Program | RUN, CONT, STOP, END, NEW, LIST, CLEAR, AUTO, RENUM, DELETE, EDIT |
 | Sequential I/O | OPEN, CLOSE, PRINT#, WRITE#, INPUT#, LINE INPUT# |
 | Random-access I/O | FIELD, LSET, RSET, PUT, GET, CVI/CVS/CVD, MKI$/MKS$/MKD$ |
-| Program I/O | SAVE (binary/ASCII), LOAD (auto-detects format), MERGE, CHAIN, COMMON |
-| Event trapping | ON TIMER(n) GOSUB, TIMER ON/OFF/STOP, ON KEY(n) GOSUB, KEY(n) ON/OFF/STOP |
+| Program I/O | SAVE (binary/ASCII), LOAD (auto-detects), MERGE, CHAIN, COMMON |
+| Event trapping | ON TIMER(n) GOSUB, TIMER ON/OFF/STOP, ON KEY(n) GOSUB |
 | Error handling | ON ERROR GOTO, RESUME, ERROR, ERR, ERL |
 | User functions | DEF FN, RANDOMIZE |
-| File management | KILL, NAME, FILES, MKDIR, RMDIR, CHDIR, SHELL |
+| File management | KILL, NAME, FILES, MKDIR, RMDIR, CHDIR, SHELL, ENVIRON |
 | Date/time | DATE$, TIME$, TIMER |
 | Screen | LOCATE, COLOR, WIDTH, SCREEN, KEY ON/OFF/LIST |
-| Graphics | PSET, PRESET, LINE, CIRCLE, DRAW, PAINT, GET/PUT (sprites), BSAVE, BLOAD, VIEW, WINDOW, PALETTE, PMAP |
+| Graphics | PSET, PRESET, LINE, CIRCLE, DRAW, PAINT, GET/PUT (sprites), VIEW, WINDOW, PALETTE, PMAP |
 | Sound | SOUND, BEEP, PLAY (MML) |
-| Memory | DEF SEG, PEEK, POKE |
-
-### Binary and ASCII File Formats
-
-`SAVE` writes tokenized binary by default (just like the original), or ASCII
-with the `,A` flag.  `LOAD` auto-detects the format — so you can load programs
-saved in either format without any extra flags.
-
-```
-SAVE "myprog.bas"       ' tokenized binary (compact, fast)
-SAVE "myprog.bas",A     ' ASCII text (human-readable)
-LOAD "myprog.bas"       ' auto-detects format
-```
-
-Binary files use the standard GW-BASIC 0xFF-header format.  Command-line
-loading (`./gwbasic file.bas`) also auto-detects, so binary `.BAS` files
-just work.
-
-### INKEY$ Extended Keys
-
-`INKEY$` returns the classic GW-BASIC two-byte encoding for extended keys:
-`CHR$(0) + CHR$(scan_code)`.  Arrow keys, Home, End, PgUp/PgDn, Insert,
-Delete, and F1-F10 all produce the correct IBM PC scan codes — so programs
-that poll for arrow-key input work as expected.
-
-### Full-Screen Editor (TUI)
-
-When running interactively, GW-BASIC 2026 presents the authentic full-screen
-editor that people remember from the 1980s:
-
-- 25×80 screen buffer with free cursor movement (arrow keys)
-- **Enter on any screen line** re-enters it as BASIC input
-- Insert/Overwrite toggle (Insert key, cursor shape changes)
-- Function key bar on line 25 (`KEY ON`/`KEY OFF`/`KEY LIST`)
-- Default F1-F10 bindings (F1=LIST, F2=RUN, F3=LOAD", etc.)
-- Ctrl+C interrupts running programs
-- Piped input bypasses the TUI entirely — scripts and test harnesses work unchanged
-- `--full` flag adapts to the full terminal size instead of the classic 25×80
-
-### Printer Output (LPRINT/LLIST)
-
-`LPRINT` and `LLIST` send output to a printer device or file:
-
-- **Modern systems (default):** output is appended to `LPT1.TXT` in the current directory
-- **Real hardware:** use `--lpt /dev/lp0` (Linux) or `--lpt LPT1` (FreeDOS) to send output to a physical parallel port printer
-
-```bash
-./gwbasic --lpt /dev/lp0 myprogram.bas   # print to hardware
-./gwbasic --lpt report.txt myprogram.bas  # print to file
-./gwbasic myprogram.bas                   # default: LPT1.TXT
-```
-
-### Graphics
-
-Graphics mode is activated with `SCREEN 1` (320×200, 4 colors) or
-`SCREEN 2` (640×200, monochrome). Drawing commands render to a virtual
-framebuffer and output via [Sixel graphics](https://en.wikipedia.org/wiki/Sixel),
-which works in terminals like xterm, mlterm, foot, and WezTerm.
-
-```
-SCREEN 1
-LINE (0,0)-(319,199), 1
-CIRCLE (160,100), 80, 2
-PAINT (160,100), 3, 2
-```
-
-`GET` and `PUT` capture and blit rectangular sprites using CGA-compatible
-packed pixel format. `PUT` supports action modes: XOR (default), PSET,
-PRESET, AND, OR.
-
-```
-DIM S%(50)
-GET (0,0)-(15,15), S%
-PUT (100,50), S%, XOR
-```
-
-### DEF SEG / PEEK / POKE
-
-A virtual 8086 address space emulates the memory layout that GW-BASIC programs
-expected on a real IBM PC:
-
-| Segment | Description |
-|---------|-------------|
-| `0040` | BIOS data area — video mode, cursor position, timer ticks (18.2 Hz), keyboard flags |
-| `B800` | CGA text buffer (text mode) or CGA framebuffer (graphics mode) |
-
-```
-DEF SEG = &HB800
-POKE 0, 65             ' write 'A' to top-left screen cell
-PRINT PEEK(1)          ' read the color attribute
-DEF SEG                ' reset to default segment
-```
-
-## Architecture
-
-The interpreter follows the original GW-BASIC's internal structure:
-
-```
-Source text → Tokenizer (CRUNCH) → Token stream
-                                      ↓
-                              Expression evaluator (FRMEVL)
-                                      ↓
-                              Statement dispatcher (NEWSTT)
-                                      ↓
-                              TUI screen buffer (interactive)
-                                      ↓
-                              HAL (platform I/O)
-```
-
-| Module | File | Original |
-|--------|------|----------|
-| Tokenizer | tokenizer.c | GWMAIN.ASM |
-| Evaluator | eval.c | GWEVAL.ASM |
-| Interpreter | interp.c | BINTRP.ASM |
-| TUI editor | tui.c | — |
-| Graphics | graphics.c | — |
-| Tokens | tokens.c | IBMRES.ASM |
-| Errors | error.c | GWDATA.ASM |
-| Math | math_int.c, math_float.c, math_transcend.c | MATH1/2.ASM |
-| Strings | strings.c | BISTRS.ASM |
-| File I/O | fileio.c | BIPTRG.ASM |
-| PRINT USING | print_using.c | BIPRTU.ASM |
-| Sound | sound.c | — |
-| Virtual memory | virmem.c | — |
-| Platform | hal_posix.c | OEM*.ASM |
-
-Key design differences from the original:
-- IEEE 754 floating point (MBF conversion for CVI/CVS/CVD/MKI$/MKS$/MKD$ file compatibility)
-- Dynamic memory allocation instead of 64KB segment layout
-- malloc'd strings instead of compacting garbage collector
-- setjmp/longjmp for error recovery
-
-## Classic Programs
-
-The `tests/classic/` directory contains classic BASIC programs from David Ahl's
-*BASIC Computer Games* (1978) — Hamurabi, Lunar Lander, Gunner, Diamond — for
-manual compatibility testing.  These are interactive programs that need keyboard
-input, so they're not part of the automated test suite.
+| Memory | DEF SEG, PEEK, POKE, BSAVE, BLOAD |
+| Hardware I/O | OUT, INP, WAIT, MOTOR, STICK, STRIG |
 
 ## Tests
 
-64 test programs in `tests/programs/`, with golden-file regression testing
-and CI via GitHub Actions:
+72 interpreter tests, 14 kernel tests, 69 compiler tests — all passing.
 
 ```bash
-bash tests/run_tests.sh
+bash tests/run_tests.sh              # interpreter
+python -m gwbasickernel.test_kernel  # Jupyter kernel
 ```
 
-Compatibility testing against real GWBASIC.EXE under DOSBox-X:
+## Documentation
+
+Full Sphinx documentation in `docs/`:
 
 ```bash
-bash tests/run_compat.sh --generate   # generate .expected from GWBASIC.EXE
-bash tests/run_compat.sh              # compare gwbasic output against .expected
+cd docs && pip install -r requirements.txt && make html
 ```
 
 ## License
