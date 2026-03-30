@@ -4,7 +4,7 @@ A portable C reimplementation of Microsoft GW-BASIC, using the
 [original 8088 assembly source](https://github.com/microsoft/GW-BASIC)
 (released by Microsoft in 2020) as the authoritative reference.
 
-This is not a transpilation — it reimplements the algorithms in clean C11
+This is not a transpilation -- it reimplements the algorithms in clean C11
 with modern data structures while targeting bug-compatible behavior.
 
 ## Building
@@ -14,12 +14,12 @@ cmake -B build && cmake --build build
 ```
 
 Requires a C11 compiler and CMake 3.10+. PulseAudio (`libpulse-simple`)
-is optional — detected at build time for `SOUND`/`BEEP`/`PLAY` support.
+is optional -- detected at build time for `SOUND`/`BEEP`/`PLAY` support.
 
 Builds three targets:
-- `gwbasic` — the interpreter
-- `gwbasic-compile` — the ahead-of-time compiler
-- `libgwrt.a` — runtime library for compiled programs
+- `gwbasic` -- the interpreter
+- `gwbasic-compile` -- the ahead-of-time compiler
+- `libgwrt.a` -- runtime library for compiled programs
 
 ## Usage
 
@@ -78,7 +78,7 @@ jupyter notebook  # select "GW-BASIC 2026" kernel
 
 ## What Works
 
-100% token coverage — all 144 GW-BASIC tokens are implemented.
+100% token coverage -- all 144 GW-BASIC tokens are implemented.
 
 **Data types:** INTEGER (%), SINGLE (!), DOUBLE (#), STRING ($)
 
@@ -109,7 +109,7 @@ jupyter notebook  # select "GW-BASIC 2026" kernel
 
 ## Tests
 
-72 interpreter tests, 14 kernel tests, 69 compiler tests — all passing.
+72 interpreter tests, 14 kernel tests, 69 compiler tests -- all passing.
 
 ```bash
 bash tests/run_tests.sh              # interpreter

@@ -32,9 +32,9 @@
 
 ## Memory Functions
 
-- `FRE(x)` — free bytes in the string space pool.  `FRE("")` triggers a
+- `FRE(x)` -- free bytes in the string space pool.  `FRE("")` triggers a
   garbage collection pass before reporting; `FRE(0)` reports without collecting.
-- `VARPTR(var)` / `VARPTR$(var)` — variable address (internal index)
+- `VARPTR(var)` / `VARPTR$(var)` -- variable address (internal index)
 
 ## Pseudo-variables
 
@@ -140,24 +140,24 @@ which works in terminals like xterm, mlterm, foot, and WezTerm.
 
 ### Drawing Commands
 
-- `PSET (x,y), color` / `PRESET (x,y)` — set/reset individual pixels
-- `LINE (x1,y1)-(x2,y2), color [,B|BF]` — lines, boxes, filled boxes
-- `CIRCLE (cx,cy), r [,color [,start, end [,aspect]]]` — circles and arcs
-- `PAINT (x,y), fill, border` — flood fill
-- `DRAW string` — turtle graphics mini-language (U/D/L/R/E/F/G/H, M, C, S, B, N)
-- `POINT (x,y)` — read pixel color
-- `COLOR fg, bg` — set foreground/background colors
+- `PSET (x,y), color` / `PRESET (x,y)` -- set/reset individual pixels
+- `LINE (x1,y1)-(x2,y2), color [,B|BF]` -- lines, boxes, filled boxes
+- `CIRCLE (cx,cy), r [,color [,start, end [,aspect]]]` -- circles and arcs
+- `PAINT (x,y), fill, border` -- flood fill
+- `DRAW string` -- turtle graphics mini-language (U/D/L/R/E/F/G/H, M, C, S, B, N)
+- `POINT (x,y)` -- read pixel color
+- `COLOR fg, bg` -- set foreground/background colors
 
 ### Sprite Capture and Blit (GET / PUT)
 
-- `GET (x1,y1)-(x2,y2), array` — capture a screen rectangle into an integer array
-- `PUT (x,y), array [, action]` — blit a captured sprite back to the screen
+- `GET (x1,y1)-(x2,y2), array` -- capture a screen rectangle into an integer array
+- `PUT (x,y), array [, action]` -- blit a captured sprite back to the screen
 
 The `action` parameter controls how the sprite combines with the existing screen:
 
 | Action | Effect |
 |--------|--------|
-| `XOR` (default) | Exclusive OR — drawing twice erases the sprite |
+| `XOR` (default) | Exclusive OR -- drawing twice erases the sprite |
 | `PSET` | Overwrite screen with sprite pixels |
 | `PRESET` | Overwrite screen with inverted sprite pixels |
 | `AND` | Bitwise AND of screen and sprite |
@@ -169,16 +169,16 @@ matching the original GW-BASIC representation.
 
 ### VIEW / WINDOW / PALETTE
 
-- `VIEW [[SCREEN] (x1,y1)-(x2,y2) [,[fill][,border]]]` — define a graphics
+- `VIEW [[SCREEN] (x1,y1)-(x2,y2) [,[fill][,border]]]` -- define a graphics
   viewport.  Without `SCREEN`, drawing coordinates are relative to the
   viewport origin.  With `SCREEN`, coordinates remain absolute.  Without
   arguments, resets to full screen.
-- `WINDOW [[SCREEN] (x1,y1)-(x2,y2)]` — map logical coordinates onto the
+- `WINDOW [[SCREEN] (x1,y1)-(x2,y2)]` -- map logical coordinates onto the
   viewport.  Without `SCREEN`, Y increases upward (Cartesian); with `SCREEN`,
   Y increases downward.  Without arguments, resets to physical coordinates.
-- `PALETTE [attribute, color]` — remap a color attribute to a different
-  physical color (0–15).  Without arguments, resets to the default CGA palette.
-- `PMAP(coordinate, function)` — convert between logical and physical
+- `PALETTE [attribute, color]` -- remap a color attribute to a different
+  physical color (0-15).  Without arguments, resets to the default CGA palette.
+- `PMAP(coordinate, function)` -- convert between logical and physical
   coordinates.  Function 0/1 = logical→physical X/Y; 2/3 = physical→logical X/Y.
 
 ### Example
@@ -250,7 +250,7 @@ free bytes; `FRE(0)` returns the current free count without collecting.
 ## Hardware I/O (OUT / INP / WAIT)
 
 `OUT`, `INP`, and `WAIT` provide access to emulated IBM PC I/O ports, enabling
-classic programs that drive hardware directly — speaker tones via the 8253 PIT,
+classic programs that drive hardware directly -- speaker tones via the 8253 PIT,
 CGA palette tricks, and serial port polling.
 
 ```
@@ -264,29 +264,29 @@ OUT &H61, INP(&H61) AND &HFC ' speaker off
 
 | Port | Device | Behavior |
 |------|--------|----------|
-| `&H42`–`&H43` | 8253 PIT channel 2 | Speaker frequency divisor (1193180 / divisor Hz) |
-| `&H61` | PPI Port B | Bits 0–1 control speaker; both set = tone on, either clear = off |
+| `&H42`-`&H43` | 8253 PIT channel 2 | Speaker frequency divisor (1193180 / divisor Hz) |
+| `&H61` | PPI Port B | Bits 0-1 control speaker; both set = tone on, either clear = off |
 | `&H3D8` | CGA mode control | Mode register; writes with changed mode bits trigger `SCREEN` changes |
-| `&H3D9` | CGA color select | Background color (bits 0–3) and palette select (bit 5) |
+| `&H3D9` | CGA color select | Background color (bits 0-3) and palette select (bit 5) |
 | `&H201` | Game port | Returns `&HF0` (no joystick connected) |
-| `&H3F8`–`&H3FE` | COM1 serial | Minimal stub; LSR (`&H3FD`) returns `&H60` (transmitter ready) |
-| Default | — | Reads return `&HFF` (floating bus), writes silently discarded |
+| `&H3F8`-`&H3FE` | COM1 serial | Minimal stub; LSR (`&H3FD`) returns `&H60` (transmitter ready) |
+| Default | -- | Reads return `&HFF` (floating bus), writes silently discarded |
 
 ### Related Functions
 
-- `INP(port)` — read a byte from an I/O port
-- `STICK(n)` — joystick axis position (returns 128 = center, n = 0–3)
-- `STRIG(n)` — joystick button state (returns 0 = not pressed)
-- `WAIT port, mask [, xor_mask]` — busy-wait until `(INP(port) XOR xor_mask) AND mask` is nonzero; Ctrl+C breaks out
-- `MOTOR [n]` — accepted and silently ignored (cassette motor control)
+- `INP(port)` -- read a byte from an I/O port
+- `STICK(n)` -- joystick axis position (returns 128 = center, n = 0-3)
+- `STRIG(n)` -- joystick button state (returns 0 = not pressed)
+- `WAIT port, mask [, xor_mask]` -- busy-wait until `(INP(port) XOR xor_mask) AND mask` is nonzero; Ctrl+C breaks out
+- `MOTOR [n]` -- accepted and silently ignored (cassette motor control)
 
 When the PPI speaker bits are set, the PIT frequency divisor is used to
 generate a continuous tone via PulseAudio (same backend as `SOUND` / `PLAY`).
 
 ## Environment Variables
 
-- `ENVIRON "var=value"` — set an environment variable (uses the C `putenv()` call)
-- `ENVIRON$("var")` — read an environment variable (returns "" if not set)
+- `ENVIRON "var=value"` -- set an environment variable (uses the C `putenv()` call)
+- `ENVIRON$("var")` -- read an environment variable (returns "" if not set)
 
 ```
 ENVIRON "GREETING=Hello"
@@ -313,20 +313,20 @@ The following device-related statements and functions are accepted for
 compatibility with programs that reference them, but return stub values
 since there is no real device hardware:
 
-- `ERDEV` — device error code (always 0)
-- `ERDEV$` — device error name (always "")
-- `IOCTL [#n,] string` — device control string output (accepted, ignored)
-- `IOCTL$(n)` — device control string input (always "")
-- `COM ON` / `COM OFF` / `COM STOP` — serial port event trapping (accepted, ignored)
-- `LCOPY [n]` — screen dump to printer (accepted, ignored)
-- `CALL` / `CALLS` — machine code execution (raises Illegal function call)
-- `RESET` — close all open files (equivalent to `CLOSE`)
+- `ERDEV` -- device error code (always 0)
+- `ERDEV$` -- device error name (always "")
+- `IOCTL [#n,] string` -- device control string output (accepted, ignored)
+- `IOCTL$(n)` -- device control string input (always "")
+- `COM ON` / `COM OFF` / `COM STOP` -- serial port event trapping (accepted, ignored)
+- `LCOPY [n]` -- screen dump to printer (accepted, ignored)
+- `CALL` / `CALLS` -- machine code execution (raises Illegal function call)
+- `RESET` -- close all open files (equivalent to `CLOSE`)
 
 ## Sound
 
-- `SOUND frequency, duration` — play a tone (frequency in Hz, duration in clock ticks)
-- `BEEP` — play the default beep
-- `PLAY string` — Music Macro Language (MML) string for melodies
+- `SOUND frequency, duration` -- play a tone (frequency in Hz, duration in clock ticks)
+- `BEEP` -- play the default beep
+- `PLAY string` -- Music Macro Language (MML) string for melodies
 
 Sound output uses PulseAudio when available; commands are silently ignored otherwise.
 
@@ -354,10 +354,10 @@ Default F1-F10 bindings match the original GW-BASIC:
 | F4 | `SAVE"` | F9 | `KEY ` |
 | F5 | `CONT` + Enter | F10 | `SCREEN 0,0,0` + Enter |
 
-- `KEY ON` — show the function key bar on line 25
-- `KEY OFF` — hide the bar
-- `KEY LIST` — display all definitions
-- `KEY n, "string"` — redefine a function key
+- `KEY ON` -- show the function key bar on line 25
+- `KEY OFF` -- hide the bar
+- `KEY LIST` -- display all definitions
+- `KEY n, "string"` -- redefine a function key
 
 ### Piped Mode
 
@@ -367,10 +367,10 @@ suitable for scripting and test harnesses.
 
 ### Program Editing
 
-- `EDIT [linenum]` — display a program line for editing in the TUI; press Enter to re-store it
-- `AUTO [start][,increment]` — automatic line numbering mode
-- `RENUM [new][,[old][,increment]]` — renumber program lines (patches all GOTO/GOSUB references)
-- `DELETE range` — delete program lines (`DELETE 10-50`, `DELETE -100`, `DELETE 200-`)
+- `EDIT [linenum]` -- display a program line for editing in the TUI; press Enter to re-store it
+- `AUTO [start][,increment]` -- automatic line numbering mode
+- `RENUM [new][,[old][,increment]]` -- renumber program lines (patches all GOTO/GOSUB references)
+- `DELETE range` -- delete program lines (`DELETE 10-50`, `DELETE -100`, `DELETE 200-`)
 
 ## Event Trapping
 

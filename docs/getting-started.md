@@ -4,7 +4,7 @@
 
 - C11 compiler (GCC or Clang)
 - CMake 3.10+
-- PulseAudio development library (`libpulse-simple`) — optional, for `SOUND`/`BEEP`/`PLAY`
+- PulseAudio development library (`libpulse-simple`) -- optional, for `SOUND`/`BEEP`/`PLAY`
 
 On Debian/Ubuntu:
 

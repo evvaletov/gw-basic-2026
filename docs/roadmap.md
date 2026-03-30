@@ -52,10 +52,10 @@ ERDEV/ERDEV$, IOCTL/IOCTL$, LCOPY, DATE$/TIME$ assignment, CALL, COM.
 
 ### Jupyter Kernel (v0.15.0)
 
-`gwbasickernel/` — Jupyter notebook kernel using the persistent subprocess
+`gwbasickernel/` -- Jupyter notebook kernel using the persistent subprocess
 model with sentinel protocol.
 
-- **Inline Sixel graphics** — pure-Python Sixel decoder renders SCREEN
+- **Inline Sixel graphics** -- pure-Python Sixel decoder renders SCREEN
   commands as inline PNG images in the notebook
 - **INPUT statement support** via Jupyter stdin protocol
 - **Pygments syntax highlighting** for code cells
@@ -67,9 +67,9 @@ Install: `pip install -e . && gwbasickernel-install --user`
 ## Next Up
 
 ### IDE Integration
-- **VS Code extension** — syntax highlighting (TextMate grammar), snippets,
+- **VS Code extension** -- syntax highlighting (TextMate grammar), snippets,
   run/debug tasks, integrated terminal runner
-- **JetBrains plugin (IntelliJ/CLion)** — syntax highlighting, code completion,
+- **JetBrains plugin (IntelliJ/CLion)** -- syntax highlighting, code completion,
   run configurations, debugger integration (breakpoints via `STOP`, variable
   inspection), structure view (line number outline)
 
