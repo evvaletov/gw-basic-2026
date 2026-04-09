@@ -1248,6 +1248,8 @@ static gw_valtype_t peek_expr_type(void)
     if (tok == TOK_CONST_SNG) { tp = save; return VT_SNG; }
     /* Unary minus — peek past it */
     if (tok == TOK_MINUS) { advance(); gw_valtype_t t = peek_expr_type(); tp = save; return t; }
+    /* Parenthesized expression — peek inside */
+    if (tok == '(') { advance(); gw_valtype_t t = peek_expr_type(); tp = save; return t; }
     /* Functions */
     if (tok == TOK_PREFIX_FF) {
         uint8_t func = tp[1];
@@ -1681,19 +1683,34 @@ static void emit_stmt(void)
         }
         skip_spaces();
         if (cur() == TOK_TO) advance();
-        EMIT("  static %s _for_limit_%d; _for_limit_%d = (%s)(",
-             c_type(type), for_label_counter, for_label_counter, c_type(type));
-        emit_num_expr();
-        EMIT(");\n");
+        if (safe_mode && type == VT_INT) {
+            EMIT("  static int16_t _for_limit_%d; _for_limit_%d = gw_cint((double)(",
+                 for_label_counter, for_label_counter);
+            emit_num_expr();
+            EMIT("));\n");
+        } else {
+            EMIT("  static %s _for_limit_%d; _for_limit_%d = (%s)(",
+                 c_type(type), for_label_counter, for_label_counter, c_type(type));
+            emit_num_expr();
+            EMIT(");\n");
+        }
         bool has_step = false;
         skip_spaces();
         if (cur() == TOK_STEP) {
             has_step = true;
-            EMIT("  static %s _for_step_%d; _for_step_%d = (%s)(",
-                 c_type(type), for_label_counter, for_label_counter, c_type(type));
-            advance();
-            emit_num_expr();
-            EMIT(");\n");
+            if (safe_mode && type == VT_INT) {
+                EMIT("  static int16_t _for_step_%d; _for_step_%d = gw_cint((double)(",
+                     for_label_counter, for_label_counter);
+                advance();
+                emit_num_expr();
+                EMIT("));\n");
+            } else {
+                EMIT("  static %s _for_step_%d; _for_step_%d = (%s)(",
+                     c_type(type), for_label_counter, for_label_counter, c_type(type));
+                advance();
+                emit_num_expr();
+                EMIT(");\n");
+            }
         }
         int fc = for_label_counter++;
         EMIT("    for_top_%d:\n", fc);
@@ -1765,11 +1782,39 @@ static void emit_stmt(void)
             }
         } else {
             /* NEXT without variable — match most recent FOR */
+            char bname[2] = {0, 0};
+            gw_valtype_t btype = VT_SNG;
+            bool bstep = false;
             if (for_stack_sp > 0) {
                 for_stack_sp--;
                 fc = for_stack[for_stack_sp].label;
+                bname[0] = for_stack[for_stack_sp].name[0];
+                bname[1] = for_stack[for_stack_sp].name[1];
+                btype = for_stack[for_stack_sp].type;
+                bstep = for_stack[for_stack_sp].has_step;
             } else {
                 fc = for_label_counter > 0 ? for_label_counter - 1 : 0;
+            }
+            if (bname[0]) {
+                EMIT("  ");
+                if (safe_mode && btype == VT_INT) {
+                    emit_varname(bname, btype);
+                    if (bstep) {
+                        EMIT(" = gw_int_add(");
+                        emit_varname(bname, btype);
+                        EMIT(", _for_step_%d);\n", fc);
+                    } else {
+                        EMIT(" = gw_int_add(");
+                        emit_varname(bname, btype);
+                        EMIT(", 1);\n");
+                    }
+                } else {
+                    emit_varname(bname, btype);
+                    if (bstep)
+                        EMIT(" += _for_step_%d;\n", fc);
+                    else
+                        EMIT("++;\n");
+                }
             }
         }
         EMIT("  goto for_top_%d;\n", fc);

@@ -217,7 +217,7 @@ static void scan_tokens(analysis_t *a, uint8_t *tokens, int len, uint16_t line_n
 
         /* SWAP — both variables are assigned */
         if (tok == TOK_SWAP) {
-            p++; assign_ctx = true;
+            p++; assign_ctx = true; multi_assign = true;
             continue;
         }
 
