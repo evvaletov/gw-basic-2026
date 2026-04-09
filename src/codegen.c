@@ -737,7 +737,9 @@ static void emit_num_prec(int min_prec)
                      || *peek == ';' || *peek == TOK_THEN || *peek == TOK_ELSE
                      || *peek == TOK_TO || *peek == TOK_STEP))
                 break;
-            if (*peek == TOK_MOD || *peek == TOK_IDIV || *peek == TOK_POW)
+            if (*peek == TOK_MOD || *peek == TOK_IDIV || *peek == TOK_POW
+                || *peek == TOK_IMP || *peek == TOK_EQV
+                || *peek == TOK_GT || *peek == TOK_LT || *peek == TOK_EQ)
                 { needs_buffer = true; break; }
             peek++;
         }
@@ -761,9 +763,8 @@ static void emit_num_prec(int min_prec)
             else if (op == TOK_EQ && cur() == TOK_LT) { advance(); cop = "<="; }
             else if (op == TOK_EQ && cur() == TOK_GT) { advance(); cop = ">="; }
             if (cop || op == TOK_GT || op == TOK_LT || op == TOK_EQ) {
-                /* Relationals need ternary for GW-BASIC -1/0 result */
-                /* Fall back to buffered path for correct wrapping */
-                /* Actually, for simple relationals just emit inline: */
+                /* Relationals need ternary for GW-BASIC -1/0 result.
+                 * Use the buffered path which wraps correctly. */
                 const char *rop = cop ? cop : binop_c(op);
                 EMIT(" %s ", rop);
                 emit_num_prec(prec + 1);
@@ -888,6 +889,12 @@ static void emit_num_prec(int min_prec)
                 fprintf(cm, "gw_int_idiv((int16_t)(%s), (int16_t)(%s))", left, right);
             else
                 fprintf(cm, "((int16_t)(%s) / (int16_t)(%s))", left, right);
+        } else if (op == TOK_IMP) {
+            /* A IMP B = NOT(A) OR B = ~a | b */
+            fprintf(cm, "((int16_t)(~(int16_t)(%s) | (int16_t)(%s)))", left, right);
+        } else if (op == TOK_EQV) {
+            /* A EQV B = NOT(A XOR B) = ~(a ^ b) */
+            fprintf(cm, "((int16_t)(~((int16_t)(%s) ^ (int16_t)(%s))))", left, right);
         } else if (op == TOK_POW) {
             fprintf(cm, "pow((double)(%s), (double)(%s))", left, right);
         } else if (op == TOK_DIV) {
@@ -907,6 +914,16 @@ static void emit_num_prec(int min_prec)
         free(left);
         free(right);
         left = combined;
+
+        /* Update left_type for subsequent ops.  Prevents wrapping float
+         * intermediates in gw_int_add (e.g. I% * 2.5 + I%). */
+        if (op == TOK_DIV || op == TOK_POW)
+            left_type = VT_DBL;
+        else if (cop || op == TOK_GT || op == TOK_LT || op == TOK_EQ)
+            left_type = VT_INT;  /* comparisons return 0/-1 */
+        else if (left_type != VT_INT || right_type != VT_INT)
+            left_type = (left_type == VT_DBL || right_type == VT_DBL)
+                      ? VT_DBL : VT_SNG;
     }
 
     EMIT("%s", left);
@@ -1739,86 +1756,90 @@ static void emit_stmt(void)
         return;
     }
 
-    /* NEXT [var] */
+    /* NEXT [var[,var...]] */
     if (tok == TOK_NEXT) {
         advance();
         skip_spaces();
-        /* Find matching FOR on the stack */
-        int fc = -1;
-        if (is_letter(cur())) {
-            char name[2];
-            gw_valtype_t type = parse_var(name);
-            /* Search stack from top for matching variable */
-            bool step_custom = true;
-            for (int i = for_stack_sp - 1; i >= 0; i--) {
-                if (for_stack[i].name[0] == name[0] &&
-                    for_stack[i].name[1] == name[1] &&
-                    for_stack[i].type == type) {
-                    fc = for_stack[i].label;
-                    step_custom = for_stack[i].has_step;
-                    for_stack_sp = i;
-                    break;
+        /* Handle one or more variables (NEXT J,I = NEXT J : NEXT I) */
+        do {
+            skip_spaces();
+            int fc = -1;
+            if (is_letter(cur())) {
+                char name[2];
+                gw_valtype_t type = parse_var(name);
+                /* Search stack from top for matching variable */
+                bool step_custom = true;
+                for (int i = for_stack_sp - 1; i >= 0; i--) {
+                    if (for_stack[i].name[0] == name[0] &&
+                        for_stack[i].name[1] == name[1] &&
+                        for_stack[i].type == type) {
+                        fc = for_stack[i].label;
+                        step_custom = for_stack[i].has_step;
+                        for_stack_sp = i;
+                        break;
+                    }
                 }
-            }
-            if (fc < 0) fc = for_label_counter > 0 ? for_label_counter - 1 : 0;
-            EMIT("  ");
-            if (safe_mode && type == VT_INT) {
-                emit_varname(name, type);
-                if (step_custom) {
-                    EMIT(" = gw_int_add(");
-                    emit_varname(name, type);
-                    EMIT(", _for_step_%d);\n", fc);
-                } else {
-                    EMIT(" = gw_int_add(");
-                    emit_varname(name, type);
-                    EMIT(", 1);\n");
-                }
-            } else {
-                emit_varname(name, type);
-                if (step_custom)
-                    EMIT(" += _for_step_%d;\n", fc);
-                else
-                    EMIT("++;\n");
-            }
-        } else {
-            /* NEXT without variable — match most recent FOR */
-            char bname[2] = {0, 0};
-            gw_valtype_t btype = VT_SNG;
-            bool bstep = false;
-            if (for_stack_sp > 0) {
-                for_stack_sp--;
-                fc = for_stack[for_stack_sp].label;
-                bname[0] = for_stack[for_stack_sp].name[0];
-                bname[1] = for_stack[for_stack_sp].name[1];
-                btype = for_stack[for_stack_sp].type;
-                bstep = for_stack[for_stack_sp].has_step;
-            } else {
-                fc = for_label_counter > 0 ? for_label_counter - 1 : 0;
-            }
-            if (bname[0]) {
+                if (fc < 0) fc = for_label_counter > 0 ? for_label_counter - 1 : 0;
                 EMIT("  ");
-                if (safe_mode && btype == VT_INT) {
-                    emit_varname(bname, btype);
-                    if (bstep) {
+                if (safe_mode && type == VT_INT) {
+                    emit_varname(name, type);
+                    if (step_custom) {
                         EMIT(" = gw_int_add(");
-                        emit_varname(bname, btype);
+                        emit_varname(name, type);
                         EMIT(", _for_step_%d);\n", fc);
                     } else {
                         EMIT(" = gw_int_add(");
-                        emit_varname(bname, btype);
+                        emit_varname(name, type);
                         EMIT(", 1);\n");
                     }
                 } else {
-                    emit_varname(bname, btype);
-                    if (bstep)
+                    emit_varname(name, type);
+                    if (step_custom)
                         EMIT(" += _for_step_%d;\n", fc);
                     else
                         EMIT("++;\n");
                 }
+            } else {
+                /* NEXT without variable -- match most recent FOR */
+                char bname[2] = {0, 0};
+                gw_valtype_t btype = VT_SNG;
+                bool bstep = false;
+                if (for_stack_sp > 0) {
+                    for_stack_sp--;
+                    fc = for_stack[for_stack_sp].label;
+                    bname[0] = for_stack[for_stack_sp].name[0];
+                    bname[1] = for_stack[for_stack_sp].name[1];
+                    btype = for_stack[for_stack_sp].type;
+                    bstep = for_stack[for_stack_sp].has_step;
+                } else {
+                    fc = for_label_counter > 0 ? for_label_counter - 1 : 0;
+                }
+                if (bname[0]) {
+                    EMIT("  ");
+                    if (safe_mode && btype == VT_INT) {
+                        emit_varname(bname, btype);
+                        if (bstep) {
+                            EMIT(" = gw_int_add(");
+                            emit_varname(bname, btype);
+                            EMIT(", _for_step_%d);\n", fc);
+                        } else {
+                            EMIT(" = gw_int_add(");
+                            emit_varname(bname, btype);
+                            EMIT(", 1);\n");
+                        }
+                    } else {
+                        emit_varname(bname, btype);
+                        if (bstep)
+                            EMIT(" += _for_step_%d;\n", fc);
+                        else
+                            EMIT("++;\n");
+                    }
+                }
             }
-        }
-        EMIT("  goto for_top_%d;\n", fc);
-        EMIT("  for_done_%d: ;\n", fc);
+            EMIT("  goto for_top_%d;\n", fc);
+            EMIT("  for_done_%d: ;\n", fc);
+            skip_spaces();
+        } while (cur() == ',' && (advance(), 1));
         return;
     }
 
@@ -1956,12 +1977,18 @@ static void emit_stmt(void)
         advance();
         /* Parse both operands, emit as pointer swaps */
         EMIT("  {\n");
+        char sw_names[2][2];
+        gw_valtype_t sw_types[2];
+        bool sw_is_scalar[2] = {false, false};
         for (int si = 0; si < 2; si++) {
             skip_spaces();
             if (si == 1 && cur() == ',') advance();
             skip_spaces();
             char name[2];
             gw_valtype_t type = parse_var(name);
+            sw_names[si][0] = name[0];
+            sw_names[si][1] = name[1];
+            sw_types[si] = type;
             skip_spaces();
             if (cur() == '(') {
                 /* Array element */
@@ -1995,6 +2022,7 @@ static void emit_stmt(void)
                 }
             } else {
                 /* Scalar: wrap in a static gw_value_t so we have a pointer */
+                sw_is_scalar[si] = true;
                 EMIT("    static gw_value_t _swv%d; _swv%d.type = %d; ",
                      si, si, type);
                 switch (type) {
@@ -2008,7 +2036,20 @@ static void emit_stmt(void)
             }
         }
         EMIT("    gw_value_t _tmp = *_sw0; *_sw0 = *_sw1; *_sw1 = _tmp;\n");
-        /* For scalar operands, write back from the wrapper */
+        /* Write back scalar operands from the wrapper to the C variable */
+        for (int si = 0; si < 2; si++) {
+            if (!sw_is_scalar[si]) continue;
+            EMIT("    ");
+            emit_varname(sw_names[si], sw_types[si]);
+            EMIT(" = _sw%d->", si);
+            switch (sw_types[si]) {
+            case VT_INT: EMIT("ival"); break;
+            case VT_SNG: EMIT("fval"); break;
+            case VT_DBL: EMIT("dval"); break;
+            case VT_STR: EMIT("sval"); break;
+            }
+            EMIT(";\n");
+        }
         EMIT("  }\n");
         return;
     }
