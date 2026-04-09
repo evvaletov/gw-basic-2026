@@ -66,6 +66,25 @@ Install: `pip install -e . && gwbasickernel-install --user`
 
 ## Next Up
 
+### Compiler Memory Safety (`--warn` / `--safe`)
+- **`--warn`** -- static analysis warnings (uninitialized variables, GOTO to
+  nonexistent line, unreachable code, FOR/GOSUB nesting depth)
+- **`--safe`** -- runtime safety checks in generated C: checked integer arithmetic
+  via `gw_int_add/sub/mul` (fixes int16_t overflow UB), enhanced array bounds
+  diagnostics with line numbers and variable names, GOSUB stack overflow
+  diagnostics, string pool GC pinning
+- **`--safe=sanitize`** -- above plus `-fsanitize=address,undefined` passed to gcc
+
+### Compiler Optimization Flags
+- **`--no-gc-check`** -- skip `gwrt_check_line()` per-line calls (no string pool
+  GC, no Ctrl+Break check) for maximum throughput
+- **`--inline-arrays`** -- emit direct array indexing for statically-DIMmed arrays
+  instead of runtime `gwrt_array_elem()` lookup
+- **`--fast-math`** -- skip division-by-zero checks, allow unsafe float ops
+- **`-O0` through `-O3`** -- compiler-level optimization tiers mapping to different
+  sets of codegen optimizations (constant folding, dead code elimination, FOR
+  step=1 elision, fast-path expressions)
+
 ### IDE Integration
 - **VS Code extension** -- syntax highlighting (TextMate grammar), snippets,
   run/debug tasks, integrated terminal runner

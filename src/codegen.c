@@ -18,6 +18,8 @@
 
 static FILE *out;
 static analysis_t *ana;
+static bool safe_mode;
+static uint16_t emit_line;  /* current BASIC line number being emitted */
 static uint8_t *tp;  /* token pointer (mirrors gw.text_ptr) */
 static int ret_label_counter;
 static int for_label_counter;
@@ -100,6 +102,27 @@ static void emit_varname(const char name[2], gw_valtype_t type)
         EMIT("var_%c%c_%s", toupper(name[0]), toupper(name[1]), type_suffix(type));
     else
         EMIT("var_%c_%s", toupper(name[0]), type_suffix(type));
+}
+
+/* Emit gwrt_array_elem or gwrt_array_elem_safe call prefix */
+static void emit_array_elem_call(const char name[2], gw_valtype_t type, int ndims)
+{
+    if (safe_mode) {
+        EMIT("gwrt_array_elem_safe("); emit_name_str(name);
+        EMIT(", %d, %d, (int[]){", type, ndims);
+    } else {
+        EMIT("gwrt_array_elem("); emit_name_str(name);
+        EMIT(", %d, %d, (int[]){", type, ndims);
+    }
+}
+
+/* Emit the closing args for gwrt_array_elem[_safe] */
+static void emit_array_elem_close(void)
+{
+    if (safe_mode)
+        EMIT("}, %u)", emit_line);
+    else
+        EMIT("})");
 }
 
 /* Parse a variable name from the token stream, return its type */
@@ -229,10 +252,16 @@ static void emit_atom(void)
 
     /* Unary minus */
     if (tok == TOK_MINUS) {
-        EMIT("(-");
         advance();
-        emit_atom();
-        EMIT(")");
+        if (safe_mode && peek_expr_type() == VT_INT) {
+            EMIT("gw_int_neg((int16_t)(");
+            emit_atom();
+            EMIT("))");
+        } else {
+            EMIT("(-(");
+            emit_atom();
+            EMIT("))");
+        }
         return;
     }
 
@@ -628,14 +657,14 @@ static void emit_atom(void)
             } while (cur() == ',' && ndims < 8);
             if (cur() == ')') advance();
 
-            EMIT("gwrt_array_elem("); emit_name_str(name);
-            EMIT(", %d, %d, (int[]){", type, ndims);
+            emit_array_elem_call(name, type, ndims);
             for (int d = 0; d < ndims; d++) {
                 if (d > 0) EMIT(", ");
                 EMIT("(int)(%s)", sub_bufs[d]);
                 free(sub_bufs[d]);
             }
-            EMIT("})->");
+            emit_array_elem_close();
+            EMIT("->");
             switch (type) {
             case VT_INT: EMIT("ival"); break;
             case VT_SNG: EMIT("fval"); break;
@@ -694,6 +723,9 @@ static void emit_num_prec(int min_prec)
     bool needs_buffer = false;
     /* Peek ahead: scan for MOD/IDIV/POW operators or string type */
     if (left_type == VT_STR) needs_buffer = true;
+    /* Safe mode: force buffered path for integer expressions so we can
+     * wrap arithmetic in gw_int_add/sub/mul overflow checks */
+    if (safe_mode && left_type == VT_INT) needs_buffer = true;
     if (!needs_buffer) {
         uint8_t *peek = tp;
         /* Quick scan of the expression for special operators */
@@ -801,6 +833,7 @@ static void emit_num_prec(int min_prec)
             continue;
         }
 
+        gw_valtype_t right_type = peek_expr_type();
         char *right = emit_to_buf(emit_prec_wrapper, prec + 1);
 
         /* Constant folding: if both sides are numeric literals, compute now */
@@ -846,15 +879,26 @@ static void emit_num_prec(int min_prec)
         } else if (op == TOK_GT || op == TOK_LT || op == TOK_EQ) {
             fprintf(cm, "((%s %s %s) ? -1 : 0)", left, binop_c(op), right);
         } else if (op == TOK_MOD) {
-            fprintf(cm, "((int16_t)(%s) %% (int16_t)(%s))", left, right);
+            if (safe_mode)
+                fprintf(cm, "gw_int_mod((int16_t)(%s), (int16_t)(%s))", left, right);
+            else
+                fprintf(cm, "((int16_t)(%s) %% (int16_t)(%s))", left, right);
         } else if (op == TOK_IDIV) {
-            fprintf(cm, "((int16_t)(%s) / (int16_t)(%s))", left, right);
+            if (safe_mode)
+                fprintf(cm, "gw_int_idiv((int16_t)(%s), (int16_t)(%s))", left, right);
+            else
+                fprintf(cm, "((int16_t)(%s) / (int16_t)(%s))", left, right);
         } else if (op == TOK_POW) {
             fprintf(cm, "pow((double)(%s), (double)(%s))", left, right);
         } else if (op == TOK_DIV) {
             /* GW-BASIC / always produces float; check for division by zero */
             fprintf(cm, "({double _dv=(double)(%s); if(_dv==0.0) gw_error(11); (double)(%s)/_dv;})",
                     right, left);
+        } else if (safe_mode && left_type == VT_INT && right_type == VT_INT &&
+                   (op == TOK_PLUS || op == TOK_MINUS || op == TOK_MUL)) {
+            const char *fn = op == TOK_PLUS ? "gw_int_add"
+                           : op == TOK_MINUS ? "gw_int_sub" : "gw_int_mul";
+            fprintf(cm, "%s((int16_t)(%s), (int16_t)(%s))", fn, left, right);
         } else {
             fprintf(cm, "(%s %s %s)", left, binop_c(op), right);
         }
@@ -1117,14 +1161,15 @@ static void emit_str_atom(void)
                 sub_bufs[ndims++] = sb;
             } while (cur() == ',' && ndims < 8);
             if (cur() == ')') advance();
-            EMIT("gw_str_copy(&gwrt_array_elem("); emit_name_str(name);
-            EMIT(", %d, %d, (int[]){", type, ndims);
+            EMIT("gw_str_copy(&");
+            emit_array_elem_call(name, type, ndims);
             for (int d = 0; d < ndims; d++) {
                 if (d > 0) EMIT(", ");
                 EMIT("(int)(%s)", sub_bufs[d]);
                 free(sub_bufs[d]);
             }
-            EMIT("})->sval)");
+            emit_array_elem_close();
+            EMIT("->sval)");
             return;
         }
         if (type == VT_STR) {
@@ -1441,9 +1486,15 @@ static void emit_assignment(void)
         if (cur() == TOK_EQ) advance();
 
         /* Call runtime to get element pointer */
-        EMIT("    gw_value_t *_elem = gwrt_array_elem(");
-        emit_name_str(name);
-        EMIT(", %d, %d, _subs);\n", type, ndims);
+        if (safe_mode) {
+            EMIT("    gw_value_t *_elem = gwrt_array_elem_safe(");
+            emit_name_str(name);
+            EMIT(", %d, %d, _subs, %u);\n", type, ndims, emit_line);
+        } else {
+            EMIT("    gw_value_t *_elem = gwrt_array_elem(");
+            emit_name_str(name);
+            EMIT(", %d, %d, _subs);\n", type, ndims);
+        }
 
         if (type == VT_STR) {
             EMIT("    gw_str_free(&_elem->sval);\n");
@@ -1459,7 +1510,7 @@ static void emit_assignment(void)
             default: EMIT("    _elem->fval = (float)("); break;
             }
             emit_num_expr();
-            EMIT(");\n");
+            EMIT(type == VT_INT ? "));\n" : ");\n");
         }
         EMIT("  }\n");
         return;
@@ -1592,7 +1643,10 @@ static void emit_stmt(void)
         skip_spaces();
         uint16_t target = read_int();
         int rl = ret_label_counter++;
-        EMIT("  gwrt_gosub_push(%d); goto L_%u;\n", rl, target);
+        if (safe_mode)
+            EMIT("  gwrt_gosub_push_safe(%d, %u); goto L_%u;\n", rl, emit_line, target);
+        else
+            EMIT("  gwrt_gosub_push(%d); goto L_%u;\n", rl, target);
         EMIT("ret_%d: ;\n", rl);
         return;
     }
@@ -1691,11 +1745,24 @@ static void emit_stmt(void)
             }
             if (fc < 0) fc = for_label_counter > 0 ? for_label_counter - 1 : 0;
             EMIT("  ");
-            emit_varname(name, type);
-            if (step_custom)
-                EMIT(" += _for_step_%d;\n", fc);
-            else
-                EMIT("++;\n");
+            if (safe_mode && type == VT_INT) {
+                emit_varname(name, type);
+                if (step_custom) {
+                    EMIT(" = gw_int_add(");
+                    emit_varname(name, type);
+                    EMIT(", _for_step_%d);\n", fc);
+                } else {
+                    EMIT(" = gw_int_add(");
+                    emit_varname(name, type);
+                    EMIT(", 1);\n");
+                }
+            } else {
+                emit_varname(name, type);
+                if (step_custom)
+                    EMIT(" += _for_step_%d;\n", fc);
+                else
+                    EMIT("++;\n");
+            }
         } else {
             /* NEXT without variable — match most recent FOR */
             if (for_stack_sp > 0) {
@@ -1787,7 +1854,10 @@ static void emit_stmt(void)
             EMIT("    switch(_on_val) {\n");
             while (is_const(cur())) {
                 uint16_t target = read_int();
-                EMIT("      case %d: gwrt_gosub_push(%d); goto L_%u;\n", n++, rl, target);
+                if (safe_mode)
+                    EMIT("      case %d: gwrt_gosub_push_safe(%d, %u); goto L_%u;\n", n++, rl, emit_line, target);
+                else
+                    EMIT("      case %d: gwrt_gosub_push(%d); goto L_%u;\n", n++, rl, target);
                 skip_spaces();
                 if (cur() == ',') { advance(); skip_spaces(); }
                 else break;
@@ -1857,15 +1927,27 @@ static void emit_stmt(void)
                     sbufs[nd++] = emit_to_buf(emit_prec_wrapper, 0);
                 } while (cur() == ',' && nd < 8);
                 if (cur() == ')') advance();
-                EMIT("    gw_value_t *_sw%d = gwrt_array_elem(", si);
-                emit_name_str(name);
-                EMIT(", %d, %d, (int[]){", type, nd);
-                for (int d = 0; d < nd; d++) {
-                    if (d > 0) EMIT(",");
-                    EMIT("(int)(%s)", sbufs[d]);
-                    free(sbufs[d]);
+                if (safe_mode) {
+                    EMIT("    gw_value_t *_sw%d = gwrt_array_elem_safe(", si);
+                    emit_name_str(name);
+                    EMIT(", %d, %d, (int[]){", type, nd);
+                    for (int d = 0; d < nd; d++) {
+                        if (d > 0) EMIT(",");
+                        EMIT("(int)(%s)", sbufs[d]);
+                        free(sbufs[d]);
+                    }
+                    EMIT("}, %u);\n", emit_line);
+                } else {
+                    EMIT("    gw_value_t *_sw%d = gwrt_array_elem(", si);
+                    emit_name_str(name);
+                    EMIT(", %d, %d, (int[]){", type, nd);
+                    for (int d = 0; d < nd; d++) {
+                        if (d > 0) EMIT(",");
+                        EMIT("(int)(%s)", sbufs[d]);
+                        free(sbufs[d]);
+                    }
+                    EMIT("});\n");
                 }
-                EMIT("});\n");
             } else {
                 /* Scalar: wrap in a static gw_value_t so we have a pointer */
                 EMIT("    static gw_value_t _swv%d; _swv%d.type = %d; ",
@@ -2345,15 +2427,27 @@ static void emit_stmt(void)
                         sbufs[nd++] = emit_to_buf(emit_prec_wrapper, 0);
                     } while (cur() == ',' && nd < 8);
                     if (cur() == ')') advance();
-                    EMIT("  { gw_value_t *_re = gwrt_array_elem(");
-                    emit_name_str(name);
-                    EMIT(", %d, %d, (int[]){", type, nd);
-                    for (int d = 0; d < nd; d++) {
-                        if (d > 0) EMIT(",");
-                        EMIT("(int)(%s)", sbufs[d]);
-                        free(sbufs[d]);
+                    if (safe_mode) {
+                        EMIT("  { gw_value_t *_re = gwrt_array_elem_safe(");
+                        emit_name_str(name);
+                        EMIT(", %d, %d, (int[]){", type, nd);
+                        for (int d = 0; d < nd; d++) {
+                            if (d > 0) EMIT(",");
+                            EMIT("(int)(%s)", sbufs[d]);
+                            free(sbufs[d]);
+                        }
+                        EMIT("}, %u);\n", emit_line);
+                    } else {
+                        EMIT("  { gw_value_t *_re = gwrt_array_elem(");
+                        emit_name_str(name);
+                        EMIT(", %d, %d, (int[]){", type, nd);
+                        for (int d = 0; d < nd; d++) {
+                            if (d > 0) EMIT(",");
+                            EMIT("(int)(%s)", sbufs[d]);
+                            free(sbufs[d]);
+                        }
+                        EMIT("});\n");
                     }
-                    EMIT("});\n");
                     if (type == VT_STR) {
                         EMIT("    gw_str_free(&_re->sval);\n");
                         EMIT("    _re->sval = gw_str_from_cstr(gwrt_data_read());\n");
@@ -2492,10 +2586,11 @@ static void emit_stmt(void)
 
 /* ---- Main code generation ---- */
 
-void codegen_emit(FILE *f, analysis_t *a)
+void codegen_emit(FILE *f, analysis_t *a, const codegen_opts_t *opts)
 {
     out = f;
     ana = a;
+    safe_mode = opts ? opts->safe_mode : false;
     ret_label_counter = 0;
     for_label_counter = 0;
     for_stack_sp = 0;
@@ -2570,6 +2665,7 @@ void codegen_emit(FILE *f, analysis_t *a)
 
     /* Emit code for each program line */
     for (program_line_t *line = gw.prog_head; line; line = line->next) {
+        emit_line = line->num;
         EMIT("L_%u:\n", line->num);
 
         /* Skip GC/break check for REM-only lines */

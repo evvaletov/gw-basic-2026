@@ -84,6 +84,37 @@ The TUI (`tui.c`) implements the classic GW-BASIC full-screen editor:
   the `KEY n, "string"` statement. `KEY ON` shows the bar on the bottom row.
 - **Break handling** -- SIGINT sets a flag checked each statement in the run loop.
 
+## Ahead-of-Time Compiler
+
+`gwbasic-compile` translates tokenized `.bas` programs to C source linked
+against `libgwrt.a`:
+
+```
+.bas → gw_crunch() → analysis pass → C codegen → gcc → native binary
+```
+
+The **analysis pass** (`analysis.c`) collects variables, GOTO/GOSUB targets,
+DATA literals, and DEFINT/DEFSNG/DEFDBL/DEFSTR type defaults.  When `--warn`
+is active, it also tracks variable assignment vs. use context to detect
+uninitialized variables, GOTO to nonexistent lines, and unreachable code.
+
+The **codegen** (`codegen.c`) walks the token stream and emits C source:
+variables become `static int16_t var_A_int`, control flow uses `goto L_100`
+labels, and expressions are compiled inline using the same precedence-climbing
+structure as `eval.c`.  Optimizations include constant folding, dead code
+elimination, FOR step=1 elision, and fast-path expression emission.
+
+The **`--safe` mode** modifies generated C to use overflow-checked integer
+arithmetic (`gw_int_add/sub/mul` from `math_int.c`) instead of bare C
+operators, and enhanced-diagnostic array/GOSUB runtime functions that report
+variable names, subscript values, and BASIC line numbers on error.
+
+The **runtime library** (`gwrt.c` / `libgwrt.a`) provides initialization,
+DATA/READ support, GOSUB return-label stack, and wrappers around the existing
+interpreter modules. It includes all interpreter code except the execution
+loop, so compiled programs share the same string pool, GC, file I/O, and
+graphics implementation.
+
 ## Design Decisions
 
 ### Relation to Original Assembly

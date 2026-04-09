@@ -14,5 +14,7 @@ char *strpool_alloc(int len);       /* bump-allocate from pool */
 void strpool_gc(void);              /* compact: walk vars+arrays, squeeze out dead space */
 size_t strpool_free(void);          /* bytes available */
 bool strpool_owns(const char *p);   /* true if p points into the pool */
+void strpool_pin(void);             /* prevent GC from running (nestable) */
+void strpool_unpin(void);           /* allow GC again */
 
 #endif

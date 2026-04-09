@@ -21,6 +21,8 @@ typedef struct {
 typedef struct {
     char name[2];
     gw_valtype_t type;
+    uint16_t first_assign_line;  /* 0 = never assigned */
+    uint16_t first_use_line;     /* 0 = never used */
 } var_info_t;
 
 typedef struct {
@@ -53,5 +55,8 @@ int analysis_add_var(analysis_t *a, const char name[2], gw_valtype_t type);
 
 /* Check if a line number is a jump target */
 bool analysis_is_target(analysis_t *a, uint16_t line_num);
+
+/* Emit static analysis warnings to stderr */
+void analysis_warnings(analysis_t *a);
 
 #endif

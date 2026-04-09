@@ -129,11 +129,14 @@ static void usage(void)
     fprintf(stderr,
         "Usage: gwbasic-compile [options] input.bas\n"
         "Options:\n"
-        "  -o FILE      Output C source file (default: stdout)\n"
-        "  -c           Compile to executable (invoke gcc)\n"
-        "  -O LEVEL     GCC optimization level (default: 2)\n"
-        "  --keep-c     Keep generated C file (with -c)\n"
+        "  -o FILE        Output C source file (default: stdout)\n"
+        "  -c             Compile to executable (invoke gcc)\n"
+        "  -O LEVEL       GCC optimization level (default: 2)\n"
+        "  --keep-c       Keep generated C file (with -c)\n"
         "  --runtime DIR  Path to runtime headers/library\n"
+        "  --warn         Static analysis warnings\n"
+        "  --safe         Runtime safety checks (implies --warn)\n"
+        "  --safe=sanitize  Above + address/UB sanitizers (with -c)\n"
     );
 }
 
@@ -145,6 +148,9 @@ int main(int argc, char **argv)
     int opt_level = 2;
     bool keep_c = false;
     const char *runtime_dir = NULL;
+    bool warn_mode = false;
+    bool safe_mode = false;
+    bool sanitize_mode = false;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-o") == 0 && i + 1 < argc)
@@ -157,6 +163,12 @@ int main(int argc, char **argv)
             keep_c = true;
         else if (strcmp(argv[i], "--runtime") == 0 && i + 1 < argc)
             runtime_dir = argv[++i];
+        else if (strcmp(argv[i], "--warn") == 0)
+            warn_mode = true;
+        else if (strcmp(argv[i], "--safe=sanitize") == 0)
+            sanitize_mode = safe_mode = warn_mode = true;
+        else if (strcmp(argv[i], "--safe") == 0)
+            safe_mode = warn_mode = true;
         else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
             usage();
             return 0;
@@ -184,6 +196,10 @@ int main(int argc, char **argv)
     analysis_t analysis;
     analysis_run(&analysis);
 
+    /* Static analysis warnings */
+    if (warn_mode)
+        analysis_warnings(&analysis);
+
     /* Code generation */
     const char *c_file = output;
     char c_file_buf[512];
@@ -198,7 +214,8 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    codegen_emit(f, &analysis);
+    codegen_opts_t opts = { .safe_mode = safe_mode, .warn_mode = warn_mode };
+    codegen_emit(f, &analysis, &opts);
 
     if (f != stdout)
         fclose(f);
@@ -213,9 +230,11 @@ int main(int argc, char **argv)
         char *dot = strrchr(exe_name, '.');
         if (dot) *dot = '\0';
 
+        const char *san_flags = sanitize_mode
+            ? " -fsanitize=address,undefined -fno-sanitize-recover=all" : "";
         snprintf(cmd, sizeof(cmd),
-            "gcc -O%d -o %s %s -I%s/include -L%s/build -lgwrt -lm -lpthread 2>&1",
-            opt_level, exe_name, c_file, rt, rt);
+            "gcc -O%d%s -o %s %s -I%s/include -L%s/build -lgwrt -lm -lpthread 2>&1",
+            opt_level, san_flags, exe_name, c_file, rt, rt);
 
         int rc = system(cmd);
         if (rc != 0) {

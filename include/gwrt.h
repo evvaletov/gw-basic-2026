@@ -30,6 +30,7 @@ const char *gwrt_data_read(void);     /* returns next datum or errors ERR_OD */
 /* GOSUB return-label stack */
 #define GWRT_GOSUB_MAX 24
 void gwrt_gosub_push(int label);
+void gwrt_gosub_push_safe(int label, uint16_t from_line);
 int  gwrt_gosub_pop(void);
 
 /* FOR/NEXT stack (for NEXT without variable matching) */
@@ -45,6 +46,10 @@ extern int gwrt_resume_label;    /* label for RESUME NEXT */
 
 /* Array element access (wraps gw_array_element) */
 gw_value_t *gwrt_array_elem(const char *name, int type, int ndims, int *subs);
+
+/* Safe variant: enhanced diagnostics on bounds error */
+gw_value_t *gwrt_array_elem_safe(const char *name, int type, int ndims,
+                                  int *subs, uint16_t line_num);
 
 /* DIM statement (wraps gw_stmt_dim via text_ptr) */
 void gwrt_dim(const char *name, int type, int ndims, int *dims);

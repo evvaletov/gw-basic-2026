@@ -86,3 +86,69 @@ Options:
                      Use LPT1 or /dev/lp0 for real hardware
   -v, --version      Show version
 ```
+
+## Ahead-of-Time Compiler
+
+`gwbasic-compile` translates `.bas` programs to C source, then optionally
+invokes GCC to produce native executables linked against `libgwrt.a`.
+
+### Basic Usage
+
+```bash
+# Emit C source to stdout
+build/gwbasic-compile program.bas
+
+# Compile to native executable
+build/gwbasic-compile -c --runtime . program.bas
+```
+
+### Compiler Options
+
+```
+Usage: gwbasic-compile [options] input.bas
+Options:
+  -o FILE        Output C source file (default: stdout)
+  -c             Compile to executable (invoke gcc)
+  -O LEVEL       GCC optimization level (default: 2)
+  --keep-c       Keep generated C file (with -c)
+  --runtime DIR  Path to runtime headers/library
+  --warn         Static analysis warnings
+  --safe         Runtime safety checks (implies --warn)
+  --safe=sanitize  Above + address/UB sanitizers (with -c)
+```
+
+### Memory Safety (`--warn` / `--safe`)
+
+The `--warn` flag enables compile-time static analysis warnings:
+
+- **Uninitialized variables** -- variables used before their first assignment
+  (via LET, FOR, READ, INPUT)
+- **GOTO/GOSUB to nonexistent line** -- jump targets that don't exist in the
+  program
+- **Unreachable code** -- lines after unconditional GOTO/END/STOP that are not
+  jump targets
+
+The `--safe` flag (implies `--warn`) adds runtime safety checks to the
+generated C:
+
+- **Integer overflow detection** -- arithmetic on integer (%) variables uses
+  checked functions (`gw_int_add`, `gw_int_sub`, `gw_int_mul`) that raise
+  "Overflow" instead of silently wrapping, matching real GW-BASIC behavior
+- **Enhanced array diagnostics** -- subscript errors report the array name,
+  subscript value, line number, and which dimension exceeded its bound
+- **GOSUB stack diagnostics** -- stack overflow reports the source line and
+  current depth
+
+The `--safe=sanitize` flag (with `-c`) additionally passes
+`-fsanitize=address,undefined` to GCC for full memory error detection.
+
+```bash
+# Warnings only (zero runtime cost)
+build/gwbasic-compile --warn program.bas
+
+# Runtime safety checks
+build/gwbasic-compile --safe -c --runtime . program.bas
+
+# Full sanitizer build (debugging)
+build/gwbasic-compile --safe=sanitize -c --runtime . program.bas
+```

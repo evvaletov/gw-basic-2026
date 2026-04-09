@@ -141,6 +141,16 @@ void gwrt_gosub_push(int label)
     gosub_stack[gosub_sp++] = label;
 }
 
+void gwrt_gosub_push_safe(int label, uint16_t from_line)
+{
+    if (gosub_sp >= GWRT_GOSUB_MAX) {
+        fprintf(stderr, "GOSUB stack overflow (depth %d) at line %u\n",
+                GWRT_GOSUB_MAX, from_line);
+        gw_error(ERR_OM);
+    }
+    gosub_stack[gosub_sp++] = label;
+}
+
 int gwrt_gosub_pop(void)
 {
     if (gosub_sp <= 0)
@@ -194,6 +204,64 @@ gw_value_t *gwrt_array_elem(const char *name, int type, int ndims, int *subs)
         stride *= dim_size;
     }
     if (index < 0 || index >= arr->total_elements) gw_error(ERR_FC);
+    return &arr->data[index];
+}
+
+gw_value_t *gwrt_array_elem_safe(const char *name, int type, int ndims,
+                                  int *subs, uint16_t line_num)
+{
+    char n[2] = {name[0], name[1]};
+
+    /* Find or auto-create the array (same as gwrt_array_elem) */
+    array_entry_t *arr = NULL;
+    for (int i = 0; i < gw.array_count; i++) {
+        if (gw.arrays[i].name[0] == n[0] && gw.arrays[i].name[1] == n[1]
+            && (int)gw.arrays[i].type == type) {
+            arr = &gw.arrays[i];
+            break;
+        }
+    }
+    if (!arr) {
+        if (gw.array_count >= 64) gw_error(ERR_OM);
+        arr = &gw.arrays[gw.array_count++];
+        arr->name[0] = n[0];
+        arr->name[1] = n[1];
+        arr->type = type;
+        arr->ndims = ndims;
+        arr->total_elements = 1;
+        for (int d = 0; d < ndims; d++) {
+            arr->dims[d] = 10;
+            arr->total_elements *= (11 - gw.option_base);
+        }
+        arr->data = calloc(arr->total_elements, sizeof(gw_value_t));
+        if (!arr->data) gw_error(ERR_OM);
+        for (int j = 0; j < arr->total_elements; j++)
+            arr->data[j].type = type;
+    }
+
+    /* Compute flat index with enhanced diagnostics */
+    int index = 0;
+    int stride = 1;
+    for (int d = 0; d < ndims; d++) {
+        int sub = subs[d] - gw.option_base;
+        int dim_size = arr->dims[d] + 1 - gw.option_base;
+        if (sub < 0 || sub >= dim_size) {
+            const char *suf = type == VT_INT ? "%" : type == VT_STR ? "$"
+                            : type == VT_DBL ? "#" : "";
+            if (n[1])
+                fprintf(stderr, "Subscript out of range: %c%c%s(%d) at line %u"
+                        " (dimension %d, max %d)\n",
+                        n[0], n[1], suf, subs[d], line_num, d + 1, arr->dims[d]);
+            else
+                fprintf(stderr, "Subscript out of range: %c%s(%d) at line %u"
+                        " (dimension %d, max %d)\n",
+                        n[0], suf, subs[d], line_num, d + 1, arr->dims[d]);
+            gw_error(ERR_BS);
+        }
+        index += sub * stride;
+        stride *= dim_size;
+    }
+    if (index < 0 || index >= arr->total_elements) gw_error(ERR_BS);
     return &arr->data[index];
 }
 

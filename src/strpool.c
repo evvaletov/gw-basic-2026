@@ -21,6 +21,7 @@
 static char *pool;
 static size_t pool_size;
 static size_t pool_used;
+static int pin_count;
 
 void strpool_init(size_t size)
 {
@@ -46,6 +47,7 @@ void strpool_reset(size_t size)
         pool_size = pool ? size : 0;
     }
     pool_used = 0;
+    pin_count = 0;
 }
 
 bool strpool_owns(const char *p)
@@ -74,8 +76,12 @@ size_t strpool_free(void)
  * into a temporary buffer in order, then memcpy back and update pool_used.
  * String descriptors are updated in place to point at their new locations.
  */
+void strpool_pin(void)   { pin_count++; }
+void strpool_unpin(void) { if (pin_count > 0) pin_count--; }
+
 void strpool_gc(void)
 {
+    if (pin_count > 0) return;
     char *tmp = malloc(pool_size);
     if (!tmp) return;
 

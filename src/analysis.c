@@ -94,7 +94,25 @@ int analysis_add_var(analysis_t *a, const char name[2], gw_valtype_t type)
     a->vars[idx].name[0] = name[0];
     a->vars[idx].name[1] = name[1];
     a->vars[idx].type = type;
+    a->vars[idx].first_assign_line = 0;
+    a->vars[idx].first_use_line = 0;
     return idx;
+}
+
+static void mark_var_assign(analysis_t *a, const char name[2],
+                             gw_valtype_t type, uint16_t line)
+{
+    int idx = analysis_add_var(a, name, type);
+    if (idx >= 0 && a->vars[idx].first_assign_line == 0)
+        a->vars[idx].first_assign_line = line;
+}
+
+static void mark_var_use(analysis_t *a, const char name[2],
+                          gw_valtype_t type, uint16_t line)
+{
+    int idx = analysis_add_var(a, name, type);
+    if (idx >= 0 && a->vars[idx].first_use_line == 0)
+        a->vars[idx].first_use_line = line;
 }
 
 bool analysis_is_target(analysis_t *a, uint16_t line_num)
@@ -117,11 +135,17 @@ static gw_valtype_t resolve_var_type(analysis_t *a, uint8_t first_char, uint8_t 
     return VT_SNG;
 }
 
-/* Scan a token stream for variable references, GOTO targets, DATA */
-static void scan_tokens(analysis_t *a, uint8_t *tokens, int len)
+/* Scan a token stream for variable references, GOTO targets, DATA.
+ * When line_num != 0, also tracks assignment vs. use context. */
+static void scan_tokens(analysis_t *a, uint8_t *tokens, int len, uint16_t line_num)
 {
     uint8_t *p = tokens;
     uint8_t *end = tokens + len;
+    /* Tracks whether the next variable seen is being assigned to.
+     * Set at statement start, after FOR, READ, INPUT, LET, SWAP.
+     * multi_assign: stays true across commas (for READ A,B,C / INPUT A,B). */
+    bool assign_ctx = true;  /* start of line = statement start */
+    bool multi_assign = false;
 
     while (p < end && *p) {
         uint8_t tok = *p;
@@ -129,10 +153,13 @@ static void scan_tokens(analysis_t *a, uint8_t *tokens, int len)
         /* Skip spaces */
         if (tok == ' ') { p++; continue; }
 
-        /* Skip constants */
-        if (is_constant(tok)) { skip_constant(&p); continue; }
+        /* Colon = statement separator; next variable is assignment target */
+        if (tok == ':') { p++; assign_ctx = true; multi_assign = false; continue; }
 
-        /* Skip string literals */
+        /* Skip constants */
+        if (is_constant(tok)) { skip_constant(&p); assign_ctx = false; continue; }
+
+        /* Skip string literals (preserve assign_ctx for INPUT "prompt", var) */
         if (tok == '"') {
             p++;
             while (p < end && *p && *p != '"') p++;
@@ -140,10 +167,57 @@ static void scan_tokens(analysis_t *a, uint8_t *tokens, int len)
             continue;
         }
 
+        /* DEFINT/DEFSNG/DEFDBL/DEFSTR — skip to end of statement
+         * (range letters like A-Z are not variable references) */
+        if (tok == TOK_DEFINT || tok == TOK_DEFSNG ||
+            tok == TOK_DEFDBL || tok == TOK_DEFSTR) {
+            while (p < end && *p && *p != ':') p++;
+            assign_ctx = false;
+            continue;
+        }
+
+        /* DIM — array names are declarations, not uses */
+        if (tok == TOK_DIM) {
+            while (p < end && *p && *p != ':') p++;
+            assign_ctx = false;
+            continue;
+        }
+
         /* OPEN — skip the mode/filename tokens to avoid misidentifying
          * OUTPUT/INPUT/APPEND/RANDOM as variable names */
         if (tok == TOK_OPEN) {
             while (p < end && *p && *p != ':') p++;
+            assign_ctx = false;
+            continue;
+        }
+
+        /* FOR — next variable is the loop variable (assigned) */
+        if (tok == TOK_FOR) {
+            p++; assign_ctx = true;
+            continue;
+        }
+
+        /* READ/INPUT — all variables in the list are assigned */
+        if (tok == TOK_READ || tok == TOK_INPUT) {
+            p++; assign_ctx = true; multi_assign = true;
+            continue;
+        }
+
+        /* LINE (as in LINE INPUT) — next token is INPUT, assign context */
+        if (tok == TOK_LINE) {
+            p++; assign_ctx = true;
+            continue;
+        }
+
+        /* LET — next variable is assigned */
+        if (tok == TOK_LET) {
+            p++; assign_ctx = true;
+            continue;
+        }
+
+        /* SWAP — both variables are assigned */
+        if (tok == TOK_SWAP) {
+            p++; assign_ctx = true;
             continue;
         }
 
@@ -166,13 +240,14 @@ static void scan_tokens(analysis_t *a, uint8_t *tokens, int len)
                     break;
                 }
             }
+            assign_ctx = false;
             continue;
         }
 
         /* ON ERROR GOTO — the GOTO is followed by a line number */
         if (tok == TOK_ON) {
             p++;
-            /* ON ERROR GOTO, ON n GOTO/GOSUB handled by scanning for GOTO/GOSUB above */
+            assign_ctx = false;
             continue;
         }
 
@@ -180,20 +255,18 @@ static void scan_tokens(analysis_t *a, uint8_t *tokens, int len)
         if (tok == TOK_DATA) {
             p++;
             while (p < end && *p == ' ') p++;
-            /* Read comma-separated DATA items as raw strings */
             while (p < end && *p && *p != ':') {
                 while (p < end && *p == ' ') p++;
                 char buf[256];
                 int bi = 0;
                 if (*p == '"') {
-                    p++; /* skip opening quote */
+                    p++;
                     while (p < end && *p && *p != '"' && bi < 255)
                         buf[bi++] = *p++;
                     if (p < end && *p == '"') p++;
                 } else {
                     while (p < end && *p && *p != ',' && *p != ':' && bi < 255)
                         buf[bi++] = *p++;
-                    /* Trim trailing spaces */
                     while (bi > 0 && buf[bi-1] == ' ') bi--;
                 }
                 buf[bi] = '\0';
@@ -203,6 +276,7 @@ static void scan_tokens(analysis_t *a, uint8_t *tokens, int len)
                 if (p < end && *p == ',') { p++; continue; }
                 break;
             }
+            assign_ctx = false;
             continue;
         }
 
@@ -212,14 +286,13 @@ static void scan_tokens(analysis_t *a, uint8_t *tokens, int len)
             continue;
         }
 
-        /* Variable reference: letter followed by optional second letter, optional suffix */
+        /* Variable reference */
         if (is_letter(tok)) {
             char name[2] = {(char)toupper(tok), 0};
             p++;
             if (p < end && (is_letter(*p) || (*p >= '0' && *p <= '9'))) {
                 name[1] = (char)toupper(*p);
                 p++;
-                /* Skip remaining chars of long name (GW-BASIC only uses first 2) */
                 while (p < end && (is_letter(*p) || (*p >= '0' && *p <= '9')))
                     p++;
             }
@@ -229,18 +302,33 @@ static void scan_tokens(analysis_t *a, uint8_t *tokens, int len)
             else
                 suffix = 0;
             gw_valtype_t type = resolve_var_type(a, (uint8_t)name[0], suffix);
-            analysis_add_var(a, name, type);
+
+            if (line_num) {
+                if (assign_ctx)
+                    mark_var_assign(a, name, type, line_num);
+                else
+                    mark_var_use(a, name, type, line_num);
+            } else {
+                analysis_add_var(a, name, type);
+            }
+            /* In multi-assign context (READ/INPUT), keep assign_ctx for next var */
+            if (!multi_assign)
+                assign_ctx = false;
             continue;
         }
 
         /* Extended tokens (0xFD, 0xFE, 0xFF prefix) — skip the prefix byte */
         if (tok == TOK_PREFIX_FD || tok == TOK_PREFIX_FE || tok == TOK_PREFIX_FF) {
             p += 2;
+            assign_ctx = false;
             continue;
         }
 
-        /* Everything else: single byte token */
+        /* Everything else: single byte token.
+         * Commas preserve assign_ctx (they separate items in INPUT, READ, etc.) */
         p++;
+        if (tok != ',')
+            assign_ctx = false;
     }
 }
 
@@ -319,7 +407,7 @@ void analysis_run(analysis_t *a)
             a->data_line_map[a->data_line_count][1] = a->data_count;
         }
 
-        scan_tokens(a, line->tokens, line->len);
+        scan_tokens(a, line->tokens, line->len, line->num);
 
         /* Finalize data line mapping */
         if (a->lines[li].has_data && a->data_line_count < MAX_LINES) {
@@ -331,4 +419,96 @@ void analysis_run(analysis_t *a)
     /* Mark the first line as a target (program entry point) */
     if (a->line_count > 0)
         a->lines[0].is_target = true;
+
+    /* Resolve forward-reference jump targets: mark_target() during scanning
+     * can only set is_target for lines already in the table. Now that all
+     * lines are collected, do a second pass over goto_targets[]. */
+    for (int g = 0; g < a->goto_count; g++) {
+        for (int i = 0; i < a->line_count; i++) {
+            if (a->lines[i].line_num == a->goto_targets[g]) {
+                a->lines[i].is_target = true;
+                break;
+            }
+        }
+    }
+}
+
+static const char *var_suffix_str(gw_valtype_t t)
+{
+    switch (t) {
+    case VT_INT: return "%";
+    case VT_STR: return "$";
+    case VT_DBL: return "#";
+    default: return "";
+    }
+}
+
+static bool line_exists(analysis_t *a, uint16_t num)
+{
+    for (int i = 0; i < a->line_count; i++)
+        if (a->lines[i].line_num == num) return true;
+    return false;
+}
+
+void analysis_warnings(analysis_t *a)
+{
+    /* Uninitialized variable detection */
+    for (int i = 0; i < a->var_count; i++) {
+        var_info_t *v = &a->vars[i];
+        char vname[8];
+        if (v->name[1])
+            snprintf(vname, sizeof(vname), "%c%c%s", v->name[0], v->name[1],
+                     var_suffix_str(v->type));
+        else
+            snprintf(vname, sizeof(vname), "%c%s", v->name[0],
+                     var_suffix_str(v->type));
+        if (v->first_use_line && !v->first_assign_line) {
+            fprintf(stderr, "warning: variable %s used at line %u"
+                    " but never assigned\n", vname, v->first_use_line);
+        } else if (v->first_use_line && v->first_assign_line &&
+                   v->first_use_line < v->first_assign_line) {
+            fprintf(stderr, "warning: variable %s used at line %u"
+                    " before first assignment at line %u\n",
+                    vname, v->first_use_line, v->first_assign_line);
+        }
+    }
+
+    /* GOTO/GOSUB to nonexistent line */
+    for (int i = 0; i < a->goto_count; i++) {
+        if (!line_exists(a, a->goto_targets[i]))
+            fprintf(stderr, "warning: GOTO/GOSUB target line %u does not exist\n",
+                    a->goto_targets[i]);
+    }
+
+    /* Unreachable code: line after unconditional transfer that isn't a target */
+    for (int i = 0; i < a->line_count - 1; i++) {
+        /* Check if this line ends with GOTO/END/STOP */
+        uint16_t num = a->lines[i].line_num;
+        program_line_t *pl = NULL;
+        for (program_line_t *p = gw.prog_head; p; p = p->next) {
+            if (p->num == num) { pl = p; break; }
+        }
+        if (!pl) continue;
+
+        /* Find the last statement-starting token on this line.
+         * Walk statement by statement (split on ':'). */
+        uint8_t *p = pl->tokens;
+        uint8_t last_stmt_start = 0;
+        while (*p) {
+            while (*p == ' ' || *p == ':') p++;
+            if (!*p) break;
+            last_stmt_start = *p;
+            /* Skip to next ':' or end */
+            while (*p && *p != ':') {
+                if (*p == '"') { p++; while (*p && *p != '"') p++; if (*p) p++; }
+                else p++;
+            }
+        }
+        bool is_transfer = (last_stmt_start == TOK_GOTO ||
+                            last_stmt_start == TOK_END ||
+                            last_stmt_start == TOK_STOP);
+        if (is_transfer && !a->lines[i + 1].is_target)
+            fprintf(stderr, "warning: line %u: unreachable code\n",
+                    a->lines[i + 1].line_num);
+    }
 }
