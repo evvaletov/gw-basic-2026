@@ -1,0 +1,77 @@
+GW-BASIC 2026 -- Change History
+================================
+
+v0.17.0
+  - Compiler memory safety: --warn (static analysis), --safe (checked
+    integer arithmetic, enhanced array/GOSUB diagnostics), --safe=sanitize
+  - 16-bit real-mode DOS target (Makefile.dos16): 128KB standalone MZ
+    executable, no DOS extender required, far-heap TUI screen buffer
+  - 32-bit DOS/4GW target (Makefile.dos): 175KB LE executable
+  - Tested on FreeDOS 1.4
+
+v0.16.0
+  - AOT compiler: 69/69 tests pass (100%)
+  - CHAIN/COMMON/RUN "file" via runtime delegation
+  - Token embedding, string comparison, division-by-zero detection
+  - Compiler optimizations: constant folding, dead code elimination,
+    FOR step=1 elision, fast-path expressions, selective variable sync
+  - Cross-compile to DOS with OpenWatcom (24/24 files)
+
+v0.15.0
+  - Hardware I/O simulator (8253 PIT, PPI speaker, CGA, game port)
+  - 100% token coverage (all 144 GW-BASIC tokens)
+  - String space pool with compacting garbage collector
+  - Jupyter notebook kernel (Sixel graphics, INPUT, Pygments)
+
+v0.14.0
+  - MBF binary file compatibility (IEEE<->MBF at save/load boundary)
+  - Fix binary loader null-byte truncation
+  - DRAW M/S/A bug fixes, TA/=var;/X substring support
+
+v0.13.0
+  - VIEW/WINDOW/PALETTE graphics, PMAP function
+  - MBF float format for CVS/CVD/MKS$/MKD$
+
+v0.12.0
+  - BSAVE/BLOAD, TUI ANSI 16-color rendering
+  - CGA graphics framebuffer PEEK/POKE, keyboard shift flags
+
+v0.11.0
+  - DEF SEG / PEEK / POKE virtual memory
+  - GET/PUT graphics sprites, PRINT USING fixes
+
+v0.10.0
+  - Binary tokenized SAVE/LOAD, INKEY$ extended keys
+  - Golden-file regression tests, classic BASIC programs
+
+v0.9.0
+  - EDIT statement, ON TIMER/ON KEY event trapping
+  - F-key escape parser fixes
+
+v0.8.0
+  - Dynamic TUI screen buffer, --full flag
+  - LPRINT/LLIST with --lpt
+
+v0.7.0
+  - AUTO, RENUM (with GOTO/GOSUB patching), DELETE, COMMON
+
+v0.6.0
+  - DATE$/TIME$/TIMER, FILES, SHELL, CHDIR, MKDIR, RMDIR
+
+v0.5.0
+  - Full-screen TUI editor, KEY statement, Ctrl+Break
+  - Sixel graphics, SOUND/BEEP/PLAY
+
+v0.4.0
+  - CHAIN, RUN "file", random-access I/O (FIELD/PUT/GET)
+  - CVI/CVS/CVD/MKI$/MKS$/MKD$
+
+v0.3.0
+  - File I/O, PRINT USING, SAVE/LOAD, MID$ assignment
+  - Graphics stubs
+
+v0.2.0
+  - Variables, arrays, program storage, control flow
+
+v0.1.0
+  - Expression calculator with direct mode

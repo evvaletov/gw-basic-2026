@@ -54,7 +54,7 @@ HAL writes straight to stdout.
 | AOT compiler analysis | `analysis.c` | -- |
 | AOT compiler codegen | `codegen.c` | -- |
 | Compiled program runtime | `gwrt.c` | -- |
-| Platform abstraction | `hal_posix.c` | OEM*.ASM |
+| Platform abstraction | `hal_posix.c`, `hal_dos.c` | OEM*.ASM |
 
 ## Source Layout
 

@@ -116,6 +116,18 @@ bash tests/run_tests.sh              # interpreter
 python -m gwbasickernel.test_kernel  # Jupyter kernel
 ```
 
+## DOS / FreeDOS
+
+Cross-compiles to DOS with OpenWatcom V2:
+
+```bash
+wmake -f Makefile.dos16   # 16-bit real-mode (128KB standalone, no extender)
+wmake -f Makefile.dos     # 32-bit DOS/4GW  (175KB, requires DOS4GW.EXE)
+```
+
+The 16-bit build runs on FreeDOS, MS-DOS, and compatible systems without
+a DOS extender.  See [Getting Started](docs/getting-started.md) for details.
+
 ## Documentation
 
 Full Sphinx documentation in `docs/`:

@@ -64,16 +64,31 @@ model with sentinel protocol.
 
 Install: `pip install -e . && gwbasickernel-install --user`
 
-## Next Up
+### Compiler Memory Safety (v0.17.0)
 
-### Compiler Memory Safety (`--warn` / `--safe`)
-- **`--warn`** -- static analysis warnings (uninitialized variables, GOTO to
-  nonexistent line, unreachable code, FOR/GOSUB nesting depth)
-- **`--safe`** -- runtime safety checks in generated C: checked integer arithmetic
-  via `gw_int_add/sub/mul` (fixes int16_t overflow UB), enhanced array bounds
-  diagnostics with line numbers and variable names, GOSUB stack overflow
-  diagnostics, string pool GC pinning
+`--warn`, `--safe`, and `--safe=sanitize` flags for the ahead-of-time compiler.
+
+- **`--warn`** -- static analysis: uninitialized variables, GOTO to nonexistent
+  line, unreachable code detection.  Zero runtime cost.
+- **`--safe`** (implies `--warn`) -- checked integer arithmetic via
+  `gw_int_add/sub/mul/neg` (raises Overflow instead of wrapping), enhanced
+  array bounds diagnostics with variable names and line numbers, GOSUB stack
+  overflow diagnostics, ABS/SGN type-preserving codegen, string pool GC pinning
+  infrastructure
 - **`--safe=sanitize`** -- above plus `-fsanitize=address,undefined` passed to gcc
+
+### DOS / FreeDOS Target (v0.17.0)
+
+Cross-compiles to DOS using OpenWatcom V2.  Two targets:
+
+- **16-bit real-mode** (`Makefile.dos16`): 128KB standalone MZ executable,
+  MEDIUM memory model, far-heap TUI screen buffer, no DOS extender required
+- **32-bit DOS/4GW** (`Makefile.dos`): 175KB LE executable, flat memory model,
+  requires DOS4GW.EXE extender
+
+Tested on FreeDOS 1.4 via QEMU.
+
+## Next Up
 
 ### Compiler Optimization Flags
 - **`--no-gc-check`** -- skip `gwrt_check_line()` per-line calls (no string pool
