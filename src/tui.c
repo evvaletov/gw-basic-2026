@@ -9,6 +9,9 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 #endif
+#ifdef _M_I86
+#include <malloc.h>  /* _fcalloc, _ffree */
+#endif
 
 tui_state_t tui;
 
@@ -37,8 +40,13 @@ static const char *default_fkeys[10] = {
 static void scroll_up(void)
 {
     int bottom = tui.view_bottom;
+#ifdef _M_I86
+    _fmemmove(&TUI_CELL(0, 0), &TUI_CELL(1, 0),
+              bottom * tui.cols * sizeof(tui_cell_t));
+#else
     memmove(&TUI_CELL(0, 0), &TUI_CELL(1, 0),
             bottom * tui.cols * sizeof(tui_cell_t));
+#endif
     for (int c = 0; c < tui.cols; c++) {
         TUI_CELL(bottom, c).ch = ' ';
         TUI_CELL(bottom, c).attr = tui.current_attr;
@@ -666,10 +674,13 @@ void tui_init(bool fullscreen)
     tui.view_bottom = tui.rows - 1;
 
     /* Allocate screen buffer */
+    /* On 16-bit DOS, use far heap to avoid exhausting the 64KB data segment */
+#ifdef _M_I86
+    tui.screen = _fcalloc(tui.rows * tui.cols, sizeof(tui_cell_t));
+#else
     tui.screen = calloc(tui.rows * tui.cols, sizeof(tui_cell_t));
+#endif
     if (!tui.screen) {
-        /* Not enough near heap (common on 16-bit DOS).
-         * Disable TUI — batch mode still works via HAL. */
         tui.active = false;
         return;
     }
@@ -732,7 +743,11 @@ void tui_shutdown(void)
     printf("\033[0 q");
     fflush(stdout);
 
+#ifdef _M_I86
+    _ffree(tui.screen);
+#else
     free(tui.screen);
+#endif
     tui.screen = NULL;
 
     signal(SIGINT, SIG_DFL);

@@ -4,6 +4,14 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+/* On 16-bit DOS, the screen buffer lives in far heap to save near heap.
+ * GW_FAR expands to __far on 16-bit OpenWatcom, nothing elsewhere. */
+#if defined(_M_I86)
+#define GW_FAR __far
+#else
+#define GW_FAR
+#endif
+
 #define TUI_DEFAULT_ROWS 25
 #define TUI_DEFAULT_COLS 80
 #define TUI_MAX_ROWS 200
@@ -50,7 +58,7 @@ typedef struct {
 
 /* TUI state */
 typedef struct {
-    tui_cell_t *screen;             /* dynamically allocated [rows * cols] */
+    tui_cell_t GW_FAR *screen;      /* dynamically allocated [rows * cols] */
     int rows;                       /* screen height (default 25) */
     int cols;                       /* screen width (default 80) */
     int cursor_row;
