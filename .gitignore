@@ -2,6 +2,10 @@ build/
 docs/_build/
 *.o
 *.d
+*.obj
+*.exe
+*.err
+*.lib
 gwbasic_*.txt
 gwbasic_*.dat
 gwbasic_*.bas

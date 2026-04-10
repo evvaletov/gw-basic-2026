@@ -1,0 +1,44 @@
+# Makefile for building GW-BASIC 2026 with OpenWatcom for 16-bit DOS
+#
+# Usage:
+#   wmake -f Makefile.dos16           (from OpenWatcom environment)
+#   wmake -f Makefile.dos16 clean
+#
+# Requires: OpenWatcom 2.0+ targeting 16-bit real-mode DOS
+# Produces: GWBASIC.EXE (interpreter, standalone MZ executable — no DOS extender)
+#
+# The 16-bit build uses the MEDIUM memory model (-mm):
+#   - Code: multiple segments (far calls), supports > 64KB total code
+#   - Data: single segment (near pointers), must fit in 64KB
+#
+# The compiler (GWBASCOM.EXE) is not built in 16-bit mode because it uses
+# open_memstream() which is not available in 16-bit DOS.  Use Makefile.dos
+# (32-bit) for the compiler.
+
+CC = wcc
+CFLAGS = -bt=dos -mm -ox -w4 -zq -za99 -Iinclude -D__MSDOS__
+LINKER = wlink
+LIBRARIAN = wlib
+
+# Interpreter sources (same as 32-bit minus compiler files)
+INTERP_OBJS = &
+    src/main.obj src/tokens.obj src/tokenizer.obj src/error.obj &
+    src/eval.obj src/interp.obj src/vars.obj src/arrays.obj &
+    src/input.obj src/math_int.obj src/math_float.obj &
+    src/math_transcend.obj src/strings.obj src/print.obj &
+    src/fileio.obj src/program_io.obj src/print_using.obj &
+    src/graphics.obj src/virmem.obj src/portio.obj src/strpool.obj &
+    src/sound.obj src/tui.obj platform/hal_dos.obj
+
+.c.obj:
+    $(CC) $(CFLAGS) -fo=$@ $<
+
+all: gwbasic.exe
+
+gwbasic.exe: $(INTERP_OBJS)
+    $(LINKER) system dos option stack=8192 name $@ file { $< }
+
+clean: .SYMBOLIC
+    del src\*.obj
+    del platform\*.obj
+    del gwbasic.exe

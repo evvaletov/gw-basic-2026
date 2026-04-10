@@ -665,8 +665,10 @@ void tui_init(bool fullscreen)
     /* Allocate screen buffer */
     tui.screen = calloc(tui.rows * tui.cols, sizeof(tui_cell_t));
     if (!tui.screen) {
-        fprintf(stderr, "Out of memory for screen buffer\n");
-        exit(1);
+        /* Not enough near heap (common on 16-bit DOS).
+         * Disable TUI — batch mode still works via HAL. */
+        tui.active = false;
+        return;
     }
 
     /* Set default F-key definitions */

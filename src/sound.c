@@ -91,8 +91,13 @@ void snd_tone(int freq_hz, int duration_ticks)
         return;
 
     /* Allocate buffer (or use stack for short tones) */
+#ifdef _M_I86
+    int16_t stack_buf[512];   /* 1KB — 16-bit DOS has ~4-8KB stack */
+    int16_t *buf = (total <= 512) ? stack_buf : malloc(total * sizeof(int16_t));
+#else
     int16_t stack_buf[8192];
     int16_t *buf = (total <= 8192) ? stack_buf : malloc(total * sizeof(int16_t));
+#endif
     if (!buf)
         return;
 

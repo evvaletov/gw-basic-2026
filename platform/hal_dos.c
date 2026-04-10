@@ -5,7 +5,8 @@
  * and screen control.  Selected at compile time via __MSDOS__.
  * Linux HAL (hal_posix.c) is unchanged -- full backward compatibility.
  *
- * Build: wcc386 -bt=dos -mf -ox -za99 -D__MSDOS__ -Iinclude
+ * Build: wcc386 -bt=dos -mf -ox -za99 -D__MSDOS__ -Iinclude  (32-bit)
+ *        wcc   -bt=dos -mm -ox -za99 -D__MSDOS__ -Iinclude  (16-bit)
  */
 
 #ifdef __MSDOS__
@@ -17,6 +18,13 @@
 #include <conio.h>
 #include <i86.h>
 #include <dos.h>
+
+/* int86 (16-bit real mode) vs int386 (32-bit protected mode) */
+#ifdef _M_I86
+#define INTX(n, r_in, r_out) int86(n, r_in, r_out)
+#else
+#define INTX(n, r_in, r_out) int386(n, r_in, r_out)
+#endif
 
 static int cursor_row = 0;
 static int cursor_col = 0;
@@ -33,7 +41,7 @@ static void bios_set_cursor(int row, int col)
     r.h.bh = 0;
     r.h.dh = (unsigned char)row;
     r.h.dl = (unsigned char)col;
-    int386(0x10, &r, &r);
+    INTX(0x10, &r, &r);
     cursor_row = row;
     cursor_col = col;
 }
@@ -44,7 +52,7 @@ static void bios_get_cursor(int *row, int *col)
     memset(&r, 0, sizeof(r));
     r.h.ah = 0x03;
     r.h.bh = 0;
-    int386(0x10, &r, &r);
+    INTX(0x10, &r, &r);
     *row = r.h.dh;
     *col = r.h.dl;
 }
@@ -60,7 +68,7 @@ static void bios_scroll_up(int lines, int attr, int r1, int c1, int r2, int c2)
     r.h.cl = (unsigned char)c1;
     r.h.dh = (unsigned char)r2;
     r.h.dl = (unsigned char)c2;
-    int386(0x10, &r, &r);
+    INTX(0x10, &r, &r);
 }
 
 static void bios_write_char(int ch, int attr)
@@ -72,7 +80,7 @@ static void bios_write_char(int ch, int attr)
     r.h.bh = 0;
     r.h.bl = (unsigned char)attr;
     r.w.cx = 1;
-    int386(0x10, &r, &r);
+    INTX(0x10, &r, &r);
 }
 
 /* --- Terminal I/O --- */
@@ -118,7 +126,7 @@ static int dos_getch(void)
     union REGS r;
     memset(&r, 0, sizeof(r));
     r.h.ah = 0x00;
-    int386(0x16, &r, &r);
+    INTX(0x16, &r, &r);
     return r.h.al ? r.h.al : (0x100 | r.h.ah);
 }
 
@@ -156,7 +164,7 @@ static void dos_init(void)
     union REGS r;
     memset(&r, 0, sizeof(r));
     r.h.ah = 0x0F;
-    int386(0x10, &r, &r);
+    INTX(0x10, &r, &r);
     screen_cols = r.h.ah;
     screen_rows = 25;  /* safe default; BIOS data area read needs far ptr */
     bios_get_cursor(&cursor_row, &cursor_col);
