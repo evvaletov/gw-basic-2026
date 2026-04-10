@@ -290,7 +290,7 @@ int main(int argc, char **argv)
                      exists ? "*" : " ");
             gw_hal->puts(prompt);
 
-            char *line = tui_read_line();
+            char *line = tui.active ? tui_read_line() : read_line();
             if (!line || tui.break_flag) {
                 gw.auto_mode = false;
                 tui.break_flag = false;
@@ -315,7 +315,7 @@ int main(int argc, char **argv)
             continue;
         }
 
-        char *line = interactive ? tui_read_line() : read_line();
+        char *line = (interactive && tui.active) ? tui_read_line() : read_line();
         if (!line)
             break;
 

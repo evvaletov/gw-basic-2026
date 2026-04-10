@@ -37,7 +37,7 @@ Running `./gwbasic` with no arguments launches the full-screen editor:
 
 ```
 $ ./gwbasic
-GW-BASIC 2026 0.14.0
+GW-BASIC 2026 0.16.0
 (C) Eremey Valetov 2026. MIT License.
 Based on Microsoft GW-BASIC assembly source.
 Ok
@@ -152,3 +152,41 @@ build/gwbasic-compile --safe -c --runtime . program.bas
 # Full sanitizer build (debugging)
 build/gwbasic-compile --safe=sanitize -c --runtime . program.bas
 ```
+
+## Building for DOS / FreeDOS
+
+GW-BASIC 2026 cross-compiles to DOS using OpenWatcom V2 (`wcc` / `wcc386`).
+Two targets are available:
+
+### 16-bit real-mode (recommended for FreeDOS)
+
+Produces a standalone 127KB MZ executable -- no DOS extender required.
+
+```bash
+wmake -f Makefile.dos16
+```
+
+Requires OpenWatcom V2 with 16-bit DOS target.  Uses MEDIUM memory model
+(`-mm`): code can exceed 64KB, data must fit in 64KB.
+
+### 32-bit DOS/4GW
+
+Produces a 175KB LE executable requiring `DOS4GW.EXE` (265KB) at runtime.
+Also builds the compiler (`GWBASCOM.EXE`) and runtime library (`GWRT.LIB`).
+
+```bash
+wmake -f Makefile.dos
+```
+
+### Running on FreeDOS
+
+Copy `GWBASIC.EXE` (and `DOS4GW.EXE` for the 32-bit build) to your FreeDOS
+system.  Run programs from the command line:
+
+```
+C:\> GWBASIC PROGRAM.BAS
+```
+
+Running without arguments launches the interactive editor.  The 16-bit build
+disables the full-screen TUI editor due to near-heap constraints but batch
+mode and direct-mode input work normally.

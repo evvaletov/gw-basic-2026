@@ -481,6 +481,7 @@ static void render_key_bar(void)
 
 void tui_key_on(void)
 {
+    if (!tui.screen) return;
     tui.key_bar_visible = true;
     tui.view_bottom = tui.rows - 2;
     render_key_bar();
@@ -489,6 +490,7 @@ void tui_key_on(void)
 
 void tui_key_off(void)
 {
+    if (!tui.screen) return;
     tui.key_bar_visible = false;
     tui.view_bottom = tui.rows - 1;
     for (int c = 0; c < tui.cols; c++) {
@@ -501,6 +503,7 @@ void tui_key_off(void)
 
 void tui_key_list(void)
 {
+    if (!tui.screen) return;
     for (int i = 0; i < 10; i++) {
         char buf[32];
         snprintf(buf, sizeof(buf), "F%d ", i + 1);
