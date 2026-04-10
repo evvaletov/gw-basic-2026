@@ -199,11 +199,11 @@ gw_value_t *gwrt_array_elem(const char *name, int type, int ndims, int *subs)
     for (int d = 0; d < ndims; d++) {
         int sub = subs[d] - gw.option_base;
         int dim_size = arr->dims[d] + 1 - gw.option_base;
-        if (sub < 0 || sub >= dim_size) gw_error(ERR_FC);
+        if (sub < 0 || sub >= dim_size) gw_error(ERR_BS);
         index += sub * stride;
         stride *= dim_size;
     }
-    if (index < 0 || index >= arr->total_elements) gw_error(ERR_FC);
+    if (index < 0 || index >= arr->total_elements) gw_error(ERR_BS);
     return &arr->data[index];
 }
 

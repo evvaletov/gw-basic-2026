@@ -280,7 +280,27 @@ static void emit_atom(void)
         tp += 2;
         skip_spaces();
         switch (func) {
-        case FUNC_ABS:
+        case FUNC_ABS: {
+            /* ABS preserves argument type: int->int, sng->sng, dbl->dbl */
+            gw_valtype_t arg_type = peek_expr_type();
+            if (arg_type == VT_INT) {
+                EMIT("({ int16_t _v = (int16_t)(");
+                advance();
+                emit_num_expr();
+                if (cur() == ')') advance();
+                if (safe_mode)
+                    EMIT("); _v < 0 ? gw_int_neg(_v) : _v; })");
+                else
+                    EMIT("); _v < 0 ? -_v : _v; })");
+            } else {
+                EMIT("fabs(");
+                advance();
+                emit_num_expr();
+                if (cur() == ')') advance();
+                EMIT(")");
+            }
+            return;
+        }
         case FUNC_INT:
         case FUNC_SQR:
         case FUNC_SIN:
@@ -290,7 +310,7 @@ static void emit_atom(void)
         case FUNC_LOG:
         case FUNC_EXP: {
             const char *cfn[] = {
-                [FUNC_ABS] = "fabs", [FUNC_INT] = "floor", [FUNC_SQR] = "sqrt",
+                [FUNC_INT] = "floor", [FUNC_SQR] = "sqrt",
                 [FUNC_SIN] = "sin", [FUNC_COS] = "cos", [FUNC_TAN] = "tan",
                 [FUNC_ATN] = "atan", [FUNC_LOG] = "log", [FUNC_EXP] = "exp",
             };
@@ -1274,7 +1294,17 @@ static gw_valtype_t peek_expr_type(void)
         switch (func) {
         case FUNC_LEN: case FUNC_ASC: case FUNC_CINT: case FUNC_FIX:
         case FUNC_POS: case FUNC_PEEK: case FUNC_INP:
+        case FUNC_SGN:
             return VT_INT;
+        case FUNC_ABS: {
+            /* ABS preserves the type of its argument */
+            tp += 2; /* skip FF ABS */
+            skip_spaces();
+            if (*tp == '(') tp++;
+            gw_valtype_t arg_type = peek_expr_type();
+            tp = save;
+            return arg_type;
+        }
         case FUNC_VAL: case FUNC_ATN: case FUNC_LOG: case FUNC_EXP:
         case FUNC_CDBL:
             return VT_DBL;
@@ -1291,9 +1321,12 @@ static gw_valtype_t peek_expr_type(void)
         if (xf == XFUNC_CVD) return VT_DBL;
         return VT_SNG;
     }
-    /* Integer constants — only if truly standalone (PRINT 42 vs PRINT 4*X) */
+    /* Integer constants — treated as VT_SNG to avoid false integer-mode
+     * emission when constants appear in mixed expressions (e.g. 4*S where S
+     * is float). The interpreter treats int constants as VT_INT, so this is
+     * a known divergence for safe-mode overflow checking. */
     if ((tok >= 0x11 && tok <= 0x1A) || tok == TOK_INT1 || tok == TOK_INT2)
-        { tp = save; return VT_SNG; }  /* default to SNG for safety */
+        { tp = save; return VT_SNG; }
     tp = save;
     return VT_SNG;
 }

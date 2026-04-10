@@ -224,6 +224,7 @@ static void scan_tokens(analysis_t *a, uint8_t *tokens, int len, uint16_t line_n
         /* GOTO/GOSUB/THEN/RESTORE/RESUME/RUN — mark targets */
         if (tok == TOK_GOTO || tok == TOK_GOSUB || tok == TOK_THEN ||
             tok == TOK_RESTORE || tok == TOK_RESUME || tok == TOK_RUN) {
+            bool is_then = (tok == TOK_THEN);
             p++;
             while (p < end && *p == ' ') p++;
             /* Read line number(s) */
@@ -240,7 +241,8 @@ static void scan_tokens(analysis_t *a, uint8_t *tokens, int len, uint16_t line_n
                     break;
                 }
             }
-            assign_ctx = false;
+            /* After THEN, remaining tokens form a new statement (IF x THEN A=5) */
+            assign_ctx = is_then;
             continue;
         }
 
@@ -319,6 +321,13 @@ static void scan_tokens(analysis_t *a, uint8_t *tokens, int len, uint16_t line_n
 
         /* Extended tokens (0xFD, 0xFE, 0xFF prefix) — skip the prefix byte */
         if (tok == TOK_PREFIX_FD || tok == TOK_PREFIX_FE || tok == TOK_PREFIX_FF) {
+            /* COMMON — variables receive values from CHAIN, treat as assigned */
+            if (tok == TOK_PREFIX_FE && p[1] == XSTMT_COMMON) {
+                p += 2;
+                assign_ctx = true;
+                multi_assign = true;
+                continue;
+            }
             p += 2;
             assign_ctx = false;
             continue;
