@@ -22,9 +22,12 @@ goes through a HAL vtable (`hal_ops_t`), so the core interpreter has no idea
 whether it's talking to an ANSI terminal or a teletype from 1975.
 
 In interactive mode, the TUI layer swaps in its own HAL function pointers and
-redirects all output through a dynamically allocated screen buffer, displayed
-via ANSI escape sequences.  In piped mode the TUI stays out of the way and the
-HAL writes straight to stdout.
+redirects all output through a dynamically allocated screen buffer.  Rendering
+itself is delegated back to the HAL via four ops (`tui_enter`, `tui_leave`,
+`render_run`, `set_cursor_shape`): the POSIX backend emits ANSI escape
+sequences, the DOS backend drives BIOS INT 10h directly, so the full-screen
+editor works on bare FreeDOS without `ANSI.SYS`.  In piped mode the TUI stays
+out of the way and the HAL writes straight to stdout.
 
 ## Module Map
 
@@ -61,7 +64,7 @@ HAL writes straight to stdout.
 ```
 src/         -- core interpreter + compiler (27 files)
 include/     -- headers (18 files)
-platform/    -- HAL backends (1 file)
+platform/    -- HAL backends (2 files)
 gwbasickernel/ -- Jupyter notebook kernel (Python, 6 files)
 tests/       -- 72 automated test programs, 4 classic interactive programs, compat harness
 docs/        -- Sphinx documentation

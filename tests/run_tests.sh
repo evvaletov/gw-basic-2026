@@ -30,19 +30,24 @@ for bas in "$SCRIPT_DIR"/programs/*.bas; do
         printf "  PASS  %s" "$name"
         pass=$((pass + 1))
 
-        # Compare against .expected if available
+        # Compare against .expected if available.  Normalize both sides
+        # the same way (CR removal, trailing whitespace strip, blank-line drop)
+        # so trailing spaces in golden captures from real GWBASIC.EXE don't
+        # cause spurious mismatches.
         expected="$EXPECTED_DIR/${stem}.expected"
         if [ -f "$expected" ]; then
             normalized=$(mktemp)
+            normalized_expected=$(mktemp)
             sed 's/\r//g; s/[[:space:]]*$//' "$actual" | sed '/^$/d' > "$normalized"
-            if diff -q "$expected" "$normalized" >/dev/null 2>&1; then
+            sed 's/\r//g; s/[[:space:]]*$//' "$expected" | sed '/^$/d' > "$normalized_expected"
+            if diff -q "$normalized_expected" "$normalized" >/dev/null 2>&1; then
                 printf "  [compat: ok]"
                 compat_pass=$((compat_pass + 1))
             else
                 printf "  [compat: MISMATCH]"
                 compat_fail=$((compat_fail + 1))
             fi
-            rm -f "$normalized"
+            rm -f "$normalized" "$normalized_expected"
         fi
         printf "\n"
     else

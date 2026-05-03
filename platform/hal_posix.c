@@ -125,6 +125,49 @@ static void posix_write_raw(const char *data, int len)
     write(STDOUT_FILENO, data, len);
 }
 
+static const int ansi_fg[16] = {30,34,32,36,31,35,33,37,90,94,92,96,91,95,93,97};
+static const int ansi_bg[8]  = {40,44,42,46,41,45,43,47};
+
+static void posix_tui_enter(void)
+{
+    printf("\033[?1049h\033[2J\033[H");
+    fflush(stdout);
+}
+
+static void posix_tui_leave(void)
+{
+    printf("\033[?1049l\033[0 q\033[?25h");
+    fflush(stdout);
+}
+
+static void posix_render_run(int row, int col,
+                             const uint8_t *chars, const uint8_t *attrs, int len)
+{
+    printf("\033[%d;%dH", row + 1, col + 1);
+    int prev_attr = -1;
+    for (int i = 0; i < len; i++) {
+        int a = attrs[i];
+        if (a != prev_attr) {
+            printf("\033[%d;%dm", ansi_fg[a & 0x0F], ansi_bg[(a >> 4) & 0x07]);
+            prev_attr = a;
+        }
+        unsigned char ch = chars[i];
+        putchar(ch ? ch : ' ');
+    }
+    printf("\033[0m");
+    fflush(stdout);
+}
+
+static void posix_set_cursor_shape(int shape)
+{
+    switch (shape) {
+    case 0: printf("\033[?25l"); break;
+    case 1: printf("\033[?25h\033[1 q"); break;
+    case 2: printf("\033[?25h\033[5 q"); break;
+    }
+    fflush(stdout);
+}
+
 static void posix_init(void)
 {
     setbuf(stdout, NULL);
@@ -151,6 +194,10 @@ static hal_ops_t posix_hal = {
     .enable_raw = posix_enable_raw,
     .disable_raw = posix_disable_raw,
     .write_raw = posix_write_raw,
+    .tui_enter = posix_tui_enter,
+    .tui_leave = posix_tui_leave,
+    .render_run = posix_render_run,
+    .set_cursor_shape = posix_set_cursor_shape,
     .screen_width = 80,
     .screen_height = 25,
     .is_tty = false,

@@ -37,7 +37,7 @@ Running `./gwbasic` with no arguments launches the full-screen editor:
 
 ```
 $ ./gwbasic
-GW-BASIC 2026 0.16.0
+GW-BASIC 2026 0.17.0
 (C) Eremey Valetov 2026. MIT License.
 Based on Microsoft GW-BASIC assembly source.
 Ok
@@ -160,7 +160,7 @@ Two targets are available:
 
 ### 16-bit real-mode (recommended for FreeDOS)
 
-Produces a standalone 127KB MZ executable -- no DOS extender required.
+Produces a standalone 128KB MZ executable -- no DOS extender required.
 
 ```bash
 wmake -f Makefile.dos16
@@ -187,6 +187,37 @@ system.  Run programs from the command line:
 C:\> GWBASIC PROGRAM.BAS
 ```
 
-Running without arguments launches the interactive editor.  The 16-bit build
-disables the full-screen TUI editor due to near-heap constraints but batch
-mode and direct-mode input work normally.
+Running without arguments launches the interactive editor.  The TUI renders
+through BIOS INT 10h with the screen buffer in far memory, so the full-screen
+editor, F-key bar, cursor positioning, and scrolling all work on bare FreeDOS
+without `ANSI.SYS`.
+
+### Verifying the DOS Build
+
+Two automated checks run from a Linux host:
+
+```bash
+./build_dos.sh 16            # produces gwbasic16.exe (~128KB)
+./build_dos.sh 32            # produces gwbasic.exe (~175KB)
+bash tests/run_dos_smoke.sh  # runs gwbasic16.exe under DOSBox-X, diffs golden
+```
+
+The smoke harness validates non-interactive features (arithmetic, strings,
+control flow, GOSUB, FOR/NEXT, DATA/READ, DEF FN, file I/O via OPEN/PRINT#).
+The interactive TUI features below need a manual session under DOSBox-X or
+real FreeDOS:
+
+| Check | What to do | Expected |
+|-------|-----------|----------|
+| TUI startup | Launch `GWBASIC.EXE` with no arguments | `Ok` prompt, F-key bar at row 25 (`1LIST 2RUN ...` in inverse video) |
+| Cursor keys | Press up/down/left/right | Cursor moves freely without printing characters |
+| Re-enter line | Type `10 PRINT "HI"`, Enter; arrow up to that line, Enter | Line re-tokenized; subsequent `LIST` shows it stored |
+| F1 (LIST) | Press F1 then Enter | Inserts `LIST `, runs `LIST` |
+| F2 (RUN) | Type a program, press F2 | Runs it (`RUN\r` is appended) |
+| Insert toggle | Press Ins; type characters mid-line | Cursor switches between block (insert) and underline (overwrite) shapes; characters insert vs overstrike accordingly |
+| Home / End | Press Home, End | Cursor jumps to column 0 / past last printable char on the row |
+| Scroll | Fill the screen with output | Bottom row pinned to the F-key bar; new lines push old ones up |
+| Ctrl-C | Run `10 GOTO 10` and press Ctrl-C | Program stops with `Break in 10` |
+| KEY OFF / KEY ON | `KEY OFF` then `KEY ON` | F-key bar disappears / reappears |
+| CLS | `CLS` | Screen clears, cursor at top-left |
+| Exit | `SYSTEM` | Returns to DOS prompt cleanly (no leftover escape codes) |

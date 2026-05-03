@@ -19,14 +19,16 @@
 | 0.13.0 | | VIEW/WINDOW/PALETTE graphics, PMAP function, MBF float format for CVS/CVD/MKS$/MKD$ |
 | 0.14.0 | | MBF binary file compatibility (IEEE↔MBF at save/load boundary), fix binary loader null-byte truncation, fix DRAW M/S/A bugs, add TA/=var;/X substring |
 | 0.15.0 | | Hardware I/O simulator, gap-fill (100% token coverage), string pool + compacting GC, Jupyter kernel (Sixel graphics, INPUT, Pygments), ahead-of-time compiler Phase 1 |
-| 0.16.0 | | AOT compiler: 69/69 tests pass (100%). CHAIN/COMMON/RUN "file" via runtime delegation, token embedding, string comparison, division-by-zero detection, FIELD read-back, graphics, file I/O delegation, RNG matching, dead code elimination |
+| 0.16.0 | | AOT compiler: all eligible tests pass (100%). CHAIN/COMMON/RUN "file" via runtime delegation, token embedding, string comparison, division-by-zero detection, FIELD read-back, graphics, file I/O delegation, RNG matching, dead code elimination |
+| 0.17.0 | `981aeab` | Compiler memory safety (`--warn`, `--safe`, `--safe=sanitize`); 16-bit real-mode DOS target (Makefile.dos16, far-heap TUI screen buffer); 32-bit DOS/4GW target (Makefile.dos); FreeDOS 1.4 compatibility |
 
 ## Tests
 
 72 automated test programs in `tests/programs/`, plus 4 classic interactive
 programs in `tests/classic/` (Hamurabi, Lunar Lander, Gunner, Diamond from
-David Ahl's *BASIC Computer Games*).  14 Jupyter kernel tests.  69 compiler
-tests (all numbered programs compiled to native executables via `gwbasic-compile`).
+David Ahl's *BASIC Computer Games*).  14 Jupyter kernel tests.  56 compiler
+tests (eligible numbered programs compiled to native executables via
+`gwbasic-compile`; run `bash tests/run_compiler_tests.sh`).
 
 Run the full automated suite:
 
@@ -54,6 +56,6 @@ bash tests/run_compat.sh
 ## CI
 
 GitHub Actions runs on every push to `main` and on pull requests. The workflow
-builds the project with PulseAudio support and runs all 66 test programs.
+builds the project with PulseAudio support and runs all 72 test programs.
 
 See [`.github/workflows/ci.yml`](https://github.com/evvaletov/gw-basic-2026/blob/main/.github/workflows/ci.yml).

@@ -134,7 +134,10 @@ static void format_number(FILE *fp, const char *fmt, int fmtlen, double val)
     double absval = fabs(val);
 
     if (scientific) {
+        /* IEEE double has at most ~17 significant decimal digits; cap dec
+         * to keep the mantissa buffer (32 bytes) within bounds. */
         int dec = decimal_digits >= 0 ? decimal_digits : 0;
+        if (dec > 20) dec = 20;
         char numbuf[64];
         snprintf(numbuf, sizeof(numbuf), "%+.*E", dec, val);
 

@@ -642,8 +642,10 @@ static gw_value_t eval_function(uint8_t prefix, uint8_t func_tok)
         arg = gw_eval();  /* can be string or numeric */
         gw_expect_rparen();
         if (arg.type == VT_STR) gw_str_free(&arg.sval);
-        /* No GC here — unsafe during expression eval (temps on C stack).
-         * The run loop compacts at statement boundaries instead. */
+        /* GW-BASIC compatibility: FRE("") forces a string-pool compaction
+         * and reports the post-GC free space.  strpool_pin() suppresses
+         * collection if a caller has live pool pointers on the C stack. */
+        strpool_gc();
         v.type = VT_SNG;
         v.fval = (float)strpool_free();
         return v;

@@ -27,7 +27,7 @@ Interactive mode launches the authentic GW-BASIC full-screen editor:
 
 ```
 $ ./gwbasic
-GW-BASIC 2026 0.16.0
+GW-BASIC 2026 0.17.0
 (C) Eremey Valetov 2026. MIT License.
 Based on Microsoft GW-BASIC assembly source.
 Ok
@@ -55,7 +55,9 @@ to produce native executables linked against `libgwrt.a`.
 
 Pipeline: `.bas` → tokenizer → analysis → C codegen → `gcc` → native binary.
 
-69 of 69 eligible test programs compile and produce correct output (100%).
+56 of 56 eligible test programs compile via `gwbasic-compile` and produce
+output matching the interpreter's golden files. Run `bash
+tests/run_compiler_tests.sh` to verify.
 
 ```bash
 # Generate C source
@@ -109,7 +111,7 @@ jupyter notebook  # select "GW-BASIC 2026" kernel
 
 ## Tests
 
-72 interpreter tests, 14 kernel tests, 69 compiler tests -- all passing.
+72 interpreter tests, 14 kernel tests, 56 compiler tests -- all passing.
 
 ```bash
 bash tests/run_tests.sh              # interpreter

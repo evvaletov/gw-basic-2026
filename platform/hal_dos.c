@@ -159,6 +159,47 @@ static void dos_write_raw(const char *data, int len)
         dos_putch(data[i]);
 }
 
+static void dos_tui_enter(void)
+{
+    bios_scroll_up(0, 0x07, 0, 0, screen_rows - 1, screen_cols - 1);
+    bios_set_cursor(0, 0);
+}
+
+static void dos_tui_leave(void)
+{
+    bios_scroll_up(0, 0x07, 0, 0, screen_rows - 1, screen_cols - 1);
+    bios_set_cursor(0, 0);
+}
+
+static void dos_render_run(int row, int col,
+                           const uint8_t *chars, const uint8_t *attrs, int len)
+{
+    /* INT 10h AH=09h writes char+attr at the cursor without advancing it. */
+    for (int i = 0; i < len; i++) {
+        bios_set_cursor(row, col + i);
+        unsigned char ch = chars[i];
+        bios_write_char(ch ? ch : ' ', attrs[i]);
+    }
+}
+
+static void dos_set_cursor_shape(int shape)
+{
+    union REGS r;
+    memset(&r, 0, sizeof(r));
+    r.h.ah = 0x01;
+    switch (shape) {
+    case 0: r.h.ch = 0x20; r.h.cl = 0; break;  /* hide (high bit set) */
+    case 1: r.h.ch = 0;    r.h.cl = 7; break;  /* block */
+    case 2: r.h.ch = 6;    r.h.cl = 7; break;  /* underline */
+    default: return;
+    }
+    INTX(0x10, &r, &r);
+}
+
+/* Forward-declared so dos_init can write back screen size before the struct
+ * definition's positional initializers populate the rest. */
+static hal_ops_t dos_hal;
+
 static void dos_init(void)
 {
     union REGS r;
@@ -167,6 +208,8 @@ static void dos_init(void)
     INTX(0x10, &r, &r);
     screen_cols = r.h.ah;
     screen_rows = 25;  /* safe default; BIOS data area read needs far ptr */
+    dos_hal.screen_width = screen_cols;
+    dos_hal.screen_height = screen_rows;
     bios_get_cursor(&cursor_row, &cursor_col);
 }
 
@@ -176,7 +219,9 @@ static hal_ops_t dos_hal = {
     dos_putch, dos_puts, dos_getch, dos_kbhit,
     dos_locate, dos_get_cursor_row, dos_get_cursor_col,
     dos_cls, dos_set_width, dos_enable_raw, dos_disable_raw,
-    dos_write_raw, 80, 25, 1 /* is_tty */,
+    dos_write_raw,
+    dos_tui_enter, dos_tui_leave, dos_render_run, dos_set_cursor_shape,
+    80, 25, 1 /* is_tty */,
     dos_init, dos_shutdown
 };
 

@@ -138,67 +138,45 @@ void tui_locate(int row, int col)
 int tui_get_cursor_row(void) { return tui.cursor_row; }
 int tui_get_cursor_col(void) { return tui.cursor_col; }
 
-/* CGA-to-ANSI color mapping */
-static const int ansi_fg[16] = {30,34,32,36,31,35,33,37,90,94,92,96,91,95,93,97};
-static const int ansi_bg[8]  = {40,44,42,46,41,45,43,47};
-
-static void emit_attr(uint8_t attr)
-{
-    int fg = attr & 0x0F;
-    int bg = (attr >> 4) & 0x07;
-    printf("\033[%d;%dm", ansi_fg[fg], ansi_bg[bg]);
-}
+/* Row-sized scratch buffers for HAL render_run.  Sized to TUI_MAX_COLS
+ * so they fit in the near data segment on 16-bit DOS while the screen
+ * cell buffer itself lives on the far heap. */
+static uint8_t row_chars[TUI_MAX_COLS];
+static uint8_t row_attrs[TUI_MAX_COLS];
 
 void tui_refresh(void)
 {
-    printf("\033[H");
-
     int bottom = tui.key_bar_visible ? tui.rows : tui.view_bottom + 1;
-    uint8_t prev_attr = 0xFF;
-
+    int width = tui.cols < TUI_MAX_COLS ? tui.cols : TUI_MAX_COLS;
     for (int r = 0; r < bottom; r++) {
-        printf("\033[%d;1H", r + 1);
-        for (int c = 0; c < tui.cols; c++) {
-            uint8_t attr = TUI_CELL(r, c).attr;
-            if (attr != prev_attr) {
-                emit_attr(attr);
-                prev_attr = attr;
-            }
-            uint8_t ch = TUI_CELL(r, c).ch;
-            putchar(ch ? ch : ' ');
+        for (int c = 0; c < width; c++) {
+            row_chars[c] = TUI_CELL(r, c).ch;
+            row_attrs[c] = TUI_CELL(r, c).attr;
         }
+        gw_hal->render_run(r, 0, row_chars, row_attrs, width);
     }
-
-    printf("\033[0m");
 
     if (tui.key_bar_visible)
         tui_refresh_row(tui.rows - 1);
-
-    fflush(stdout);
 }
 
 void tui_refresh_row(int row)
 {
     if (row < 0 || row >= tui.rows) return;
-    printf("\033[%d;1H", row + 1);
-    uint8_t prev_attr = 0xFF;
-    for (int c = 0; c < tui.cols; c++) {
-        uint8_t attr = TUI_CELL(row, c).attr;
-        if (attr != prev_attr) {
-            emit_attr(attr);
-            prev_attr = attr;
-        }
-        uint8_t ch = TUI_CELL(row, c).ch;
-        putchar(ch ? ch : ' ');
+    int width = tui.cols < TUI_MAX_COLS ? tui.cols : TUI_MAX_COLS;
+    for (int c = 0; c < width; c++) {
+        row_chars[c] = TUI_CELL(row, c).ch;
+        row_attrs[c] = TUI_CELL(row, c).attr;
     }
-    printf("\033[0m");
-    fflush(stdout);
+    gw_hal->render_run(row, 0, row_chars, row_attrs, width);
 }
 
 void tui_update_cursor(void)
 {
-    printf("\033[%d;%dH", tui.cursor_row + 1, tui.cursor_col + 1);
-    fflush(stdout);
+    /* Use the platform's original locate (saved before tui_init swapped its
+     * own in) — gw_hal->locate now points at tui_locate, which would recurse. */
+    if (orig_locate)
+        orig_locate(tui.cursor_row + 1, tui.cursor_col + 1);
 }
 
 int tui_read_key(void)
@@ -214,6 +192,37 @@ int tui_read_key(void)
     if (ch < 0) return -1;
 
     if (ch == 3) return TK_CTRL_C;
+
+#ifdef __MSDOS__
+    /* DOS HAL encodes extended keys as 0x100 | BIOS scan code (INT 16h, AH=00h
+     * returns AL=0, AH=scancode).  Translate to internal TK_* codes. */
+    if (ch & 0x100) {
+        switch (ch & 0xFF) {
+        case 0x3B: return TK_F1;
+        case 0x3C: return TK_F2;
+        case 0x3D: return TK_F3;
+        case 0x3E: return TK_F4;
+        case 0x3F: return TK_F5;
+        case 0x40: return TK_F6;
+        case 0x41: return TK_F7;
+        case 0x42: return TK_F8;
+        case 0x43: return TK_F9;
+        case 0x44: return TK_F10;
+        case 0x47: return TK_HOME;
+        case 0x48: return TK_UP;
+        case 0x49: return TK_PGUP;
+        case 0x4B: return TK_LEFT;
+        case 0x4D: return TK_RIGHT;
+        case 0x4F: return TK_END;
+        case 0x50: return TK_DOWN;
+        case 0x51: return TK_PGDN;
+        case 0x52: return TK_INSERT;
+        case 0x53: return TK_DELETE;
+        case 0x77: return TK_CTRL_HOME;
+        default:   return ch;
+        }
+    }
+#endif
 
     if (ch != 27) return ch;
 
@@ -607,14 +616,14 @@ void tui_edit_line(const char *prefill)
 
 void tui_set_cursor_block(void)
 {
-    printf("\033[1 q");
-    fflush(stdout);
+    if (gw_hal->set_cursor_shape)
+        gw_hal->set_cursor_shape(1);
 }
 
 void tui_set_cursor_line(void)
 {
-    printf("\033[5 q");
-    fflush(stdout);
+    if (gw_hal->set_cursor_shape)
+        gw_hal->set_cursor_shape(2);
 }
 
 static void sigint_handler(int sig)
@@ -715,11 +724,10 @@ void tui_init(bool fullscreen)
     /* Install break handler */
     tui_install_break_handler();
 
-    /* Enter alternate screen buffer, clear */
-    printf("\033[?1049h");
-    printf("\033[2J\033[H");
+    /* Enter TUI mode (alt screen on POSIX, clear on DOS) */
+    if (gw_hal->tui_enter)
+        gw_hal->tui_enter();
     tui_set_cursor_line();
-    fflush(stdout);
 
     /* Show KEY bar by default (matches real GW-BASIC) */
     tui_key_on();
@@ -738,10 +746,9 @@ void tui_shutdown(void)
     gw_hal->get_cursor_row = orig_get_cursor_row;
     gw_hal->get_cursor_col = orig_get_cursor_col;
 
-    /* Leave alternate screen buffer, restore cursor */
-    printf("\033[?1049l");
-    printf("\033[0 q");
-    fflush(stdout);
+    /* Leave TUI mode (alt screen restore on POSIX, clear on DOS) */
+    if (gw_hal->tui_leave)
+        gw_hal->tui_leave();
 
 #ifdef _M_I86
     _ffree(tui.screen);

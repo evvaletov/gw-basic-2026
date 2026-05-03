@@ -232,9 +232,14 @@ int main(int argc, char **argv)
 
         const char *san_flags = sanitize_mode
             ? " -fsanitize=address,undefined -fno-sanitize-recover=all" : "";
+#ifdef GWRT_HAS_PULSEAUDIO
+        const char *pulse_lib = " -lpulse-simple";
+#else
+        const char *pulse_lib = "";
+#endif
         snprintf(cmd, sizeof(cmd),
-            "gcc -O%d%s -o %s %s -I%s/include -L%s/build -lgwrt -lm -lpthread 2>&1",
-            opt_level, san_flags, exe_name, c_file, rt, rt);
+            "gcc -O%d%s -o %s %s -I%s/include -L%s/build -lgwrt -lm -lpthread%s 2>&1",
+            opt_level, san_flags, exe_name, c_file, rt, rt, pulse_lib);
 
         int rc = system(cmd);
         if (rc != 0) {

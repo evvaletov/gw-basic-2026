@@ -99,3 +99,9 @@ add_executable(gwbasic-compile
     src/tokenizer.c
 )
 target_link_libraries(gwbasic-compile m)
+
+# Tell the compiler whether libgwrt was built against libpulse-simple, so
+# `gwbasic-compile -c` knows to add -lpulse-simple to the gcc link line.
+if(PULSEAUDIO_FOUND)
+    target_compile_definitions(gwbasic-compile PRIVATE GWRT_HAS_PULSEAUDIO)
+endif()

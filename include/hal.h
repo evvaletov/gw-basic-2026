@@ -24,6 +24,15 @@ typedef struct hal_ops {
     /* Write raw bytes bypassing cursor tracking (for Sixel, etc.) */
     void (*write_raw)(const char *data, int len);
 
+    /* TUI rendering (used by src/tui.c).  POSIX backend emits ANSI escape
+     * sequences; DOS backend drives the BIOS so the editor works on bare
+     * FreeDOS without ANSI.SYS. */
+    void (*tui_enter)(void);
+    void (*tui_leave)(void);
+    void (*render_run)(int row, int col,
+                       const uint8_t *chars, const uint8_t *attrs, int len);
+    void (*set_cursor_shape)(int shape);  /* 0=hide, 1=block, 2=line */
+
     /* Terminal properties */
     int  screen_width;
     int  screen_height;
