@@ -7,6 +7,9 @@ docs/_build/
 *.err
 *.lib
 .tab-color
+.dos_build_mode
+.link_dir/
+dist/
 gwbasic_*.txt
 gwbasic_*.dat
 gwbasic_*.bas

@@ -24,5 +24,60 @@ jobs:
           cmake ..
           make -j$(nproc)
 
-      - name: Test
+      - name: Interpreter tests
         run: bash tests/run_tests.sh
+
+      - name: Compiler tests
+        run: bash tests/run_compiler_tests.sh
+
+  dos-cross-compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache OpenWatcom V2
+        id: cache-watcom
+        uses: actions/cache@v4
+        with:
+          path: ~/openwatcom-v2
+          key: openwatcom-v2-snapshot
+
+      - name: Install OpenWatcom V2
+        if: steps.cache-watcom.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/openwatcom-v2
+          curl -L -o /tmp/ow-snapshot.tar.xz \
+            https://github.com/open-watcom/open-watcom-v2/releases/download/Last-CI-build/ow-snapshot.tar.xz
+          tar -xJf /tmp/ow-snapshot.tar.xz -C ~/openwatcom-v2
+          rm -f /tmp/ow-snapshot.tar.xz
+
+      - name: Build 16-bit DOS target
+        run: ./build_dos.sh 16
+
+      - name: Build 32-bit DOS target
+        run: |
+          ./build_dos.sh clean
+          ./build_dos.sh 32
+
+      - name: Verify binary sizes look sane
+        run: |
+          test -f gwbasic.exe
+          # 32-bit LE executable; should be a few hundred KB
+          size=$(stat -c%s gwbasic.exe)
+          echo "gwbasic.exe = $size bytes"
+          [ "$size" -gt 100000 ] && [ "$size" -lt 500000 ]
+          # Rebuild 16-bit too for the artifact upload
+          ./build_dos.sh clean
+          ./build_dos.sh 16
+          test -f gwbasic16.exe
+          size16=$(stat -c%s gwbasic16.exe)
+          echo "gwbasic16.exe = $size16 bytes"
+          [ "$size16" -gt 80000 ] && [ "$size16" -lt 200000 ]
+
+      - name: Upload DOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dos-binaries
+          path: |
+            gwbasic16.exe
+            gwbasic.exe

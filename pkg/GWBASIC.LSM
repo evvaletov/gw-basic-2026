@@ -1,0 +1,22 @@
+Begin3
+Title:           GW-BASIC 2026
+Version:         0.17.0
+Entered-date:    2026-04-10
+Description:     A portable C reimplementation of Microsoft GW-BASIC, using
+                 the original 8088 assembly source (released by Microsoft
+                 in 2020) as the authoritative reference.  Targets bug-
+                 compatible behavior with classic GW-BASIC programs.
+                 Includes a full-screen TUI editor that renders through
+                 BIOS INT 10h on bare FreeDOS (no ANSI.SYS required), 100%
+                 token coverage (all 144 GW-BASIC tokens), MBF on-disk file
+                 format compatibility, and an ahead-of-time compiler
+                 (Linux/POSIX builds only).
+Keywords:        BASIC, GW-BASIC, Microsoft, interpreter, retrocomputing
+Author:          Eremey Valetov <evv@msu.edu>
+Maintained-by:   Eremey Valetov <evv@msu.edu>
+Primary-site:    https://github.com/evvaletov/gw-basic-2026
+Original-site:   https://github.com/microsoft/GW-BASIC
+Platforms:       DOS, FreeDOS 1.4 (16-bit real mode), MS-DOS 5+, DOS/4GW
+                 (32-bit protected mode); also Linux, macOS, BSD via CMake
+Copying-policy:  MIT License
+End
