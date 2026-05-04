@@ -55,7 +55,7 @@ to produce native executables linked against `libgwrt.a`.
 
 Pipeline: `.bas` → tokenizer → analysis → C codegen → `gcc` → native binary.
 
-56 of 56 eligible test programs compile via `gwbasic-compile` and produce
+63 of 63 eligible test programs compile via `gwbasic-compile` and produce
 output matching the interpreter's golden files. Run `bash
 tests/run_compiler_tests.sh` to verify.
 
@@ -111,7 +111,7 @@ jupyter notebook  # select "GW-BASIC 2026" kernel
 
 ## Tests
 
-72 interpreter tests, 14 kernel tests, 56 compiler tests -- all passing.
+72 interpreter tests, 14 kernel tests, 63 compiler tests -- all passing.
 
 ```bash
 bash tests/run_tests.sh              # interpreter

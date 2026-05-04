@@ -20,20 +20,13 @@ if [ ! -f "$PROJECT_DIR/build/libgwrt.a" ]; then
     exit 1
 fi
 
-# Programs that are not meaningful for the AOT path:
-#   - chain/common targets are not standalone
-#   - interactive / timing-dependent / hardware tests
-#   - unnumbered direct-mode programs (compiler requires numbered lines)
-#   - misc_stmts.bas / run_file.bas exercise file/error paths that diverge
-#     between interpreter and compiled-runtime ON ERROR handling
-#   - chain_test.bas / common_test.bas need their target .bas in the same
-#     directory as the compiled binary; this harness compiles in a tmpdir
-#     and doesn't stage the targets
+# Programs not meaningful for the AOT path:
+#   - chain_target.bas / common_target.bas are not standalone (loaded via
+#     CHAIN, never run directly)
+#   - interactive / timing-dependent / hardware-output programs
 SKIP=(
     chain_target.bas
-    chain_test.bas
     common_target.bas
-    common_test.bas
     datetime.bas
     on_timer.bas
     timer_stop.bas
@@ -43,11 +36,6 @@ SKIP=(
     play_scale.bas
     speaker_out.bas
     text_adventure.bas
-    hello.bas
-    math_ops.bas
-    string_ops.bas
-    misc_stmts.bas
-    run_file.bas
 )
 should_skip() {
     local n="$1"
@@ -81,16 +69,17 @@ for bas in "$SCRIPT_DIR"/programs/*.bas; do
         popd > /dev/null
         continue
     fi
+    popd > /dev/null
 
+    # Run from project root so test programs that reference tests/programs/
+    # (chain_test, common_test, run_file, misc_stmts) resolve relative paths.
     actual=$(mktemp)
-    if ! timeout 5 "./$stem" > "$actual" 2>&1; then
+    if ! ( cd "$PROJECT_DIR" && timeout 5 "$WORK_DIR/$stem" > "$actual" 2>&1 ); then
         printf "  RUN-FAIL  %s\n" "$name"
         fail=$((fail + 1))
         rm -f "$actual"
-        popd > /dev/null
         continue
     fi
-    popd > /dev/null
 
     expected="$EXPECTED_DIR/${stem}.expected"
     if [ -f "$expected" ]; then

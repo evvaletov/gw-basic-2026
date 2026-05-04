@@ -92,7 +92,10 @@ static int parse_line_num(const char *text, uint16_t *num)
     return (int)(p - text);
 }
 
-/* Load a .bas file (ASCII format) */
+/* Load a .bas file (ASCII format).  Lines that don't begin with a number
+ * are treated as direct-mode statements and given auto-assigned numbers
+ * (10, 20, ...) so the compiler can handle scratchpad-style programs the
+ * interpreter accepts via stdin or `gwbasic file.bas`. */
 static int load_file(const char *filename)
 {
     FILE *f = fopen(filename, "r");
@@ -103,6 +106,7 @@ static int load_file(const char *filename)
 
     char buf[256];
     uint8_t kbuf[256];
+    uint16_t last_num = 0;
     while (fgets(buf, sizeof(buf), f)) {
         int len = strlen(buf);
         while (len > 0 && (buf[len-1] == '\n' || buf[len-1] == '\r'))
@@ -111,11 +115,23 @@ static int load_file(const char *filename)
 
         uint16_t num;
         int skip = parse_line_num(buf, &num);
-        if (skip == 0) continue;  /* skip non-numbered lines */
+        const char *content;
+        if (skip == 0) {
+            /* Unnumbered direct-mode line: auto-assign next number. */
+            if (last_num >= 65520) {
+                fprintf(stderr, "Auto line numbering overflow in %s\n", filename);
+                fclose(f);
+                return 1;
+            }
+            num = last_num + 10;
+            content = buf;
+            while (*content == ' ') content++;
+        } else {
+            content = buf + skip;
+            while (*content == ' ') content++;
+        }
+        last_num = num;
 
-        /* Tokenize the line content (after the line number) */
-        const char *content = buf + skip;
-        while (*content == ' ') content++;
         int tok_len = gw_crunch(content, kbuf, sizeof(kbuf));
         store_line(num, kbuf, tok_len);
     }

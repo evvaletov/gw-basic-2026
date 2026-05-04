@@ -962,7 +962,9 @@ static void emit_str_atom(void)
     skip_spaces();
     uint8_t tok = cur();
 
-    /* String literal */
+    /* String literal.  Concatenation is handled by emit_str_expr (the atom
+     * just emits the literal value); a previous attempt to handle '+' at
+     * the atom level emitted references to an undeclared `_cat` variable. */
     if (tok == '"') {
         EMIT("gw_str_from_cstr(\"");
         tp++;
@@ -973,14 +975,6 @@ static void emit_str_atom(void)
         }
         if (*tp == '"') tp++;
         EMIT("\")");
-        /* Handle concatenation */
-        skip_spaces();
-        while (cur() == TOK_PLUS) {
-            advance();
-            EMIT("; _cat = gw_str_concat(&(gw_value_t){.type=VT_STR,.sval=_cat.sval}, &(gw_value_t){.type=VT_STR,.sval=");
-            emit_str_expr();
-            EMIT("})");
-        }
         return;
     }
 
@@ -1305,9 +1299,13 @@ static gw_valtype_t peek_expr_type(void)
             tp = save;
             return arg_type;
         }
-        case FUNC_VAL: case FUNC_ATN: case FUNC_LOG: case FUNC_EXP:
+        /* GW-BASIC's transcendentals are single-precision; only CDBL
+         * explicitly forces double.  Promoting them to VT_DBL here makes
+         * PRINT use 15-digit format instead of the 7-digit single form. */
         case FUNC_CDBL:
             return VT_DBL;
+        case FUNC_VAL: case FUNC_ATN: case FUNC_LOG: case FUNC_EXP:
+            return VT_SNG;
         default:
             return VT_SNG;
         }

@@ -9,10 +9,10 @@ invokes GCC to produce native executables linked against `libgwrt.a`.
 
 Pipeline: `.bas` → `gw_crunch()` → analysis pass → C codegen → `gcc` → native binary.
 
-**56 of 56 eligible tests pass (100%)** via `tests/run_compiler_tests.sh`.
-The harness skips chain/common multi-file flows, hardware-dependent tests
-(graphics/sound/timer), and unnumbered direct-mode programs that the
-compiler does not currently accept.
+**63 of 63 eligible tests pass (100%)** via `tests/run_compiler_tests.sh`.
+The harness only skips hardware-dependent tests (graphics/sound/timer)
+and CHAIN/RUN target files that aren't standalone.  The compiler now
+accepts unnumbered direct-mode programs by auto-numbering them.
 
 Language coverage:
 

@@ -26,8 +26,8 @@
 
 72 automated test programs in `tests/programs/`, plus 4 classic interactive
 programs in `tests/classic/` (Hamurabi, Lunar Lander, Gunner, Diamond from
-David Ahl's *BASIC Computer Games*).  14 Jupyter kernel tests.  56 compiler
-tests (eligible numbered programs compiled to native executables via
+David Ahl's *BASIC Computer Games*).  14 Jupyter kernel tests.  63 compiler
+tests (eligible programs compiled to native executables via
 `gwbasic-compile`; run `bash tests/run_compiler_tests.sh`).
 
 Run the full automated suite:
