@@ -102,6 +102,12 @@ build/gwbasic-compile program.bas
 build/gwbasic-compile -c --runtime . program.bas
 ```
 
+Both numbered (`10 PRINT "HI"`) and unnumbered (`PRINT "HI"`) sources
+compile.  Unnumbered lines get auto-assigned numbers (10, 20, 30, ...) so
+the analysis pass and codegen can produce labeled statements; explicit
+line numbers are preserved.  Direct-mode scratchpad scripts and classic
+"just a list of statements" programs compile without manual renumbering.
+
 ### Compiler Options
 
 ```

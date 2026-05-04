@@ -51,33 +51,51 @@ jobs:
           tar -xJf /tmp/ow-snapshot.tar.xz -C ~/openwatcom-v2
           rm -f /tmp/ow-snapshot.tar.xz
 
+      - name: Configure OpenWatcom env
+        run: |
+          # Generate the setvars.sh that build_dos.sh sources automatically.
+          # The cache step skips its creation step so this also runs on
+          # cache hits; -f overwrites without complaint.
+          cat > ~/openwatcom-v2/setvars.sh <<'EOF'
+          export WATCOM=$HOME/openwatcom-v2
+          export PATH=$WATCOM/binl64:$WATCOM/binl:$PATH
+          export EDPATH=$WATCOM/eddat
+          export INCLUDE=$WATCOM/h
+          EOF
+          chmod +x ~/openwatcom-v2/setvars.sh
+          # Also export to subsequent steps directly so a missing
+          # setvars.sh on a future runner doesn't silently break the build.
+          {
+            echo "WATCOM=$HOME/openwatcom-v2"
+            echo "EDPATH=$HOME/openwatcom-v2/eddat"
+            echo "INCLUDE=$HOME/openwatcom-v2/h"
+          } >> "$GITHUB_ENV"
+          echo "$HOME/openwatcom-v2/binl64" >> "$GITHUB_PATH"
+          echo "$HOME/openwatcom-v2/binl"   >> "$GITHUB_PATH"
+
       - name: Build 16-bit DOS target
-        run: ./build_dos.sh 16
+        run: |
+          ./build_dos.sh 16
+          mkdir -p .ci-stash
+          cp gwbasic16.exe .ci-stash/
 
       - name: Build 32-bit DOS target
         run: |
           ./build_dos.sh clean
           ./build_dos.sh 32
+          cp gwbasic.exe .ci-stash/
 
       - name: Verify binary sizes look sane
         run: |
-          test -f gwbasic.exe
-          # 32-bit LE executable; should be a few hundred KB
-          size=$(stat -c%s gwbasic.exe)
-          echo "gwbasic.exe = $size bytes"
-          [ "$size" -gt 100000 ] && [ "$size" -lt 500000 ]
-          # Rebuild 16-bit too for the artifact upload
-          ./build_dos.sh clean
-          ./build_dos.sh 16
-          test -f gwbasic16.exe
-          size16=$(stat -c%s gwbasic16.exe)
+          size16=$(stat -c%s .ci-stash/gwbasic16.exe)
+          size32=$(stat -c%s .ci-stash/gwbasic.exe)
           echo "gwbasic16.exe = $size16 bytes"
-          [ "$size16" -gt 80000 ] && [ "$size16" -lt 200000 ]
+          echo "gwbasic.exe   = $size32 bytes"
+          [ "$size16" -gt 80000 ]  && [ "$size16" -lt 200000 ]
+          [ "$size32" -gt 100000 ] && [ "$size32" -lt 500000 ]
 
       - name: Upload DOS artifacts
         uses: actions/upload-artifact@v4
         with:
           name: dos-binaries
-          path: |
-            gwbasic16.exe
-            gwbasic.exe
+          path: .ci-stash/*.exe

@@ -486,19 +486,19 @@ static void emit_atom(void)
         if (xfunc == XFUNC_CVI) {
             EMIT("gw_fn_cvi(&(gw_value_t){.type=VT_STR,.sval=");
             if (cur() == '(') advance();
-            emit_str_atom();
+            emit_str_expr();
             if (cur() == ')') advance();
             EMIT("}).ival");
         } else if (xfunc == XFUNC_CVS) {
             EMIT("gw_fn_cvs(&(gw_value_t){.type=VT_STR,.sval=");
             if (cur() == '(') advance();
-            emit_str_atom();
+            emit_str_expr();
             if (cur() == ')') advance();
             EMIT("}).fval");
         } else if (xfunc == XFUNC_CVD) {
             EMIT("gw_fn_cvd(&(gw_value_t){.type=VT_STR,.sval=");
             if (cur() == '(') advance();
-            emit_str_atom();
+            emit_str_expr();
             if (cur() == ')') advance();
             EMIT("}).dval");
         } else {
@@ -823,20 +823,21 @@ static void emit_num_prec(int min_prec)
         /* For string comparisons, emit strcmp-based code */
         bool is_relational = cop || op == TOK_GT || op == TOK_LT || op == TOK_EQ;
         if (is_relational && left_type == VT_STR) {
-            /* Re-emit left as string (it was emitted as numeric atom) */
+            /* Re-emit left as a full string expression (was emitted as numeric
+             * atom); emit_str_expr stops at the comparison op since it only
+             * consumes TOK_PLUS. */
             uint8_t *save_tp = tp;
             tp = left_start;
             char *left_str;
             { FILE *orig = out; char *buf = NULL; size_t sz = 0;
               out = open_memstream(&buf, &sz);
-              emit_str_atom();
+              emit_str_expr();
               fclose(out); out = orig; left_str = buf; }
             tp = save_tp;
-            /* Buffer right as string expression */
             char *right_str;
             { FILE *orig = out; char *buf = NULL; size_t sz = 0;
               out = open_memstream(&buf, &sz);
-              emit_str_atom();
+              emit_str_expr();
               fclose(out); out = orig; right_str = buf; }
             const char *cmpop = cop ? cop : binop_c(op);
             char *combined = NULL; size_t csz = 0;
