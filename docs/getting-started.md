@@ -113,15 +113,31 @@ line numbers are preserved.  Direct-mode scratchpad scripts and classic
 ```
 Usage: gwbasic-compile [options] input.bas
 Options:
-  -o FILE        Output C source file (default: stdout)
-  -c             Compile to executable (invoke gcc)
-  -O LEVEL       GCC optimization level (default: 2)
-  --keep-c       Keep generated C file (with -c)
-  --runtime DIR  Path to runtime headers/library
-  --warn         Static analysis warnings
-  --safe         Runtime safety checks (implies --warn)
+  -o FILE          Output C source file (default: stdout)
+  -c               Compile to executable (invoke gcc)
+  -O LEVEL         GCC optimization level (default: 2)
+  --keep-c         Keep generated C file (with -c)
+  --runtime DIR    Path to runtime headers/library
+  --warn           Static analysis warnings
+  --safe           Runtime safety checks (implies --warn)
   --safe=sanitize  Above + address/UB sanitizers (with -c)
+  --no-gc-check    Skip per-line gwrt_check_line() (no GC, no Break)
+  --fast-math      Skip division-by-zero checks
 ```
+
+### Performance Flags (`--no-gc-check` / `--fast-math`)
+
+`--no-gc-check` skips the `gwrt_check_line()` call emitted at the start of
+every non-REM line.  That call drives the string-pool compacting GC and
+the Ctrl+Break trap.  Removing it gives a small per-line speedup for
+programs that don't allocate strings or need responsive interruption.
+String reassignment can still trigger compaction lazily, but the
+guaranteed periodic check is gone.
+
+`--fast-math` removes the explicit divide-by-zero check around the `/`
+operator.  The result of `X = 10 / 0` becomes `inf` rather than raising
+"Division by zero".  Useful for compute-bound code that already validates
+inputs.
 
 ### Memory Safety (`--warn` / `--safe`)
 

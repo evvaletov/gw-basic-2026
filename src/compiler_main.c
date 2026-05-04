@@ -145,14 +145,16 @@ static void usage(void)
     fprintf(stderr,
         "Usage: gwbasic-compile [options] input.bas\n"
         "Options:\n"
-        "  -o FILE        Output C source file (default: stdout)\n"
-        "  -c             Compile to executable (invoke gcc)\n"
-        "  -O LEVEL       GCC optimization level (default: 2)\n"
-        "  --keep-c       Keep generated C file (with -c)\n"
-        "  --runtime DIR  Path to runtime headers/library\n"
-        "  --warn         Static analysis warnings\n"
-        "  --safe         Runtime safety checks (implies --warn)\n"
+        "  -o FILE          Output C source file (default: stdout)\n"
+        "  -c               Compile to executable (invoke gcc)\n"
+        "  -O LEVEL         GCC optimization level (default: 2)\n"
+        "  --keep-c         Keep generated C file (with -c)\n"
+        "  --runtime DIR    Path to runtime headers/library\n"
+        "  --warn           Static analysis warnings\n"
+        "  --safe           Runtime safety checks (implies --warn)\n"
         "  --safe=sanitize  Above + address/UB sanitizers (with -c)\n"
+        "  --no-gc-check    Skip per-line gwrt_check_line() (no GC, no Break)\n"
+        "  --fast-math      Skip division-by-zero checks\n"
     );
 }
 
@@ -167,6 +169,8 @@ int main(int argc, char **argv)
     bool warn_mode = false;
     bool safe_mode = false;
     bool sanitize_mode = false;
+    bool no_gc_check = false;
+    bool fast_math = false;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-o") == 0 && i + 1 < argc)
@@ -185,6 +189,10 @@ int main(int argc, char **argv)
             sanitize_mode = safe_mode = warn_mode = true;
         else if (strcmp(argv[i], "--safe") == 0)
             safe_mode = warn_mode = true;
+        else if (strcmp(argv[i], "--no-gc-check") == 0)
+            no_gc_check = true;
+        else if (strcmp(argv[i], "--fast-math") == 0)
+            fast_math = true;
         else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
             usage();
             return 0;
@@ -230,7 +238,12 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    codegen_opts_t opts = { .safe_mode = safe_mode, .warn_mode = warn_mode };
+    codegen_opts_t opts = {
+        .safe_mode = safe_mode,
+        .warn_mode = warn_mode,
+        .no_gc_check = no_gc_check,
+        .fast_math = fast_math,
+    };
     codegen_emit(f, &analysis, &opts);
 
     if (f != stdout)

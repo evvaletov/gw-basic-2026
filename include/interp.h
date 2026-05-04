@@ -24,17 +24,29 @@ typedef struct {
     /* Default variable types for A-Z (DEFTBL) */
     gw_valtype_t def_type[26];
 
-    /* Variable storage */
-    var_entry_t vars[256];
+    /* Variable storage.  Caps stay modest on 16-bit DOS (MEDIUM model has
+     * a single 64KB DGROUP for all static data); 32-bit / Linux builds
+     * raise them substantially. */
+#ifdef _M_I86
+#define MAX_VAR_TABLE   256
+#define MAX_ARRAY_TABLE  64
+#define MAX_FOR_DEPTH    16
+#define MAX_GOSUB_DEPTH  24
+#define MAX_WHILE_DEPTH  16
+#else
+#define MAX_VAR_TABLE  1024
+#define MAX_ARRAY_TABLE 256
+#define MAX_FOR_DEPTH    64
+#define MAX_GOSUB_DEPTH 128
+#define MAX_WHILE_DEPTH  64
+#endif
+    var_entry_t vars[MAX_VAR_TABLE];
     int var_count;
-    array_entry_t arrays[64];
+    array_entry_t arrays[MAX_ARRAY_TABLE];
     int array_count;
     int option_base;
 
     /* Control flow stacks */
-#define MAX_FOR_DEPTH   16
-#define MAX_GOSUB_DEPTH 24
-#define MAX_WHILE_DEPTH 16
     for_entry_t for_stack[MAX_FOR_DEPTH];
     int for_sp;
     gosub_entry_t gosub_stack[MAX_GOSUB_DEPTH];
@@ -52,6 +64,11 @@ typedef struct {
     /* CONT state */
     uint8_t *cont_text;
     program_line_t *cont_line;
+
+    /* Process-local clock offset (seconds).  DATE$ / TIME$ assignments
+     * shift the program's view of the clock without touching the OS
+     * time (which would need root).  Defaults to 0. */
+    long time_offset_secs;
 
     /* DATA pointer */
     uint8_t *data_ptr;

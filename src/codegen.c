@@ -19,13 +19,15 @@
 static FILE *out;
 static analysis_t *ana;
 static bool safe_mode;
+static bool no_gc_check;
+static bool fast_math;
 static uint16_t emit_line;  /* current BASIC line number being emitted */
 static uint8_t *tp;  /* token pointer (mirrors gw.text_ptr) */
 static int ret_label_counter;
 static int for_label_counter;
 
 /* FOR stack: maps variable to its for_label_counter */
-#define FOR_STACK_MAX 16
+#define FOR_STACK_MAX 64
 static struct { char name[2]; gw_valtype_t type; int label; bool has_step; } for_stack[FOR_STACK_MAX];
 static int for_stack_sp;
 
@@ -560,7 +562,8 @@ static void emit_atom(void)
         tp += 2;
         skip_spaces();
         if (xtok == XSTMT_TIMER) {
-            EMIT("((float)(time(NULL) %% 86400))");  /* seconds since midnight */
+            /* Seconds since midnight, offset-aware. */
+            EMIT("((float)(((time(NULL)+gw.time_offset_secs) %% 86400)))");
             return;
         }
         /* PMAP(coord, func) */
@@ -701,6 +704,21 @@ static void emit_atom(void)
         return;
     }
 
+    /* String literal in numeric context: emit a placeholder zero but
+     * consume the entire literal body (up to the closing quote) so the
+     * outer parser doesn't reparse the contents as random tokens.  The
+     * VT_STR-aware caller (emit_num_prec's string-cmp path) re-reads tp
+     * from left_start and routes the operand through emit_str_expr; the
+     * placeholder is a fallback for non-cmp contexts where a string in
+     * a numeric position would already be a type error. */
+    if (tok == '"') {
+        EMIT("0 /* str literal in num ctx */");
+        tp++;
+        while (*tp && *tp != '"') tp++;
+        if (*tp == '"') tp++;
+        return;
+    }
+
     /* Fallback */
     EMIT("0 /* unknown tok 0x%02x */", tok);
     tp++;
@@ -789,10 +807,19 @@ static void emit_num_prec(int min_prec)
                 EMIT(" %s ", rop);
                 emit_num_prec(prec + 1);
             } else if (op == TOK_DIV) {
-                /* Division with zero-check via GCC statement expression */
-                EMIT(" / ({double _d=");
-                emit_num_prec(prec + 1);
-                EMIT("; if(_d==0.0)gw_error(11); _d;})");
+                if (fast_math) {
+                    /* Force float division (GW-BASIC / always returns float).
+                     * Without the cast, integer / integer would trap on
+                     * divide-by-zero with SIGFPE on Linux x86. */
+                    EMIT(" / (double)(");
+                    emit_num_prec(prec + 1);
+                    EMIT(")");
+                } else {
+                    /* Division with zero-check via GCC statement expression */
+                    EMIT(" / ({double _d=");
+                    emit_num_prec(prec + 1);
+                    EMIT("; if(_d==0.0)gw_error(11); _d;})");
+                }
             } else {
                 EMIT(" %s ", binop_c(op));
                 emit_num_prec(prec + 1);
@@ -919,9 +946,12 @@ static void emit_num_prec(int min_prec)
         } else if (op == TOK_POW) {
             fprintf(cm, "pow((double)(%s), (double)(%s))", left, right);
         } else if (op == TOK_DIV) {
-            /* GW-BASIC / always produces float; check for division by zero */
-            fprintf(cm, "({double _dv=(double)(%s); if(_dv==0.0) gw_error(11); (double)(%s)/_dv;})",
-                    right, left);
+            if (fast_math)
+                fprintf(cm, "((double)(%s) / (double)(%s))", left, right);
+            else
+                /* GW-BASIC / always produces float; check for division by zero */
+                fprintf(cm, "({double _dv=(double)(%s); if(_dv==0.0) gw_error(11); (double)(%s)/_dv;})",
+                        right, left);
         } else if (safe_mode && left_type == VT_INT && right_type == VT_INT &&
                    (op == TOK_PLUS || op == TOK_MINUS || op == TOK_MUL)) {
             const char *fn = op == TOK_PLUS ? "gw_int_add"
@@ -942,6 +972,8 @@ static void emit_num_prec(int min_prec)
             left_type = VT_DBL;
         else if (cop || op == TOK_GT || op == TOK_LT || op == TOK_EQ)
             left_type = VT_INT;  /* comparisons return 0/-1 */
+        else if (op == TOK_PLUS && left_type == VT_STR && right_type == VT_STR)
+            left_type = VT_STR;  /* string concat stays string */
         else if (left_type != VT_INT || right_type != VT_INT)
             left_type = (left_type == VT_DBL || right_type == VT_DBL)
                       ? VT_DBL : VT_SNG;
@@ -1075,14 +1107,14 @@ static void emit_str_atom(void)
         tp += 2;
         skip_spaces();
         if (xtok == XSTMT_DATE) {
-            EMIT("({time_t _t=time(NULL); struct tm *_tm=localtime(&_t);"
+            EMIT("({time_t _t=time(NULL)+gw.time_offset_secs; struct tm *_tm=localtime(&_t);"
                  " char _db[16]; snprintf(_db,16,\"%%02d-%%02d-%%04d\","
                  "_tm->tm_mon+1,_tm->tm_mday,_tm->tm_year+1900);"
                  " gw_str_from_cstr(_db);})");
             return;
         }
         if (xtok == XSTMT_TIME) {
-            EMIT("({time_t _t=time(NULL); struct tm *_tm=localtime(&_t);"
+            EMIT("({time_t _t=time(NULL)+gw.time_offset_secs; struct tm *_tm=localtime(&_t);"
                  " char _tb[16]; snprintf(_tb,16,\"%%02d:%%02d:%%02d\","
                  "_tm->tm_hour,_tm->tm_min,_tm->tm_sec);"
                  " gw_str_from_cstr(_tb);})");
@@ -2709,6 +2741,8 @@ void codegen_emit(FILE *f, analysis_t *a, const codegen_opts_t *opts)
     out = f;
     ana = a;
     safe_mode = opts ? opts->safe_mode : false;
+    no_gc_check = opts ? opts->no_gc_check : false;
+    fast_math = opts ? opts->fast_math : false;
     ret_label_counter = 0;
     for_label_counter = 0;
     for_stack_sp = 0;
@@ -2786,9 +2820,11 @@ void codegen_emit(FILE *f, analysis_t *a, const codegen_opts_t *opts)
         emit_line = line->num;
         EMIT("L_%u:\n", line->num);
 
-        /* Skip GC/break check for REM-only lines */
+        /* Skip GC/break check for REM-only lines, and for the entire
+         * program under --no-gc-check (string pool will only compact when
+         * a heap-pressure threshold is hit, and Ctrl+Break is ignored). */
         bool is_rem = (line->tokens[0] == TOK_REM || line->tokens[0] == TOK_SQUOTE);
-        if (!is_rem)
+        if (!is_rem && !no_gc_check)
             EMIT("  gwrt_check_line(%u);\n", line->num);
 
         /* Walk statements on this line */

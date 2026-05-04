@@ -8,6 +8,9 @@
 typedef struct {
     bool safe_mode;     /* --safe: emit runtime safety checks */
     bool warn_mode;     /* --warn: static analysis warnings */
+    bool no_gc_check;   /* --no-gc-check: skip gwrt_check_line per line
+                         * (no string-pool GC, no Ctrl+Break check) */
+    bool fast_math;     /* --fast-math: skip / by-zero checks */
 } codegen_opts_t;
 
 /* Generate C source from the analyzed program */

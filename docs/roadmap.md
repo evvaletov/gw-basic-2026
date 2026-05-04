@@ -112,8 +112,12 @@ Tested on FreeDOS 1.4 via QEMU.
 
 ## Known Limitations
 
-- Maximum 256 variables, 64 arrays, 16 FOR nesting, 24 GOSUB nesting,
-  16 WHILE nesting
+- Static caps -- 32-bit / Linux builds: 1024 variables, 256 arrays,
+  64 FOR nesting, 128 GOSUB nesting, 64 WHILE nesting.  16-bit real-mode
+  DOS keeps the original modest caps (256 / 64 / 16 / 24 / 16) because
+  the MEDIUM model has a single 64KB DGROUP for all static data.
 - `CALL`/`CALLS` (machine code execution) raises Illegal function call
-- `DATE$`/`TIME$` assignment accepted but does not modify the system clock
+- `DATE$`/`TIME$` assignment shifts the program's view of the clock via
+  a process-local offset; the OS time is unaffected (setting the OS
+  clock would require root)
 - Device stubs (`ERDEV`, `IOCTL`, `COM`, `LCOPY`) return defaults

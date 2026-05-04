@@ -998,7 +998,7 @@ static gw_value_t eval_atom(void)
             gw_value_t v;
             v.type = VT_STR;
             char tbuf[40];
-            time_t now = time(NULL);
+            time_t now = time(NULL) + gw.time_offset_secs;
             struct tm *tm = localtime(&now);
             if (xtok == XSTMT_DATE) {
                 snprintf(tbuf, sizeof(tbuf), "%02d-%02d-%04d",
@@ -1013,7 +1013,7 @@ static gw_value_t eval_atom(void)
         }
         if (xtok == XSTMT_TIMER) {
             gw_chrget();
-            time_t now = time(NULL);
+            time_t now = time(NULL) + gw.time_offset_secs;
             struct tm *tm = localtime(&now);
             gw_value_t v;
             v.type = VT_SNG;

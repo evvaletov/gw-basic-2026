@@ -5,11 +5,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define MAX_LINES    4096
-#define MAX_VARS     256
-#define MAX_GOTOS    256
-#define MAX_DATA     1024
-#define MAX_GOSUB_RET 256
+#define MAX_LINES     8192
+#define MAX_VARS      1024
+#define MAX_GOTOS     1024
+#define MAX_DATA      4096
+#define MAX_GOSUB_RET 1024
 
 typedef struct {
     uint16_t line_num;

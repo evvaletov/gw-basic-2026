@@ -1385,21 +1385,48 @@ void gw_exec_stmt(void)
             return;
         }
 
-        /* DATE$ = "string" — accept and ignore (don't modify system clock) */
+        /* DATE$ = "MM-DD-YYYY" — shift the process-local clock so that
+         * DATE$ / TIME$ / TIMER readers see the new date.  Time-of-day
+         * is preserved.  The OS clock is unaffected. */
         if (xstmt == XSTMT_DATE) {
             gw_chrget();
             gw_expect(TOK_EQ);
             gw_value_t val = gw_eval_str();
+            char *s = gw_str_to_cstr(&val.sval);
             gw_str_free(&val.sval);
+            int mon, day, year;
+            if (sscanf(s, "%d-%d-%d", &mon, &day, &year) == 3) {
+                time_t now = time(NULL);
+                struct tm tm = *localtime(&now);
+                tm.tm_mon  = mon - 1;
+                tm.tm_mday = day;
+                tm.tm_year = year >= 1900 ? year - 1900 : year + 100;
+                time_t target = mktime(&tm);
+                gw.time_offset_secs = (long)(target - now);
+            }
+            free(s);
             return;
         }
 
-        /* TIME$ = "string" — accept and ignore (don't modify system clock) */
+        /* TIME$ = "HH:MM:SS" — shift the process-local clock to the new
+         * time-of-day; date is preserved. */
         if (xstmt == XSTMT_TIME) {
             gw_chrget();
             gw_expect(TOK_EQ);
             gw_value_t val = gw_eval_str();
+            char *s = gw_str_to_cstr(&val.sval);
             gw_str_free(&val.sval);
+            int hour, min, sec;
+            if (sscanf(s, "%d:%d:%d", &hour, &min, &sec) == 3) {
+                time_t now = time(NULL) + gw.time_offset_secs;
+                struct tm tm = *localtime(&now);
+                tm.tm_hour = hour;
+                tm.tm_min  = min;
+                tm.tm_sec  = sec;
+                time_t target = mktime(&tm);
+                gw.time_offset_secs = (long)(target - time(NULL));
+            }
+            free(s);
             return;
         }
 
