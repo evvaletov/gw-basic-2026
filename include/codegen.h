@@ -11,6 +11,9 @@ typedef struct {
     bool no_gc_check;   /* --no-gc-check: skip gwrt_check_line per line
                          * (no string-pool GC, no Ctrl+Break check) */
     bool fast_math;     /* --fast-math: skip / by-zero checks */
+    const char *main_name;  /* --main-name: rename entry point from
+                             * "main" to NAME (for cross-language link;
+                             * NULL keeps "main") */
 } codegen_opts_t;
 
 /* Generate C source from the analyzed program */

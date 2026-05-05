@@ -175,6 +175,63 @@ build/gwbasic-compile --safe -c --runtime . program.bas
 build/gwbasic-compile --safe=sanitize -c --runtime . program.bas
 ```
 
+### Cross-Language Linking (`--emit-obj` / `--main-name`)
+
+`--emit-obj` produces a `.o` object file instead of a final executable;
+`--main-name NAME` renames the entry point so it doesn't collide with
+the host project's `main()`.  Together they let you link BASIC into a
+larger C or Fortran build.
+
+```bash
+# BASIC source compiled to greet.o with renamed entry point
+build/gwbasic-compile --emit-obj --main-name=run_basic_greet \
+    --runtime . greet.bas
+```
+
+C driver:
+
+```c
+extern int run_basic_greet(int argc, char **argv);
+
+int main(void) {
+    run_basic_greet(0, NULL);  /* runs the BASIC program */
+    return 0;
+}
+```
+
+Link both together:
+
+```bash
+gcc driver.c greet.o -L./build -lgwrt -lm -lpthread -lpulse-simple
+```
+
+Fortran driver (modern, with `iso_c_binding`):
+
+```fortran
+program main
+  use iso_c_binding
+  interface
+    function run_basic_greet(argc, argv) bind(c, name="run_basic_greet")
+      use iso_c_binding
+      integer(c_int), value :: argc
+      type(c_ptr), value :: argv
+      integer(c_int) :: run_basic_greet
+    end function
+  end interface
+  integer(c_int) :: rc
+  rc = run_basic_greet(0, c_null_ptr)
+end program
+```
+
+```bash
+gfortran driver.f90 greet.o -L./build -lgwrt -lm -lpthread -lpulse-simple
+```
+
+The BASIC code shares the `gw` interpreter state with `libgwrt`, so a
+single binary runs at most one BASIC program at a time.  Calling BASIC
+from C / Fortran is always safe; calling C / Fortran from BASIC needs
+the foreign-function-declaration extension on the roadmap (Level 2).
+
 ## Building for DOS / FreeDOS
 
 GW-BASIC 2026 cross-compiles to DOS using OpenWatcom V2 (`wcc` / `wcc386`).

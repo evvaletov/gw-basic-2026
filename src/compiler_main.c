@@ -155,6 +155,9 @@ static void usage(void)
         "  --safe=sanitize  Above + address/UB sanitizers (with -c)\n"
         "  --no-gc-check    Skip per-line gwrt_check_line() (no GC, no Break)\n"
         "  --fast-math      Skip division-by-zero checks\n"
+        "  --emit-obj       Compile to object file (.o) instead of executable\n"
+        "  --main-name N    Rename emitted entry point from main to N (for\n"
+        "                   linking BASIC into a larger C/Fortran project)\n"
     );
 }
 
@@ -171,6 +174,8 @@ int main(int argc, char **argv)
     bool sanitize_mode = false;
     bool no_gc_check = false;
     bool fast_math = false;
+    bool emit_obj = false;
+    const char *main_name = NULL;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-o") == 0 && i + 1 < argc)
@@ -193,6 +198,12 @@ int main(int argc, char **argv)
             no_gc_check = true;
         else if (strcmp(argv[i], "--fast-math") == 0)
             fast_math = true;
+        else if (strcmp(argv[i], "--emit-obj") == 0)
+            emit_obj = true;
+        else if (strcmp(argv[i], "--main-name") == 0 && i + 1 < argc)
+            main_name = argv[++i];
+        else if (strncmp(argv[i], "--main-name=", 12) == 0)
+            main_name = argv[i] + 12;
         else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
             usage();
             return 0;
@@ -227,7 +238,7 @@ int main(int argc, char **argv)
     /* Code generation */
     const char *c_file = output;
     char c_file_buf[512];
-    if (compile_exe && !output) {
+    if ((compile_exe || emit_obj) && !output) {
         snprintf(c_file_buf, sizeof(c_file_buf), "%s.c", input);
         c_file = c_file_buf;
     }
@@ -243,32 +254,49 @@ int main(int argc, char **argv)
         .warn_mode = warn_mode,
         .no_gc_check = no_gc_check,
         .fast_math = fast_math,
+        .main_name = main_name,
     };
     codegen_emit(f, &analysis, &opts);
 
     if (f != stdout)
         fclose(f);
 
-    /* Compile to executable if requested */
-    if (compile_exe) {
+    /* Compile to executable or object file if requested */
+    if (compile_exe || emit_obj) {
         char cmd[2048];
         const char *rt = runtime_dir ? runtime_dir : ".";
-        /* Derive executable name from input */
-        char exe_name[512];
-        strncpy(exe_name, input, sizeof(exe_name) - 1);
-        char *dot = strrchr(exe_name, '.');
+        /* Derive output name from input (drop extension, pick .o or no
+         * suffix for the executable). */
+        char out_name[512];
+        strncpy(out_name, input, sizeof(out_name) - 1);
+        out_name[sizeof(out_name) - 1] = '\0';
+        char *dot = strrchr(out_name, '.');
         if (dot) *dot = '\0';
+        if (emit_obj) {
+            size_t len = strlen(out_name);
+            if (len + 3 < sizeof(out_name))
+                strcpy(out_name + len, ".o");
+        }
 
         const char *san_flags = sanitize_mode
             ? " -fsanitize=address,undefined -fno-sanitize-recover=all" : "";
+        if (emit_obj) {
+            /* Compile-only; the host project handles the link step.
+             * No -L / -l flags here -- those belong on the user's link
+             * command line. */
+            snprintf(cmd, sizeof(cmd),
+                "gcc -O%d%s -c -o %s %s -I%s/include 2>&1",
+                opt_level, san_flags, out_name, c_file, rt);
+        } else {
 #ifdef GWRT_HAS_PULSEAUDIO
-        const char *pulse_lib = " -lpulse-simple";
+            const char *pulse_lib = " -lpulse-simple";
 #else
-        const char *pulse_lib = "";
+            const char *pulse_lib = "";
 #endif
-        snprintf(cmd, sizeof(cmd),
-            "gcc -O%d%s -o %s %s -I%s/include -L%s/build -lgwrt -lm -lpthread%s 2>&1",
-            opt_level, san_flags, exe_name, c_file, rt, rt, pulse_lib);
+            snprintf(cmd, sizeof(cmd),
+                "gcc -O%d%s -o %s %s -I%s/include -L%s/build -lgwrt -lm -lpthread%s 2>&1",
+                opt_level, san_flags, out_name, c_file, rt, rt, pulse_lib);
+        }
 
         int rc = system(cmd);
         if (rc != 0) {
@@ -279,7 +307,7 @@ int main(int argc, char **argv)
         if (!keep_c && c_file != output)
             remove(c_file);
 
-        fprintf(stderr, "Compiled: %s\n", exe_name);
+        fprintf(stderr, "Compiled: %s\n", out_name);
     }
 
     return 0;

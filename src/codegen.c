@@ -21,6 +21,7 @@ static analysis_t *ana;
 static bool safe_mode;
 static bool no_gc_check;
 static bool fast_math;
+static const char *main_name;
 static uint16_t emit_line;  /* current BASIC line number being emitted */
 static uint8_t *tp;  /* token pointer (mirrors gw.text_ptr) */
 static int ret_label_counter;
@@ -2743,6 +2744,7 @@ void codegen_emit(FILE *f, analysis_t *a, const codegen_opts_t *opts)
     safe_mode = opts ? opts->safe_mode : false;
     no_gc_check = opts ? opts->no_gc_check : false;
     fast_math = opts ? opts->fast_math : false;
+    main_name = (opts && opts->main_name) ? opts->main_name : "main";
     ret_label_counter = 0;
     for_label_counter = 0;
     for_stack_sp = 0;
@@ -2787,8 +2789,9 @@ void codegen_emit(FILE *f, analysis_t *a, const codegen_opts_t *opts)
         EMIT("\n");
     }
 
-    /* Main function */
-    EMIT("int main(int argc, char **argv) {\n");
+    /* Entry point.  Default name is "main" for standalone executables;
+     * --main-name renames it for link into a larger C / Fortran project. */
+    EMIT("int %s(int argc, char **argv) {\n", main_name);
     EMIT("  (void)argc; (void)argv;\n");
     EMIT("  gwrt_init();\n");
     if (a->data_count > 0)
