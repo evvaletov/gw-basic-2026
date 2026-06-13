@@ -1,6 +1,17 @@
 GW-BASIC 2026 -- Change History
 ================================
 
+v0.18.0
+  - Cross-language linking: link compiled BASIC objects into a C/Fortran
+    project (--emit-obj, --main-name), and call C functions from BASIC via
+    the '$EXTERN NAME(ARGS) AS TYPE pragma (Levels 1 and 2)
+  - Codegen fix: parenthesized string comparison
+  - Performance flags: --no-gc-check (skip per-line GC/Ctrl-Break check),
+    --fast-math (skip division-by-zero guard)
+  - Larger 32-bit/Linux static caps (1024 vars, 256 arrays, 64 FOR, 128
+    GOSUB, 64 WHILE); 16-bit real-mode DOS keeps the original caps
+  - DATE$/TIME$ assignment shifts a process-local clock offset
+
 v0.17.0
   - Compiler memory safety: --warn (static analysis), --safe (checked
     integer arithmetic, enhanced array/GOSUB diagnostics), --safe=sanitize
