@@ -282,10 +282,19 @@ Notes and constraints:
 - The function name is matched case-insensitively at the call site (BASIC
   convention) but emitted as the C symbol with the **case written in the
   pragma**, so `Cmul` calls C's `Cmul`, not `cmul`.
-- Names must be BASIC-legal identifiers (letters and digits) because the
-  call site is tokenized as ordinary BASIC.  To call a C function whose
-  name contains underscores or other characters (e.g. `sqlite3_open`),
-  write a thin C wrapper with a BASIC-legal name.
+- The BASIC call name must be a legal BASIC identifier (it starts with a
+  letter) because the call site is tokenized as ordinary BASIC.  To call a C
+  function whose name contains underscores or other characters, add an
+  `= c_symbol` alias; the call name stays BASIC-legal, and the emitted C symbol
+  is whatever you write:
+
+  ```basic
+  10 '$EXTERN Sqlopen(STRING) AS INTEGER = sqlite3_open
+  20 RC = Sqlopen("data.db")
+  ```
+- A string-returning extern works wherever a string expression is expected,
+  including `PRINT`, `WRITE`, `INSTR`, and string comparison (`IF Greet(N$) =
+  "..."`).
 - String arguments cross as `const char *` (the compiler converts and frees
   a temporary copy); a `STRING` return value is copied into the BASIC
   string pool and the callee retains ownership of its own buffer.

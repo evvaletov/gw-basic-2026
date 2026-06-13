@@ -3,11 +3,14 @@
 30 '$EXTERN Greet(STRING) AS STRING
 40 '$EXTERN Getn AS INTEGER
 50 '$EXTERN Upcase(STRING) AS STRING
-60 PRINT "sum="; Cadd(3, 4)
-70 PRINT "hyp="; Chypot(3, 4)
-80 A$ = "World"
-90 PRINT Greet(A$)
-100 PRINT Greet("BASIC")
-110 PRINT "getn="; Getn
-120 PRINT Upcase("hello")
-130 END
+60 '$EXTERN Rev(STRING) AS STRING = c_rev
+70 PRINT "sum="; Cadd(3, 4)
+80 PRINT "hyp="; Chypot(3, 4)
+90 A$ = "World"
+100 PRINT Greet(A$)
+110 PRINT Greet("BASIC")
+120 PRINT "getn="; Getn
+130 PRINT Upcase("hello")
+140 PRINT "pos="; INSTR(Rev("abXc"), "X")
+150 IF Rev("ba") = "ab" THEN PRINT "CMP-OK"
+160 END

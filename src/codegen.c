@@ -225,6 +225,7 @@ static void emit_num_prec(int min_prec);
 static void emit_prec_wrapper(int prec);
 static void emit_str_atom(void);
 static gw_valtype_t peek_expr_type(void);
+static bool peek_is_string_expr(void);
 
 /* Emit a numeric atom */
 static void emit_atom(void)
@@ -615,16 +616,11 @@ static void emit_atom(void)
         tp++;
         EMIT("({");
         if (cur() == '(') advance();
-        /* Check if first arg is numeric (start position) */
-        uint8_t *save_p = tp;
-        bool has_start = false;
-        /* Heuristic: if first token after ( is a number, it's the start arg */
+        /* The first arg is the start position iff it is numeric; a string
+         * first arg (literal, var, string function, or string-returning extern)
+         * means there is no start and it is the haystack. */
         skip_spaces();
-        if (is_const(cur()) || (is_letter(cur()) && ({
-            uint8_t *sv = tp; char n[2]; gw_valtype_t t = parse_var(n); tp = sv; t != VT_STR; }))) {
-            has_start = true;
-        }
-        tp = save_p;
+        bool has_start = !peek_is_string_expr();
         skip_spaces();
         if (has_start) {
             char *sbuf = emit_to_buf(emit_prec_wrapper, 0);
@@ -1414,9 +1410,9 @@ static void emit_extern_call(const extern_func_t *ef)
         free(argbuf[i]);
     }
     if (ef->ret_type == VT_STR)
-        EMIT("const char *_r = %s(", ef->name);
+        EMIT("const char *_r = %s(", ef->c_name);
     else
-        EMIT("%s _r = %s(", c_ffi_type(ef->ret_type), ef->name);
+        EMIT("%s _r = %s(", c_ffi_type(ef->ret_type), ef->c_name);
     for (int i = 0; i < n; i++) { if (i) EMIT(", "); EMIT("_a%d", i); }
     EMIT("); ");
     if (ef->ret_type == VT_STR) {
@@ -1433,6 +1429,51 @@ static void emit_extern_call(const extern_func_t *ef)
             if (argt[i] == VT_STR) EMIT("free(_a%d); ", i);
         EMIT("_r; })");
     }
+}
+
+/* Peek whether the expression at the cursor is a string expression: string
+ * literal, string variable, FF/FE string function, or a string-returning
+ * '$EXTERN call.  Fully non-consuming (tp is restored on exit).  Shared by
+ * PRINT, WRITE, and INSTR's start-vs-haystack heuristic so they all classify
+ * externs consistently.  Parenthesized expressions are not classified here:
+ * emit_str_atom does not parse a leading '(', so routing a parenthesized
+ * string to the string path would loop; '(' falls through to false (numeric),
+ * matching the rest of the codebase's handling of parenthesized strings. */
+static bool peek_is_string_expr(void)
+{
+    uint8_t *save0 = tp;
+    skip_spaces();
+    uint8_t tok = cur();
+    bool result = false;
+    if (tok == '"' || tok == TOK_STRINGS) {
+        result = true;
+    } else if (is_letter(tok)) {
+        char fname[EXTERN_NAME_MAX];
+        peek_full_ident(fname, sizeof fname);
+        const extern_func_t *ef = analysis_find_extern(ana, fname);
+        if (ef) {
+            result = (ef->ret_type == VT_STR);
+        } else {
+            char name[2];
+            result = (parse_var(name) == VT_STR);
+        }
+    } else if (tok == TOK_PREFIX_FF) {
+        uint8_t func = tp[1];
+        result = func == FUNC_CHR || func == FUNC_STR || func == FUNC_LEFT
+              || func == FUNC_RIGHT || func == FUNC_MID || func == FUNC_SPACE
+              || func == FUNC_HEX || func == FUNC_OCT;
+    } else if (tok == TOK_PREFIX_FE) {
+        uint8_t xtok = tp[1];
+        uint8_t *pk = tp + 2;
+        while (*pk == ' ') pk++;
+        if ((xtok == XSTMT_ENVIRON || xtok == XSTMT_ERDEV || xtok == XSTMT_IOCTL)
+            && *pk == '$')
+            result = true;
+        else if (xtok == XSTMT_DATE || xtok == XSTMT_TIME)
+            result = true;
+    }
+    tp = save0;
+    return result;
 }
 
 static gw_valtype_t peek_expr_type(void)
@@ -1630,42 +1671,9 @@ static void emit_print(void)
             continue;
         }
 
-        /* Detect string vs numeric expression */
-        /* String: starts with " or a string variable or string function */
-        uint8_t tok = cur();
-        bool is_str = (tok == '"' || tok == TOK_STRINGS);
-        if (is_letter(tok)) {
-            char fname[EXTERN_NAME_MAX];
-            peek_full_ident(fname, sizeof fname);
-            const extern_func_t *ef = analysis_find_extern(ana, fname);
-            if (ef) {
-                is_str = (ef->ret_type == VT_STR);
-            } else {
-                uint8_t *save = tp;
-                char name[2];
-                gw_valtype_t type = parse_var(name);
-                tp = save;
-                is_str = (type == VT_STR);
-            }
-        }
-        if (tok == TOK_PREFIX_FF) {
-            uint8_t func = tp[1];
-            is_str = (func == FUNC_CHR || func == FUNC_STR || func == FUNC_LEFT
-                   || func == FUNC_RIGHT || func == FUNC_MID || func == FUNC_SPACE
-                   || func == FUNC_HEX || func == FUNC_OCT);
-        }
-        /* FE-prefix string functions: ENVIRON$, DATE$, TIME$, ERDEV$ */
-        if (tok == TOK_PREFIX_FE) {
-            uint8_t xtok = tp[1];
-            /* Check if followed by $ (string form) — peek at byte after FE+xstmt */
-            /* Peek past FE+xstmt (and any spaces) for $ suffix */
-            uint8_t *pk = tp + 2;
-            while (*pk == ' ') pk++;
-            if ((xtok == XSTMT_ENVIRON || xtok == XSTMT_ERDEV || xtok == XSTMT_IOCTL) && *pk == '$')
-                is_str = true;
-            if (xtok == XSTMT_DATE || xtok == XSTMT_TIME)
-                is_str = true;
-        }
+        /* Detect string vs numeric expression (string literal/var/function or
+         * a string-returning '$EXTERN call). */
+        bool is_str = peek_is_string_expr();
 
         if (is_str) {
             EMIT("  { gw_string_t _s = ");
@@ -2558,9 +2566,7 @@ static void emit_stmt(void)
             if (!first) EMIT("  gwrt_print_cstr(\",\");\n");
             first = false;
             skip_spaces();
-            if (cur() == '"' || (is_letter(cur()) && ({
-                uint8_t *s = tp; char n[2]; gw_valtype_t t = parse_var(n);
-                tp = s; t == VT_STR; }))) {
+            if (peek_is_string_expr()) {
                 EMIT("  gwrt_print_cstr(\"\\\"\");\n");
                 EMIT("  { gw_string_t _s = ");
                 emit_str_expr();
@@ -2914,7 +2920,7 @@ void codegen_emit(FILE *f, analysis_t *a, const codegen_opts_t *opts)
      * link time. */
     for (int i = 0; i < a->extern_count; i++) {
         extern_func_t *e = &a->externs[i];
-        EMIT("extern %s %s(", c_ffi_type(e->ret_type), e->name);
+        EMIT("extern %s %s(", c_ffi_type(e->ret_type), e->c_name);
         if (e->argc == 0) {
             EMIT("void");
         } else {

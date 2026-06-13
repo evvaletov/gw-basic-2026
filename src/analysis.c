@@ -111,8 +111,8 @@ static void parse_extern_pragma(analysis_t *a, const char *text)
     while (is_letter((uint8_t)*p) || (*p >= '0' && *p <= '9'))
         p++;  /* drain overflow so the arg/return parse below stays in sync */
     ef.name[i] = 0;
-    if (i == 0)
-        return;
+    if (i == 0 || !is_letter((uint8_t)ef.name[0]))
+        return;  /* BASIC identifiers must start with a letter */
 
     /* Optional argument list. */
     while (*p == ' ') p++;
@@ -142,6 +142,26 @@ static void parse_extern_pragma(analysis_t *a, const char *text)
         gw_valtype_t t = parse_type_word(w);
         if (t) ef.ret_type = t;
     }
+
+    /* Optional "= c_symbol" alias: the emitted C symbol may differ from the
+     * BASIC-legal call name (e.g. it can contain underscores). */
+    while (*p == ' ') p++;
+    if (*p == '=') {
+        p++;
+        while (*p == ' ') p++;
+        /* A C identifier starts with a letter or underscore; if the alias is
+         * malformed (e.g. digit-first), leave c_name empty so it falls back to
+         * the BASIC name below rather than emitting an invalid C symbol. */
+        if (is_letter((uint8_t)*p) || *p == '_') {
+            int j = 0;
+            while ((is_letter((uint8_t)*p) || (*p >= '0' && *p <= '9') || *p == '_')
+                   && j < EXTERN_NAME_MAX - 1)
+                ef.c_name[j++] = *p++;
+            ef.c_name[j] = 0;
+        }
+    }
+    if (ef.c_name[0] == 0)
+        strcpy(ef.c_name, ef.name);  /* no alias: C symbol == BASIC name */
 
     a->externs[a->extern_count++] = ef;
 }

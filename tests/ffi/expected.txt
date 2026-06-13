@@ -4,3 +4,5 @@ Hello, World!
 Hello, BASIC!
 getn= 42 
 HELLO
+pos= 2 
+CMP-OK
