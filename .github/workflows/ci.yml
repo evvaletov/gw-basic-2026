@@ -30,6 +30,9 @@ jobs:
       - name: Compiler tests
         run: bash tests/run_compiler_tests.sh
 
+      - name: Cross-language (FFI) test
+        run: bash tests/run_ffi_test.sh
+
   dos-cross-compile:
     runs-on: ubuntu-latest
     steps:

@@ -229,8 +229,67 @@ gfortran driver.f90 greet.o -L./build -lgwrt -lm -lpthread -lpulse-simple
 
 The BASIC code shares the `gw` interpreter state with `libgwrt`, so a
 single binary runs at most one BASIC program at a time.  Calling BASIC
-from C / Fortran is always safe; calling C / Fortran from BASIC needs
-the foreign-function-declaration extension on the roadmap (Level 2).
+from C / Fortran is always safe; calling C / Fortran *from* BASIC uses
+the `'$EXTERN` pragma described next.
+
+### Foreign Functions from BASIC (`'$EXTERN`)
+
+A `'$EXTERN` pragma declares a C function that compiled BASIC can call
+directly.  It is written as an apostrophe comment, so the interpreter
+ignores it while the compiler picks it up:
+
+```basic
+10 '$EXTERN Cmul(DOUBLE, DOUBLE) AS DOUBLE
+20 '$EXTERN Greet(STRING) AS STRING
+30 '$EXTERN Getn AS INTEGER
+40 PRINT Cmul(2.5, 4)
+50 PRINT Greet("World")
+60 PRINT Getn
+```
+
+Type mapping at the boundary:
+
+| BASIC type | C type        |
+|------------|---------------|
+| `INTEGER`  | `int16_t`     |
+| `SINGLE`   | `float`       |
+| `DOUBLE`   | `double`      |
+| `STRING`   | `const char *` (NUL-terminated) |
+
+The C side supplies the symbols at link time:
+
+```c
+#include <stdint.h>
+int16_t     Getn(void)                  { return 42; }
+double      Cmul(double a, double b)    { return a * b; }
+const char *Greet(const char *who) {
+    static char buf[128];
+    snprintf(buf, sizeof buf, "Hello, %s!", who);
+    return buf;   /* callee owns the buffer; BASIC copies it */
+}
+```
+
+Build and link as in the `--emit-obj` example above:
+
+```bash
+build/gwbasic-compile --emit-obj --runtime . demo.bas   # -> demo.o
+gcc -c lib.c -o lib.o
+gcc demo.o lib.o -L./build -lgwrt -lm -lpthread -lpulse-simple -o demo
+```
+
+Notes and constraints:
+
+- The function name is matched case-insensitively at the call site (BASIC
+  convention) but emitted as the C symbol with the **case written in the
+  pragma**, so `Cmul` calls C's `Cmul`, not `cmul`.
+- Names must be BASIC-legal identifiers (letters and digits) because the
+  call site is tokenized as ordinary BASIC.  To call a C function whose
+  name contains underscores or other characters (e.g. `sqlite3_open`),
+  write a thin C wrapper with a BASIC-legal name.
+- String arguments cross as `const char *` (the compiler converts and frees
+  a temporary copy); a `STRING` return value is copied into the BASIC
+  string pool and the callee retains ownership of its own buffer.
+- For Fortran callees, declare the routine `bind(c)` with a matching name.
 
 ## Building for DOS / FreeDOS
 

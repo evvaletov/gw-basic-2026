@@ -54,6 +54,112 @@ static bool is_letter(uint8_t ch)
     return (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z');
 }
 
+/* ---- '$EXTERN FFI pragma support ---- */
+
+/* Case-insensitive match of keyword kw at the start of s. */
+static bool ci_starts(const char *s, const char *kw)
+{
+    for (; *kw; s++, kw++)
+        if (toupper((unsigned char)*s) != toupper((unsigned char)*kw))
+            return false;
+    return true;
+}
+
+/* Read an identifier-like word from *pp (letters only), uppercase into buf. */
+static int read_word(const char **pp, char *buf, int max)
+{
+    const char *p = *pp;
+    int i = 0;
+    while (*p == ' ') p++;
+    while (is_letter((uint8_t)*p) && i < max - 1)
+        buf[i++] = (char)toupper((unsigned char)*p++);
+    while (is_letter((uint8_t)*p)) p++;  /* drain overflow so *pp lands past the word */
+    buf[i] = 0;
+    *pp = p;
+    return i;
+}
+
+/* Map a BASIC type keyword to a value type, or (gw_valtype_t)0 if unknown. */
+static gw_valtype_t parse_type_word(const char *w)
+{
+    if (!strcmp(w, "INTEGER") || !strcmp(w, "INT"))    return VT_INT;
+    if (!strcmp(w, "SINGLE"))                          return VT_SNG;
+    if (!strcmp(w, "DOUBLE"))                          return VT_DBL;
+    if (!strcmp(w, "STRING") || !strcmp(w, "STR"))     return VT_STR;
+    return (gw_valtype_t)0;
+}
+
+/* Parse a '$EXTERN NAME(T1, T2, ...) AS RET pragma body (the raw comment
+ * text, starting at "$EXTERN") and register the function. */
+static void parse_extern_pragma(analysis_t *a, const char *text)
+{
+    if (a->extern_count >= MAX_EXTERNS)
+        return;
+    const char *p = text + 7;  /* skip "$EXTERN" */
+    extern_func_t ef;
+    memset(&ef, 0, sizeof(ef));
+    ef.ret_type = VT_SNG;  /* default if no AS clause */
+
+    /* Function name (case-preserving).  Restricted to BASIC-legal identifier
+     * characters (letters and digits) because the call site is tokenized as
+     * ordinary BASIC; a C symbol with other characters needs a thin wrapper. */
+    while (*p == ' ') p++;
+    int i = 0;
+    while ((is_letter((uint8_t)*p) || (*p >= '0' && *p <= '9'))
+           && i < EXTERN_NAME_MAX - 1)
+        ef.name[i++] = *p++;
+    while (is_letter((uint8_t)*p) || (*p >= '0' && *p <= '9'))
+        p++;  /* drain overflow so the arg/return parse below stays in sync */
+    ef.name[i] = 0;
+    if (i == 0)
+        return;
+
+    /* Optional argument list. */
+    while (*p == ' ') p++;
+    if (*p == '(') {
+        p++;
+        while (*p == ' ') p++;
+        if (*p != ')') {
+            do {
+                if (*p == ',') p++;
+                char w[16];
+                read_word(&p, w, sizeof(w));
+                gw_valtype_t t = parse_type_word(w);
+                if (t && ef.argc < MAX_EXTERN_ARGS)
+                    ef.arg_types[ef.argc++] = t;
+                while (*p == ' ') p++;
+            } while (*p == ',');
+        }
+        if (*p == ')') p++;
+    }
+
+    /* Optional "AS RET" clause. */
+    while (*p == ' ') p++;
+    if (ci_starts(p, "AS")) {
+        p += 2;
+        char w[16];
+        read_word(&p, w, sizeof(w));
+        gw_valtype_t t = parse_type_word(w);
+        if (t) ef.ret_type = t;
+    }
+
+    a->externs[a->extern_count++] = ef;
+}
+
+const extern_func_t *analysis_find_extern(analysis_t *a, const char *name)
+{
+    for (int i = 0; i < a->extern_count; i++) {
+        const char *s = a->externs[i].name, *q = name;
+        while (*s && *q &&
+               toupper((unsigned char)*s) == toupper((unsigned char)*q)) {
+            s++; q++;
+        }
+        if (*s == 0 && *q == 0)
+            return &a->externs[i];
+    }
+    return NULL;
+}
+
 /* Add a GOTO/GOSUB target line number */
 static void add_target(analysis_t *a, uint16_t line_num)
 {
@@ -291,12 +397,28 @@ static void scan_tokens(analysis_t *a, uint8_t *tokens, int len, uint16_t line_n
         /* Variable reference */
         if (is_letter(tok)) {
             char name[2] = {(char)toupper(tok), 0};
+            char full[EXTERN_NAME_MAX];
+            int fi = 0;
+            full[fi++] = (char)toupper(tok);
             p++;
             if (p < end && (is_letter(*p) || (*p >= '0' && *p <= '9'))) {
                 name[1] = (char)toupper(*p);
+                if (fi < EXTERN_NAME_MAX - 1) full[fi++] = (char)toupper(*p);
                 p++;
-                while (p < end && (is_letter(*p) || (*p >= '0' && *p <= '9')))
+                while (p < end && (is_letter(*p) || (*p >= '0' && *p <= '9'))) {
+                    if (fi < EXTERN_NAME_MAX - 1) full[fi++] = (char)toupper(*p);
                     p++;
+                }
+            }
+            full[fi] = 0;
+            /* A declared extern is a function call, not a variable — don't add
+             * it to the census.  Its argument expressions are scanned normally
+             * by the surrounding loop. */
+            if (analysis_find_extern(a, full)) {
+                if (p < end && (*p == '$' || *p == '%' || *p == '!' || *p == '#'))
+                    p++;
+                assign_ctx = false;
+                continue;
             }
             uint8_t suffix = (p < end) ? *p : 0;
             if (suffix == '$' || suffix == '%' || suffix == '!' || suffix == '#')
@@ -387,6 +509,28 @@ void analysis_run(analysis_t *a)
                 continue;
             }
             p++;
+        }
+    }
+
+    /* Pass 0b: collect '$EXTERN FFI pragmas.  These are standalone
+     * apostrophe/REM comment lines (`'$EXTERN NAME(ARGS) AS RET`), so the
+     * interpreter ignores them while the compiler registers them.  Must run
+     * before Pass 1 so use-sites aren't mistaken for array variables. */
+    for (program_line_t *line = gw.prog_head; line; line = line->next) {
+        uint8_t *p = line->tokens;
+        if (line->len <= 0 || (p[0] != TOK_REM && p[0] != TOK_SQUOTE))
+            continue;
+        uint8_t *end = line->tokens + line->len;
+        p++;
+        while (p < end && *p == ' ') p++;
+        if (p < end && *p == '$') {
+            char buf[256];
+            int bi = 0;
+            while (p < end && *p && bi < (int)sizeof(buf) - 1)
+                buf[bi++] = (char)*p++;
+            buf[bi] = 0;
+            if (ci_starts(buf, "$EXTERN"))
+                parse_extern_pragma(a, buf);
         }
     }
 
