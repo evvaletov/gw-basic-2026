@@ -14,6 +14,13 @@ typedef struct {
     const char *main_name;  /* --main-name: rename entry point from
                              * "main" to NAME (for cross-language link;
                              * NULL keeps "main") */
+    size_t max_output_bytes; /* --max-output-size: abort codegen once this many
+                              * bytes have been written to the output file (a
+                              * codegen loop can otherwise emit unbounded C and
+                              * fill the disk); 0 = unlimited */
+    const char *out_path;   /* path of the output file, removed if the limit is
+                             * hit so the partial file is not left behind
+                             * (NULL when emitting to stdout) */
 } codegen_opts_t;
 
 /* Generate C source from the analyzed program */

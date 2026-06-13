@@ -158,6 +158,8 @@ static void usage(void)
         "  --emit-obj       Compile to object file (.o) instead of executable\n"
         "  --main-name N    Rename emitted entry point from main to N (for\n"
         "                   linking BASIC into a larger C/Fortran project)\n"
+        "  --max-output-size MB  Abort if the generated C exceeds MB megabytes\n"
+        "                   (default 256; 0 = unlimited; guards codegen loops)\n"
     );
 }
 
@@ -176,6 +178,7 @@ int main(int argc, char **argv)
     bool fast_math = false;
     bool emit_obj = false;
     const char *main_name = NULL;
+    unsigned long max_output_mb = 256;  /* abort runaway codegen; 0 = unlimited */
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-o") == 0 && i + 1 < argc)
@@ -204,6 +207,10 @@ int main(int argc, char **argv)
             main_name = argv[++i];
         else if (strncmp(argv[i], "--main-name=", 12) == 0)
             main_name = argv[i] + 12;
+        else if (strcmp(argv[i], "--max-output-size") == 0 && i + 1 < argc)
+            max_output_mb = strtoul(argv[++i], NULL, 10);
+        else if (strncmp(argv[i], "--max-output-size=", 18) == 0)
+            max_output_mb = strtoul(argv[i] + 18, NULL, 10);
         else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
             usage();
             return 0;
@@ -255,6 +262,8 @@ int main(int argc, char **argv)
         .no_gc_check = no_gc_check,
         .fast_math = fast_math,
         .main_name = main_name,
+        .max_output_bytes = (size_t)max_output_mb * 1024 * 1024,
+        .out_path = (f == stdout) ? NULL : c_file,
     };
     codegen_emit(f, &analysis, &opts);
 

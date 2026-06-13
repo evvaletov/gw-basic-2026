@@ -32,7 +32,43 @@ static int for_label_counter;
 static struct { char name[2]; gw_valtype_t type; int label; bool has_step; } for_stack[FOR_STACK_MAX];
 static int for_stack_sp;
 
-#define EMIT(...) fprintf(out, __VA_ARGS__)
+/* Output-size guard.  A codegen path that emits without advancing the token
+ * pointer produces unbounded C and can fill the disk (this happened once,
+ * writing a 384 GB paren.c).  Bytes written to the real output file are
+ * counted -- the open_memstream scratch buffers used for sub-expressions are
+ * not -- and codegen aborts cleanly once the limit is exceeded. */
+static FILE       *g_real_out;   /* the actual -o file (not a scratch memstream) */
+static const char *g_out_path;   /* its path, for removing the partial file      */
+static size_t      g_emit_bytes; /* bytes emitted to g_real_out so far            */
+static size_t      g_emit_cap;   /* abort once g_emit_bytes exceeds this (0=off)  */
+
+static void codegen_overflow(void)
+{
+    if (g_real_out) {
+        fflush(g_real_out);
+        if (g_real_out != stdout) {
+            fclose(g_real_out);
+            if (g_out_path) remove(g_out_path);   /* reclaim the partial file */
+        }
+        g_real_out = NULL;
+    }
+    fprintf(stderr,
+        "gwbasic-compile: error: generated C exceeded the %zu MB output limit; "
+        "aborting (probable compiler codegen loop). "
+        "Raise or disable it with --max-output-size <MB> (0 = unlimited).\n",
+        g_emit_cap / (1024 * 1024));
+    exit(2);
+}
+
+#define EMIT(...)                                            \
+    do {                                                     \
+        int _emit_n = fprintf(out, __VA_ARGS__);             \
+        if (out == g_real_out && _emit_n > 0) {              \
+            g_emit_bytes += (size_t)_emit_n;                 \
+            if (g_emit_cap && g_emit_bytes > g_emit_cap)     \
+                codegen_overflow();                          \
+        }                                                    \
+    } while (0)
 
 static uint8_t cur(void) { return *tp; }
 static uint8_t advance(void)
@@ -2898,6 +2934,10 @@ static void emit_stmt(void)
 void codegen_emit(FILE *f, analysis_t *a, const codegen_opts_t *opts)
 {
     out = f;
+    g_real_out = f;
+    g_out_path = opts ? opts->out_path : NULL;
+    g_emit_cap = opts ? opts->max_output_bytes : 0;
+    g_emit_bytes = 0;
     ana = a;
     safe_mode = opts ? opts->safe_mode : false;
     no_gc_check = opts ? opts->no_gc_check : false;
