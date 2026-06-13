@@ -89,6 +89,31 @@ static const char *c_type(gw_valtype_t t)
     }
 }
 
+/* C type at the FFI boundary: STRING crosses as a C string, not gw_string_t. */
+static const char *c_ffi_type(gw_valtype_t t)
+{
+    return (t == VT_STR) ? "const char *" : c_type(t);
+}
+
+/* Peek the full identifier at the token cursor into buf (uppercased, type
+ * suffix excluded) WITHOUT advancing tp.  Returns the cursor position just
+ * past the identifier and any trailing type-suffix character — assign it to
+ * tp to consume.  Used to recognise multi-char '$EXTERN function names that
+ * parse_var() would otherwise truncate to two significant characters. */
+static uint8_t *peek_full_ident(char *buf, int max)
+{
+    uint8_t *p = tp;
+    int i = 0;
+    if (is_letter(*p)) {
+        while ((is_letter(*p) || (*p >= '0' && *p <= '9')) && i < max - 1)
+            buf[i++] = (char)toupper(*p++);
+        while (is_letter(*p) || (*p >= '0' && *p <= '9')) p++;
+    }
+    buf[i] = 0;
+    if (*p == '$' || *p == '%' || *p == '!' || *p == '#') p++;
+    return p;
+}
+
 /* Emit a 2-char name as a C string literal: "AB" or "A" */
 static void emit_name_str(const char name[2])
 {
@@ -154,6 +179,7 @@ static gw_valtype_t parse_var(char name_out[2])
 /* Forward declarations */
 static void emit_str_expr(void);
 static void emit_num_expr(void);
+static void emit_extern_call(const extern_func_t *ef);
 
 static int op_prec(uint8_t tok)
 {
@@ -657,6 +683,28 @@ static void emit_atom(void)
         EMIT("0 /* VARPTR */");
         if (cur() == '(') { advance(); while (cur() && cur() != ')') tp++; if (cur() == ')') advance(); }
         return;
+    }
+
+    /* Extern (FFI) function call — must be checked before parse_var(), which
+     * would truncate the name to two significant characters. */
+    if (is_letter(tok)) {
+        char fname[EXTERN_NAME_MAX];
+        peek_full_ident(fname, sizeof fname);
+        const extern_func_t *ef = analysis_find_extern(ana, fname);
+        if (ef) {
+            if (ef->ret_type != VT_STR) {
+                emit_extern_call(ef);
+            } else {
+                /* string-returning extern in a numeric context: consume the
+                 * call so the stream stays in sync, emit a numeric zero */
+                FILE *orig = out; char *junk = NULL; size_t js = 0;
+                out = open_memstream(&junk, &js);
+                emit_extern_call(ef);
+                fclose(out); out = orig; free(junk);
+                EMIT("0 /* string extern in num ctx */");
+            }
+            return;
+        }
     }
 
     /* Variable or array element */
@@ -1208,6 +1256,26 @@ static void emit_str_atom(void)
         return;
     }
 
+    /* Extern (FFI) function call returning a string. */
+    if (is_letter(tok)) {
+        char fname[EXTERN_NAME_MAX];
+        peek_full_ident(fname, sizeof fname);
+        const extern_func_t *ef = analysis_find_extern(ana, fname);
+        if (ef) {
+            if (ef->ret_type == VT_STR) {
+                emit_extern_call(ef);
+            } else {
+                /* numeric extern in a string context: consume + empty string */
+                FILE *orig = out; char *junk = NULL; size_t js = 0;
+                out = open_memstream(&junk, &js);
+                emit_extern_call(ef);
+                fclose(out); out = orig; free(junk);
+                EMIT("gw_str_from_cstr(\"\") /* numeric extern in str ctx */");
+            }
+            return;
+        }
+    }
+
     /* String variable or array element */
     if (is_letter(tok)) {
         char name[2];
@@ -1294,6 +1362,79 @@ static void emit_stmt(void);
 /* Peek at the next expression to guess its result type.
  * Only returns VT_INT for pure integer atoms (no operators).
  * For anything involving operators, returns the variable/constant type. */
+/* Emit a call to a declared '$EXTERN C function.  tp is positioned at the
+ * function name; this consumes the name and a parenthesised argument list,
+ * emitting a GCC statement-expression that coerces each argument to its
+ * declared C type, calls the function, frees any temporary C strings, and
+ * yields the result.  String arguments cross as NUL-terminated char*; a
+ * string return is copied into the BASIC string pool (the callee owns its
+ * returned buffer — it is not freed here). */
+static void emit_extern_call(const extern_func_t *ef)
+{
+    char namebuf[EXTERN_NAME_MAX];
+    tp = peek_full_ident(namebuf, sizeof namebuf);  /* consume name + suffix */
+    skip_spaces();
+
+    char *argbuf[MAX_EXTERN_ARGS];
+    gw_valtype_t argt[MAX_EXTERN_ARGS];
+    int n = 0;       /* args actually passed (capped at MAX_EXTERN_ARGS) */
+    int total = 0;   /* args seen in the source call */
+    if (cur() == '(') {
+        advance();
+        if (cur() != ')') {
+            do {
+                if (total > 0 && cur() == ',') advance();
+                gw_valtype_t at = (total < ef->argc) ? ef->arg_types[total] : VT_SNG;
+                FILE *orig = out; char *b = NULL; size_t sz = 0;
+                out = open_memstream(&b, &sz);
+                if (at == VT_STR) emit_str_expr();
+                else              emit_num_expr();
+                fclose(out); out = orig;
+                /* Always consume every argument so the token stream stays in
+                 * sync; only the first MAX_EXTERN_ARGS are passed through. */
+                if (n < MAX_EXTERN_ARGS) { argbuf[n] = b; argt[n] = at; n++; }
+                else                       free(b);
+                total++;
+            } while (cur() == ',');
+        }
+        if (cur() == ')') advance();
+    }
+    if (total != ef->argc)
+        fprintf(stderr, "warning: line %u: extern %s called with %d argument(s),"
+                " declared with %d\n", emit_line, ef->name, total, ef->argc);
+
+    EMIT("({ ");
+    for (int i = 0; i < n; i++) {
+        if (argt[i] == VT_STR)
+            EMIT("gw_string_t _s%d = (%s); char *_a%d = gw_str_to_cstr(&_s%d);"
+                 " gw_str_free(&_s%d); ", i, argbuf[i], i, i, i);
+        else
+            EMIT("%s _a%d = (%s)(%s); ",
+                 c_ffi_type(argt[i]), i, c_ffi_type(argt[i]), argbuf[i]);
+        free(argbuf[i]);
+    }
+    if (ef->ret_type == VT_STR)
+        EMIT("const char *_r = %s(", ef->name);
+    else
+        EMIT("%s _r = %s(", c_ffi_type(ef->ret_type), ef->name);
+    for (int i = 0; i < n; i++) { if (i) EMIT(", "); EMIT("_a%d", i); }
+    EMIT("); ");
+    if (ef->ret_type == VT_STR) {
+        /* Copy the result into the string pool BEFORE freeing the C-string arg
+         * temporaries — a callee may legitimately return (a pointer into) one
+         * of its char* arguments (e.g. an in-place trim), so freeing first
+         * would be a use-after-free. */
+        EMIT("gw_string_t _ret = gw_str_from_cstr(_r ? _r : \"\"); ");
+        for (int i = 0; i < n; i++)
+            if (argt[i] == VT_STR) EMIT("free(_a%d); ", i);
+        EMIT("_ret; })");
+    } else {
+        for (int i = 0; i < n; i++)
+            if (argt[i] == VT_STR) EMIT("free(_a%d); ", i);
+        EMIT("_r; })");
+    }
+}
+
 static gw_valtype_t peek_expr_type(void)
 {
     uint8_t *save = tp;
@@ -1302,6 +1443,10 @@ static gw_valtype_t peek_expr_type(void)
 
     /* Variable — check suffix (most important case) */
     if (is_letter(tok)) {
+        char fname[EXTERN_NAME_MAX];
+        peek_full_ident(fname, sizeof fname);
+        const extern_func_t *ef = analysis_find_extern(ana, fname);
+        if (ef) { tp = save; return ef->ret_type; }
         char name[2];
         gw_valtype_t type = parse_var(name);
         tp = save;
@@ -1490,11 +1635,18 @@ static void emit_print(void)
         uint8_t tok = cur();
         bool is_str = (tok == '"' || tok == TOK_STRINGS);
         if (is_letter(tok)) {
-            uint8_t *save = tp;
-            char name[2];
-            gw_valtype_t type = parse_var(name);
-            tp = save;
-            is_str = (type == VT_STR);
+            char fname[EXTERN_NAME_MAX];
+            peek_full_ident(fname, sizeof fname);
+            const extern_func_t *ef = analysis_find_extern(ana, fname);
+            if (ef) {
+                is_str = (ef->ret_type == VT_STR);
+            } else {
+                uint8_t *save = tp;
+                char name[2];
+                gw_valtype_t type = parse_var(name);
+                tp = save;
+                is_str = (type == VT_STR);
+            }
         }
         if (tok == TOK_PREFIX_FF) {
             uint8_t func = tp[1];
@@ -2756,6 +2908,25 @@ void codegen_emit(FILE *f, analysis_t *a, const codegen_opts_t *opts)
     EMIT("#include <stdlib.h>\n");
     EMIT("#include <string.h>\n");
     EMIT("#include <time.h>\n\n");
+
+    /* Foreign-function prototypes from '$EXTERN pragmas (Level 2
+     * cross-language linking).  The host project supplies these symbols at
+     * link time. */
+    for (int i = 0; i < a->extern_count; i++) {
+        extern_func_t *e = &a->externs[i];
+        EMIT("extern %s %s(", c_ffi_type(e->ret_type), e->name);
+        if (e->argc == 0) {
+            EMIT("void");
+        } else {
+            for (int k = 0; k < e->argc; k++) {
+                if (k) EMIT(", ");
+                EMIT("%s", c_ffi_type(e->arg_types[k]));
+            }
+        }
+        EMIT(");\n");
+    }
+    if (a->extern_count > 0)
+        EMIT("\n");
 
     /* Variable declarations */
     for (int i = 0; i < a->var_count; i++) {

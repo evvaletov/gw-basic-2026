@@ -1,0 +1,6 @@
+sum= 7 
+hyp= 5 
+Hello, World!
+Hello, BASIC!
+getn= 42 
+HELLO

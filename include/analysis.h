@@ -11,12 +11,26 @@
 #define MAX_DATA      4096
 #define MAX_GOSUB_RET 1024
 
+#define MAX_EXTERNS      64
+#define MAX_EXTERN_ARGS  8
+#define EXTERN_NAME_MAX  32
+
 typedef struct {
     uint16_t line_num;
     bool is_target;       /* referenced by GOTO/GOSUB/etc. */
     bool has_data;        /* contains DATA statement */
     int data_start;       /* index into data pool */
 } line_info_t;
+
+/* A C function declared via the '$EXTERN NAME(ARGS) AS RET pragma.
+ * name is stored case-preserving (emitted as the C symbol); matching
+ * against BASIC call sites is case-insensitive. */
+typedef struct {
+    char name[EXTERN_NAME_MAX];
+    gw_valtype_t ret_type;
+    gw_valtype_t arg_types[MAX_EXTERN_ARGS];
+    int argc;
+} extern_func_t;
 
 typedef struct {
     char name[2];
@@ -42,6 +56,9 @@ typedef struct {
     int data_line_count;
 
     gw_valtype_t def_type[26];  /* from DEFINT/DEFSNG/DEFDBL/DEFSTR */
+
+    extern_func_t externs[MAX_EXTERNS];  /* '$EXTERN FFI declarations */
+    int extern_count;
 } analysis_t;
 
 /* Run analysis pass over the loaded program */
@@ -55,6 +72,9 @@ int analysis_add_var(analysis_t *a, const char name[2], gw_valtype_t type);
 
 /* Check if a line number is a jump target */
 bool analysis_is_target(analysis_t *a, uint16_t line_num);
+
+/* Find a declared extern function by name (case-insensitive), or NULL */
+const extern_func_t *analysis_find_extern(analysis_t *a, const char *name);
 
 /* Emit static analysis warnings to stderr */
 void analysis_warnings(analysis_t *a);
