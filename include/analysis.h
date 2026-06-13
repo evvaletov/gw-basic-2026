@@ -22,11 +22,14 @@ typedef struct {
     int data_start;       /* index into data pool */
 } line_info_t;
 
-/* A C function declared via the '$EXTERN NAME(ARGS) AS RET pragma.
- * name is stored case-preserving (emitted as the C symbol); matching
- * against BASIC call sites is case-insensitive. */
+/* A C function declared via the '$EXTERN NAME(ARGS) AS RET [= c_symbol] pragma.
+ * `name` is the BASIC call name (case-preserving; matched case-insensitively at
+ * call sites).  `c_name` is the emitted C symbol: it defaults to `name`, or an
+ * optional "= c_symbol" alias maps a BASIC-legal name to an arbitrary C symbol
+ * (e.g. one containing underscores, like sqlite3_open). */
 typedef struct {
     char name[EXTERN_NAME_MAX];
+    char c_name[EXTERN_NAME_MAX];
     gw_valtype_t ret_type;
     gw_valtype_t arg_types[MAX_EXTERN_ARGS];
     int argc;

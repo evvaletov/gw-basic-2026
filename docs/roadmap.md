@@ -116,7 +116,6 @@ dev highlights:
 
 | Theme | Item | git-bug | Priority |
 |-------|------|---------|----------|
-| compiler | `$EXTERN` follow-ups -- aliasing, INSTR/WRITE dispatch, validation | `8329647` | P2 |
 | compiler | `--inline-arrays` direct array indexing | `e6d977c` | P2 |
 | compiler | `-O0..-O3` codegen optimization tiers | `fecc17f` | P2 |
 | compiler | Level 3 -- export BASIC SUBs/FUNCs as C-callable (deferred) | `1b7d59c` | P2 |
@@ -124,8 +123,10 @@ dev highlights:
 | language | C-style `PRINTF` / `FPRINTF` | `cd8750c` | P2 |
 | ide | VS Code extension (+ JetBrains follow-up) | `32a637c` | P2 |
 | stdlib | Numerical/Data stdlib -- NDArray + DataFrame + Plotting (sub-project) | `55a9d14` | P2 |
+| testing | 101 BASIC Computer Games compatibility corpus | `51679f0` | P2 |
 
-Recently shipped: Level 2 `'$EXTERN` FFI pragma (`56b96e0`, closed).
+Recently shipped: Level 2 `'$EXTERN` FFI pragma (`56b96e0`) and its follow-ups
+(`8329647`) -- C-symbol aliasing + string-extern dispatch in PRINT/WRITE/INSTR.
 
 Run `git-bug bug show <id>` for the full design notes on any item.  The
 numerical/data stdlib (`55a9d14`) is the main enabler for the
@@ -142,3 +143,6 @@ Jupyter-kernel data-analysis use case.
   a process-local offset; the OS time is unaffected (setting the OS
   clock would require root)
 - Device stubs (`ERDEV`, `IOCTL`, `COM`, `LCOPY`) return defaults
+- Compiler: a parenthesized string expression (`PRINT (A$)`, the haystack of
+  `INSTR((A$), ...)`) is classified as numeric, because the codegen string-atom
+  emitter does not parse a leading `(`.  Drop the parentheses as a workaround
