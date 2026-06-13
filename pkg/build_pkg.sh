@@ -32,8 +32,9 @@ trap 'rm -rf "$STAGE"' EXIT
 
 mkdir -p "$STAGE/APPINFO" "$STAGE/BIN" "$STAGE/DOC/GWBASIC" "$STAGE/SOURCE/GWBASIC"
 
-# Metadata
+# Metadata (sync the LSM Version field to the build version so it can't drift)
 cp pkg/GWBASIC.LSM "$STAGE/APPINFO/GWBASIC.LSM"
+sed -i "s/^Version:.*/Version:         $VERSION/" "$STAGE/APPINFO/GWBASIC.LSM"
 unix2dos -q "$STAGE/APPINFO/GWBASIC.LSM" 2>/dev/null \
     || sed -i 's/$/\r/' "$STAGE/APPINFO/GWBASIC.LSM"
 

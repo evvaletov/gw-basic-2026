@@ -1,6 +1,6 @@
 Begin3
 Title:           GW-BASIC 2026
-Version:         0.17.0
+Version:         0.18.0
 Entered-date:    2026-04-10
 Description:     A portable C reimplementation of Microsoft GW-BASIC, using
                  the original 8088 assembly source (released by Microsoft
