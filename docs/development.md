@@ -21,6 +21,7 @@
 | 0.15.0 | | Hardware I/O simulator, gap-fill (100% token coverage), string pool + compacting GC, Jupyter kernel (Sixel graphics, INPUT, Pygments), ahead-of-time compiler Phase 1 |
 | 0.16.0 | | AOT compiler: all eligible tests pass (100%). CHAIN/COMMON/RUN "file" via runtime delegation, token embedding, string comparison, division-by-zero detection, FIELD read-back, graphics, file I/O delegation, RNG matching, dead code elimination |
 | 0.17.0 | `981aeab` | Compiler memory safety (`--warn`, `--safe`, `--safe=sanitize`); 16-bit real-mode DOS target (Makefile.dos16, far-heap TUI screen buffer); 32-bit DOS/4GW target (Makefile.dos); FreeDOS 1.4 compatibility |
+| 0.18.0 | `89fe0fb` | Cross-language linking: link BASIC objects into a C/Fortran project (`--emit-obj`/`--main-name`) and call C functions from BASIC (`'$EXTERN` FFI pragma); codegen parenthesized-string-comparison fix; `--no-gc-check`/`--fast-math`; larger 32-bit static caps; process-local `DATE$`/`TIME$` assignment |
 
 ## Tests
 
