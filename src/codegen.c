@@ -21,6 +21,8 @@ static analysis_t *ana;
 static bool safe_mode;
 static bool no_gc_check;
 static bool fast_math;
+static bool inline_arrays;      /* --inline-arrays: direct C-array indexing */
+static int  cg_opt_level = 2;   /* -O tier; see codegen_opts_t.opt_level */
 static const char *main_name;
 static uint16_t emit_line;  /* current BASIC line number being emitted */
 static uint8_t *tp;  /* token pointer (mirrors gw.text_ptr) */
@@ -41,6 +43,17 @@ static FILE       *g_real_out;   /* the actual -o file (not a scratch memstream)
 static const char *g_out_path;   /* its path, for removing the partial file      */
 static size_t      g_emit_bytes; /* bytes emitted to g_real_out so far            */
 static size_t      g_emit_cap;   /* abort once g_emit_bytes exceeds this (0=off)  */
+
+static void codegen_error(const char *message)
+{
+    fprintf(stderr, "gwbasic-compile: %s at BASIC line %u (token 0x%02x)\n",
+            message, emit_line, tp ? *tp : 0);
+    if (g_real_out && g_real_out != stdout) {
+        fclose(g_real_out);
+        if (g_out_path) remove(g_out_path);
+    }
+    exit(2);
+}
 
 static void codegen_overflow(void)
 {
@@ -63,6 +76,9 @@ static void codegen_overflow(void)
 #define EMIT(...)                                            \
     do {                                                     \
         int _emit_n = fprintf(out, __VA_ARGS__);             \
+        if (out != g_real_out && g_emit_cap                 \
+            && ftell(out) > (long)g_emit_cap)               \
+            codegen_overflow();                            \
         if (out == g_real_out && _emit_n > 0) {              \
             g_emit_bytes += (size_t)_emit_n;                 \
             if (g_emit_cap && g_emit_bytes > g_emit_cap)     \
@@ -168,25 +184,49 @@ static void emit_varname(const char name[2], gw_valtype_t type)
         EMIT("var_%c_%s", toupper(name[0]), type_suffix(type));
 }
 
-/* Emit gwrt_array_elem or gwrt_array_elem_safe call prefix */
-static void emit_array_elem_call(const char name[2], gw_valtype_t type, int ndims)
+/* Mangled C symbol for an inlined array's backing storage.  The type is part
+ * of the identity (A%() and A!() are distinct arrays), so it is encoded too. */
+static void emit_arr_sym(const char name[2], gw_valtype_t type)
 {
-    if (safe_mode) {
-        EMIT("gwrt_array_elem_safe("); emit_name_str(name);
-        EMIT(", %d, %d, (int[]){", type, ndims);
-    } else {
-        EMIT("gwrt_array_elem("); emit_name_str(name);
-        EMIT(", %d, %d, (int[]){", type, ndims);
-    }
+    EMIT("_gwa_%c%c_%d", name[0], name[1] ? name[1] : '_', (int)type);
 }
 
-/* Emit the closing args for gwrt_array_elem[_safe] */
-static void emit_array_elem_close(void)
+/* Keep optimized accesses on the runtime allocation. Delegated statements
+ * therefore see the same elements. A generation check prevents cached pointers
+ * surviving CLEAR/ERASE/CHAIN; access before DIM takes the ordinary path. */
+static void emit_elem_ptr(const char name[2], gw_valtype_t type, int ndims,
+                          char *const sub_bufs[])
 {
-    if (safe_mode)
-        EMIT("}, %u)", emit_line);
-    else
-        EMIT("})");
+    array_info_t *ai = inline_arrays ? analysis_inlinable_array(ana, name, type) : NULL;
+    bool direct = ai && ai->ndims == ndims && !safe_mode;
+    if (direct) {
+        EMIT("({ int _subs[] = {");
+        for (int d = 0; d < ndims; d++)
+            EMIT("%sgw_cint((double)(%s))", d ? ", " : "", sub_bufs[d]);
+        EMIT("}; gw_value_t *_ap; if ("); emit_arr_sym(name, type);
+        EMIT(" && "); emit_arr_sym(name, type);
+        EMIT("_generation == gw_array_generation) { int _idx=0, _stride=1, _base=");
+        emit_arr_sym(name, type); EMIT("_base;");
+        for (int d = 0; d < ndims; d++) {
+            EMIT(" { int _s=_subs[%d]-_base, _size=%d+1-_base;"
+                 " if (_s<0 || _s>=_size) gw_error(9);"
+                 " _idx+=_s*_stride; _stride*=_size; }", d, ai->dims[d]);
+        }
+        EMIT(" _ap=&"); emit_arr_sym(name, type);
+        EMIT("[_idx]; } else { _ap=gwrt_array_elem(");
+        emit_name_str(name);
+        EMIT(", %d, %d, _subs); } _ap; })", type, ndims);
+        return;
+    }
+    if (safe_mode) { EMIT("gwrt_array_elem_safe("); emit_name_str(name); }
+    else           { EMIT("gwrt_array_elem("); emit_name_str(name); }
+    EMIT(", %d, %d, (int[]){", type, ndims);
+    for (int d = 0; d < ndims; d++) {
+        if (d) EMIT(", ");
+        EMIT("gw_cint((double)(%s))", sub_bufs[d]);
+    }
+    if (safe_mode) EMIT("}, %u)", emit_line);
+    else           EMIT("})");
 }
 
 /* Parse a variable name from the token stream, return its type */
@@ -262,12 +302,16 @@ static void emit_prec_wrapper(int prec);
 static void emit_str_atom(void);
 static gw_valtype_t peek_expr_type(void);
 static bool peek_is_string_expr(void);
+static void emit_stmt_guarded(void);
 
 /* Emit a numeric atom */
 static void emit_atom(void)
 {
     skip_spaces();
     uint8_t tok = cur();
+    if (!tok || tok == ')' || tok == ',' || tok == ':' || tok == ';'
+        || tok == TOK_THEN || tok == TOK_ELSE)
+        codegen_error("expected an expression");
 
     /* Numeric constant */
     if (tok >= 0x11 && tok <= 0x1A) {
@@ -761,13 +805,8 @@ static void emit_atom(void)
             } while (cur() == ',' && ndims < 8);
             if (cur() == ')') advance();
 
-            emit_array_elem_call(name, type, ndims);
-            for (int d = 0; d < ndims; d++) {
-                if (d > 0) EMIT(", ");
-                EMIT("(int)(%s)", sub_bufs[d]);
-                free(sub_bufs[d]);
-            }
-            emit_array_elem_close();
+            emit_elem_ptr(name, type, ndims, sub_bufs);
+            for (int d = 0; d < ndims; d++) free(sub_bufs[d]);
             EMIT("->");
             switch (type) {
             case VT_INT: EMIT("ival"); break;
@@ -822,19 +861,22 @@ static char *emit_to_buf(void (*fn)(int), int arg)
     char *buf = NULL;
     size_t sz = 0;
     out = open_memstream(&buf, &sz);
+    if (!out) codegen_error("cannot allocate expression buffer");
+    uint8_t *start = tp;
     fn(arg);
+    if (tp <= start) codegen_error("expression made no progress");
     fclose(out);
     out = orig;
     return buf;
 }
 
 static void emit_atom_wrapper(int unused) { (void)unused; emit_atom(); }
+static void emit_string_wrapper(int unused) { (void)unused; emit_str_expr(); }
 static void emit_prec_wrapper(int prec) { emit_num_prec(prec); }
 
 static void emit_num_prec(int min_prec)
 {
     gw_valtype_t left_type = peek_expr_type();
-    uint8_t *left_start = tp;
 
     /* Fast path: for simple expressions with no MOD/IDIV/POW/string-cmp,
      * emit directly without buffering via open_memstream */
@@ -845,6 +887,9 @@ static void emit_num_prec(int min_prec)
     /* Safe mode: force buffered path for integer expressions so we can
      * wrap arithmetic in gw_int_add/sub/mul overflow checks */
     if (safe_mode && left_type == VT_INT) needs_buffer = true;
+    /* -O0/-O1: skip the direct fast path so all expressions take the uniform
+     * buffered route (semantically identical, easier to correlate with source) */
+    if (cg_opt_level < 2) needs_buffer = true;
     if (!needs_buffer) {
         uint8_t *peek = tp;
         /* Quick scan of the expression for special operators */
@@ -910,7 +955,7 @@ static void emit_num_prec(int min_prec)
     }
 
     /* Slow path: buffer for MOD/IDIV/POW/string comparison */
-    char *left = emit_to_buf(emit_atom_wrapper, 0);
+    char *left = emit_to_buf(left_type == VT_STR ? emit_string_wrapper : emit_atom_wrapper, 0);
 
     for (;;) {
         skip_spaces();
@@ -931,17 +976,8 @@ static void emit_num_prec(int min_prec)
         /* For string comparisons, emit strcmp-based code */
         bool is_relational = cop || op == TOK_GT || op == TOK_LT || op == TOK_EQ;
         if (is_relational && left_type == VT_STR) {
-            /* Re-emit left as a full string expression (was emitted as numeric
-             * atom); emit_str_expr stops at the comparison op since it only
-             * consumes TOK_PLUS. */
-            uint8_t *save_tp = tp;
-            tp = left_start;
-            char *left_str;
-            { FILE *orig = out; char *buf = NULL; size_t sz = 0;
-              out = open_memstream(&buf, &sz);
-              emit_str_expr();
-              fclose(out); out = orig; left_str = buf; }
-            tp = save_tp;
+            /* The complete left string (including concatenation and grouping)
+             * has already been consumed. Emit each operand exactly once. */
             char *right_str;
             { FILE *orig = out; char *buf = NULL; size_t sz = 0;
               out = open_memstream(&buf, &sz);
@@ -955,9 +991,9 @@ static void emit_num_prec(int min_prec)
                     " int _cmp=strcmp(_cl,_cr); free(_cl); free(_cr);"
                     " gw_str_free(&_sl); gw_str_free(&_sr);"
                     " (_cmp %s 0) ? -1 : 0;})",
-                    left_str, right_str, cmpop);
+                    left, right_str, cmpop);
             fclose(cm);
-            free(left); free(left_str); free(right_str);
+            free(left); free(right_str);
             left = combined;
             left_type = VT_INT;
             continue;
@@ -966,11 +1002,16 @@ static void emit_num_prec(int min_prec)
         gw_valtype_t right_type = peek_expr_type();
         char *right = emit_to_buf(emit_prec_wrapper, prec + 1);
 
-        /* Constant folding: if both sides are numeric literals, compute now */
+        /* Fold exact, bounded integer literals only. Floating-point rounding,
+         * overflow and division errors must not depend on the codegen tier. */
         char *end_l, *end_r;
         double lv = strtod(left, &end_l);
         double rv = strtod(right, &end_r);
-        bool const_fold = (*end_l == '\0' && *end_r == '\0' &&
+        bool const_fold = (cg_opt_level >= 1 && *end_l == '\0' && *end_r == '\0' &&
+                           end_l != left && end_r != right &&
+                           isfinite(lv) && isfinite(rv) &&
+                           lv >= -32768 && lv <= 32767 && trunc(lv) == lv &&
+                           rv >= -32768 && rv <= 32767 && trunc(rv) == rv &&
                            !cop && op != TOK_GT && op != TOK_LT && op != TOK_EQ);
         if (const_fold) {
             double result = 0;
@@ -979,8 +1020,6 @@ static void emit_num_prec(int min_prec)
             case TOK_PLUS:  result = lv + rv; break;
             case TOK_MINUS: result = lv - rv; break;
             case TOK_MUL:   result = lv * rv; break;
-            case TOK_DIV:   result = rv != 0 ? lv / rv : 0; folded = (rv != 0); break;
-            case TOK_POW:   result = pow(lv, rv); break;
             case TOK_MOD:   result = rv != 0 ? (int16_t)lv % (int16_t)rv : 0; folded = (rv != 0); break;
             case TOK_IDIV:  result = rv != 0 ? (int16_t)lv / (int16_t)rv : 0; folded = (rv != 0); break;
             case TOK_AND:   result = (int16_t)lv & (int16_t)rv; break;
@@ -988,13 +1027,10 @@ static void emit_num_prec(int min_prec)
             case TOK_XOR:   result = (int16_t)lv ^ (int16_t)rv; break;
             default: folded = false; break;
             }
-            if (folded) {
+            if (folded && result >= -32768 && result <= 32767) {
                 free(left); free(right);
                 char buf[32];
-                if (result == (int)result && result >= -32768 && result <= 32767)
-                    snprintf(buf, sizeof(buf), "%d", (int)result);
-                else
-                    snprintf(buf, sizeof(buf), "%.9g", result);
+                snprintf(buf, sizeof(buf), "%d", (int)result);
                 left = strdup(buf);
                 continue;
             }
@@ -1075,6 +1111,17 @@ static void emit_str_atom(void)
 {
     skip_spaces();
     uint8_t tok = cur();
+
+    if (tok == '(') {
+        advance();
+        EMIT("(");
+        emit_str_expr();
+        skip_spaces();
+        if (cur() != ')') codegen_error("missing ')' in string expression");
+        advance();
+        EMIT(")");
+        return;
+    }
 
     /* String literal.  Concatenation is handled by emit_str_expr (the atom
      * just emits the literal value); a previous attempt to handle '+' at
@@ -1327,13 +1374,8 @@ static void emit_str_atom(void)
             } while (cur() == ',' && ndims < 8);
             if (cur() == ')') advance();
             EMIT("gw_str_copy(&");
-            emit_array_elem_call(name, type, ndims);
-            for (int d = 0; d < ndims; d++) {
-                if (d > 0) EMIT(", ");
-                EMIT("(int)(%s)", sub_bufs[d]);
-                free(sub_bufs[d]);
-            }
-            emit_array_elem_close();
+            emit_elem_ptr(name, type, ndims, sub_bufs);
+            for (int d = 0; d < ndims; d++) free(sub_bufs[d]);
             EMIT("->sval)");
             return;
         }
@@ -1347,7 +1389,8 @@ static void emit_str_atom(void)
         return;
     }
 
-    EMIT("gw_str_from_cstr(\"\") /* unknown str expr */");
+    EMIT("gw_str_from_cstr(\"\") /* unknown str expr 0x%02x */", cur());
+    if (*tp) tp++;  /* consume the unrecognized token so a looping caller advances */
 }
 
 /* Emit a string expression with concatenation (A$ + B$ + C$) */
@@ -1467,21 +1510,19 @@ static void emit_extern_call(const extern_func_t *ef)
     }
 }
 
-/* Peek whether the expression at the cursor is a string expression: string
- * literal, string variable, FF/FE string function, or a string-returning
- * '$EXTERN call.  Fully non-consuming (tp is restored on exit).  Shared by
- * PRINT, WRITE, and INSTR's start-vs-haystack heuristic so they all classify
- * externs consistently.  Parenthesized expressions are not classified here:
- * emit_str_atom does not parse a leading '(', so routing a parenthesized
- * string to the string path would loop; '(' falls through to false (numeric),
- * matching the rest of the codebase's handling of parenthesized strings. */
+/* Classify the result, not just the first atom: (A$) is a string, whereas
+ * (A$ = B$) and (A$) = B$ are numeric. Skip token payloads when looking for
+ * comparisons; zero bytes and operator bytes inside constants are data. */
 static bool peek_is_string_expr(void)
 {
     uint8_t *save0 = tp;
     skip_spaces();
     uint8_t tok = cur();
     bool result = false;
-    if (tok == '"' || tok == TOK_STRINGS) {
+    if (tok == '(') {
+        advance();
+        result = peek_is_string_expr();
+    } else if (tok == '"' || tok == TOK_STRINGS) {
         result = true;
     } else if (is_letter(tok)) {
         char fname[EXTERN_NAME_MAX];
@@ -1507,6 +1548,34 @@ static bool peek_is_string_expr(void)
             result = true;
         else if (xtok == XSTMT_DATE || xtok == XSTMT_TIME)
             result = true;
+    } else if (tok == TOK_PREFIX_FD) {
+        result = tp[1] == XFUNC_MKI || tp[1] == XFUNC_MKS || tp[1] == XFUNC_MKD;
+    }
+    tp = save0;
+    int depth = 0;
+    while (result && *tp) {
+        uint8_t ch = *tp;
+        if (ch == '"') {
+            tp++;
+            while (*tp && *tp != '"') tp++;
+            if (*tp) tp++;
+            continue;
+        }
+        if (ch == TOK_INT1) { tp += 2; continue; }
+        if (ch == TOK_INT2) { tp += 3; continue; }
+        if (ch == TOK_CONST_SNG) { tp += 5; continue; }
+        if (ch == TOK_CONST_DBL) { tp += 9; continue; }
+        if (ch == TOK_PREFIX_FD || ch == TOK_PREFIX_FE || ch == TOK_PREFIX_FF) {
+            tp += 2; continue;
+        }
+        if (ch == '(') depth++;
+        else if (ch == ')') { if (depth == 0) break; depth--; }
+        else if (depth == 0) {
+            if (ch == ':' || ch == ',' || ch == ';' || ch == TOK_THEN
+                || ch == TOK_ELSE || ch == TOK_TO || ch == TOK_STEP) break;
+            if (ch == TOK_LT || ch == TOK_EQ || ch == TOK_GT) result = false;
+        }
+        tp++;
     }
     tp = save0;
     return result;
@@ -1517,6 +1586,8 @@ static gw_valtype_t peek_expr_type(void)
     uint8_t *save = tp;
     skip_spaces();
     uint8_t tok = cur();
+
+    if (tok == '"' || tok == TOK_STRINGS) { tp = save; return VT_STR; }
 
     /* Variable — check suffix (most important case) */
     if (is_letter(tok)) {
@@ -1536,12 +1607,21 @@ static gw_valtype_t peek_expr_type(void)
     /* Unary minus — peek past it */
     if (tok == TOK_MINUS) { advance(); gw_valtype_t t = peek_expr_type(); tp = save; return t; }
     /* Parenthesized expression — peek inside */
-    if (tok == '(') { advance(); gw_valtype_t t = peek_expr_type(); tp = save; return t; }
+    if (tok == '(') {
+        advance();
+        gw_valtype_t t = peek_expr_type();
+        if (t == VT_STR && !peek_is_string_expr()) t = VT_INT;
+        tp = save;
+        return t;
+    }
     /* Functions */
     if (tok == TOK_PREFIX_FF) {
         uint8_t func = tp[1];
         tp = save;
         switch (func) {
+        case FUNC_CHR: case FUNC_STR: case FUNC_LEFT: case FUNC_RIGHT:
+        case FUNC_MID: case FUNC_SPACE: case FUNC_HEX: case FUNC_OCT:
+            return VT_STR;
         case FUNC_LEN: case FUNC_ASC: case FUNC_CINT: case FUNC_FIX:
         case FUNC_POS: case FUNC_PEEK: case FUNC_INP:
         case FUNC_SGN:
@@ -1573,8 +1653,10 @@ static gw_valtype_t peek_expr_type(void)
         if (xf == XFUNC_CVI) return VT_INT;
         if (xf == XFUNC_CVS) return VT_SNG;
         if (xf == XFUNC_CVD) return VT_DBL;
+        if (xf == XFUNC_MKI || xf == XFUNC_MKS || xf == XFUNC_MKD) return VT_STR;
         return VT_SNG;
     }
+    if (tok == TOK_PREFIX_FE && peek_is_string_expr()) { tp = save; return VT_STR; }
     /* Integer constants — treated as VT_SNG to avoid false integer-mode
      * emission when constants appear in mixed expressions (e.g. 4*S where S
      * is float). The interpreter treats int constants as VT_INT, so this is
@@ -1619,7 +1701,10 @@ static void emit_delegate_stmt_ex(uint8_t *stmt_start, bool read_back, bool sync
         if (*tp == TOK_CONST_DBL) { tp += 9; continue; }
         if (*tp == TOK_INT2) { tp += 3; continue; }
         if (*tp == TOK_INT1) { tp += 2; continue; }
-        if (*tp == ':' || *tp == 0) break;
+        if (*tp == TOK_PREFIX_FD || *tp == TOK_PREFIX_FE || *tp == TOK_PREFIX_FF) {
+            tp += 2; continue;
+        }
+        if (*tp == ':' || *tp == TOK_ELSE || *tp == 0) break;
         tp++;
     }
     int slen = (int)(tp - stmt_start);
@@ -1694,6 +1779,7 @@ static void emit_print(void)
 
     while (cur() && cur() != ':' && cur() != TOK_ELSE) {
         skip_spaces();
+        if (!cur() || cur() == ':' || cur() == TOK_ELSE) break;
 
         if (cur() == ';') {
             need_newline = false;
@@ -1751,30 +1837,23 @@ static void emit_assignment(void)
     /* Array element assignment: A(i) = expr */
     if (cur() == '(') {
         advance(); /* skip ( */
-        EMIT("  { int _subs[] = {(int)(");
-        emit_num_expr();
-        int ndims = 1;
-        while (cur() == ',') {
-            advance();
-            EMIT("), (int)(");
+        char *sub_bufs[8]; int ndims = 0;
+        do {
+            if (ndims > 0 && cur() == ',') advance();
+            FILE *orig = out; char *sb = NULL; size_t ss = 0;
+            out = open_memstream(&sb, &ss);
             emit_num_expr();
-            ndims++;
-        }
-        EMIT(")};\n");
+            fclose(out); out = orig;
+            sub_bufs[ndims++] = sb;
+        } while (cur() == ',' && ndims < 8);
         if (cur() == ')') advance();
         skip_spaces();
         if (cur() == TOK_EQ) advance();
 
-        /* Call runtime to get element pointer */
-        if (safe_mode) {
-            EMIT("    gw_value_t *_elem = gwrt_array_elem_safe(");
-            emit_name_str(name);
-            EMIT(", %d, %d, _subs, %u);\n", type, ndims, emit_line);
-        } else {
-            EMIT("    gw_value_t *_elem = gwrt_array_elem(");
-            emit_name_str(name);
-            EMIT(", %d, %d, _subs);\n", type, ndims);
-        }
+        EMIT("  { gw_value_t *_elem = ");
+        emit_elem_ptr(name, type, ndims, sub_bufs);
+        EMIT(";\n");
+        for (int d = 0; d < ndims; d++) free(sub_bufs[d]);
 
         if (type == VT_STR) {
             EMIT("    gw_str_free(&_elem->sval);\n");
@@ -1842,6 +1921,24 @@ static void emit_stmt(void)
 
     /* PRINT */
     if (tok == TOK_PRINT || tok == '?') {
+        /* TAB(/SPC( include their opening parenthesis in the token. Use the
+         * runtime printer for these position-sensitive statements. */
+        uint8_t *scan = tp + 1;
+        while (*scan && *scan != ':' && *scan != TOK_ELSE) {
+            if (*scan == '"') {
+                scan++;
+                while (*scan && *scan != '"') scan++;
+                if (*scan) scan++;
+            } else if (*scan == TOK_INT1) scan += 2;
+            else if (*scan == TOK_INT2) scan += 3;
+            else if (*scan == TOK_CONST_SNG) scan += 5;
+            else if (*scan == TOK_CONST_DBL) scan += 9;
+            else if (*scan == TOK_PREFIX_FD || *scan == TOK_PREFIX_FE || *scan == TOK_PREFIX_FF) scan += 2;
+            else if (*scan == TOK_TAB || *scan == TOK_SPC) {
+                emit_delegate_stmt(tp, false);
+                return;
+            } else scan++;
+        }
         uint8_t *print_tok = tp;  /* save position of PRINT token */
         advance();
         skip_spaces();
@@ -1867,7 +1964,10 @@ static void emit_stmt(void)
                     if (*tp == TOK_CONST_DBL) { tp += 9; continue; }
                     if (*tp == TOK_INT2) { tp += 3; continue; }
                     if (*tp == TOK_INT1) { tp += 2; continue; }
-                    if (*tp == ':' || *tp == 0) break;
+                    if (*tp == TOK_PREFIX_FD || *tp == TOK_PREFIX_FE || *tp == TOK_PREFIX_FF) {
+                        tp += 2; continue;
+                    }
+                    if (*tp == ':' || *tp == TOK_ELSE || *tp == 0) break;
                     tp++;
                 }
             }
@@ -2040,7 +2140,15 @@ static void emit_stmt(void)
                         break;
                     }
                 }
-                if (fc < 0) fc = for_label_counter > 0 ? for_label_counter - 1 : 0;
+                if (fc < 0) {
+                    /* NEXT variable matches no open FOR (an unstructured jump
+                     * into a loop, or a NEXT-without-FOR).  Fall back to the
+                     * most recent loop label with a step of 1 — never emit a
+                     * reference to a _for_step_N this loop may not have
+                     * declared (which would not compile). */
+                    fc = for_label_counter > 0 ? for_label_counter - 1 : 0;
+                    step_custom = false;
+                }
                 EMIT("  ");
                 if (safe_mode && type == VT_INT) {
                     emit_varname(name, type);
@@ -2218,14 +2326,21 @@ static void emit_stmt(void)
                 dim_bufs[ndims++] = db;
             } while (cur() == ',' && ndims < 8);
             if (cur() == ')') advance();
-            EMIT("  gwrt_dim("); emit_name_str(name);
+            array_info_t *ai = inline_arrays ? analysis_inlinable_array(ana, name, type) : NULL;
+            EMIT("  ");
+            if (ai && !safe_mode) { emit_arr_sym(name, type); EMIT(" = "); }
+            EMIT("gwrt_dim("); emit_name_str(name);
             EMIT(", %d, %d, (int[]){", type, ndims);
             for (int d = 0; d < ndims; d++) {
                 if (d > 0) EMIT(", ");
-                EMIT("(int)(%s)", dim_bufs[d]);
+                EMIT("gw_cint((double)(%s))", dim_bufs[d]);
                 free(dim_bufs[d]);
             }
             EMIT("});\n");
+            if (ai && !safe_mode) {
+                EMIT("  "); emit_arr_sym(name, type); EMIT("_generation = gw_array_generation;\n");
+                EMIT("  "); emit_arr_sym(name, type); EMIT("_base = gw.option_base;\n");
+            }
             skip_spaces();
             if (cur() == ',') advance();
             else break;
@@ -2260,27 +2375,10 @@ static void emit_stmt(void)
                     sbufs[nd++] = emit_to_buf(emit_prec_wrapper, 0);
                 } while (cur() == ',' && nd < 8);
                 if (cur() == ')') advance();
-                if (safe_mode) {
-                    EMIT("    gw_value_t *_sw%d = gwrt_array_elem_safe(", si);
-                    emit_name_str(name);
-                    EMIT(", %d, %d, (int[]){", type, nd);
-                    for (int d = 0; d < nd; d++) {
-                        if (d > 0) EMIT(",");
-                        EMIT("(int)(%s)", sbufs[d]);
-                        free(sbufs[d]);
-                    }
-                    EMIT("}, %u);\n", emit_line);
-                } else {
-                    EMIT("    gw_value_t *_sw%d = gwrt_array_elem(", si);
-                    emit_name_str(name);
-                    EMIT(", %d, %d, (int[]){", type, nd);
-                    for (int d = 0; d < nd; d++) {
-                        if (d > 0) EMIT(",");
-                        EMIT("(int)(%s)", sbufs[d]);
-                        free(sbufs[d]);
-                    }
-                    EMIT("});\n");
-                }
+                EMIT("    gw_value_t *_sw%d = ", si);
+                emit_elem_ptr(name, type, nd, sbufs);
+                EMIT(";\n");
+                for (int d = 0; d < nd; d++) free(sbufs[d]);
             } else {
                 /* Scalar: wrap in a static gw_value_t so we have a pointer */
                 sw_is_scalar[si] = true;
@@ -2527,30 +2625,9 @@ static void emit_stmt(void)
         return;
     }
 
-    /* ERASE */
-    if (tok == TOK_ERASE) {
-        advance();
-        EMIT("  /* ERASE — not yet compiled */\n");
-        while (cur() && cur() != ':' && cur() != 0) tp++;
-        return;
-    }
-
-    /* CLEAR [stringspace] */
-    if (tok == TOK_CLEAR) {
-        advance();
-        skip_spaces();
-        if (cur() && cur() != ':' && cur() != 0 && !is_const(cur()) && cur() == ',') {
-            advance(); skip_spaces();
-        }
-        if (is_const(cur())) {
-            EMIT("  strpool_reset((size_t)(");
-            emit_num_expr();
-            EMIT("));\n");
-        } else {
-            EMIT("  strpool_reset(0);\n");
-        }
-        /* Skip remaining args */
-        while (cur() && cur() != ':' && cur() != 0) tp++;
+    /* Array lifetime and variable reset must use the shared runtime state. */
+    if (tok == TOK_ERASE || tok == TOK_CLEAR) {
+        emit_delegate_stmt(tp, tok == TOK_CLEAR);
         return;
     }
 
@@ -2558,16 +2635,9 @@ static void emit_stmt(void)
     if (tok == TOK_TRON) { advance(); return; }
     if (tok == TOK_TROFF) { advance(); return; }
 
-    /* OPTION BASE */
+    /* OPTION BASE must retain validation and the no-existing-arrays rule. */
     if (tok == TOK_OPTION) {
-        advance(); /* skip OPTION */
-        skip_spaces();
-        /* expect BASE */
-        advance(); /* skip BASE */
-        skip_spaces();
-        EMIT("  gw.option_base = (int)(");
-        emit_num_expr();
-        EMIT(");\n");
+        emit_delegate_stmt(tp, false);
         return;
     }
 
@@ -2638,7 +2708,7 @@ static void emit_stmt(void)
             /* THEN followed by statements */
             while (cur() && cur() != TOK_ELSE && cur() != 0) {
                 if (cur() == ':') { advance(); continue; }
-                emit_stmt();
+                emit_stmt_guarded();
             }
         }
         if (cur() == TOK_ELSE) {
@@ -2651,7 +2721,7 @@ static void emit_stmt(void)
             } else {
                 while (cur() && cur() != 0) {
                     if (cur() == ':') { advance(); continue; }
-                    emit_stmt();
+                    emit_stmt_guarded();
                 }
             }
         }
@@ -2772,27 +2842,10 @@ static void emit_stmt(void)
                         sbufs[nd++] = emit_to_buf(emit_prec_wrapper, 0);
                     } while (cur() == ',' && nd < 8);
                     if (cur() == ')') advance();
-                    if (safe_mode) {
-                        EMIT("  { gw_value_t *_re = gwrt_array_elem_safe(");
-                        emit_name_str(name);
-                        EMIT(", %d, %d, (int[]){", type, nd);
-                        for (int d = 0; d < nd; d++) {
-                            if (d > 0) EMIT(",");
-                            EMIT("(int)(%s)", sbufs[d]);
-                            free(sbufs[d]);
-                        }
-                        EMIT("}, %u);\n", emit_line);
-                    } else {
-                        EMIT("  { gw_value_t *_re = gwrt_array_elem(");
-                        emit_name_str(name);
-                        EMIT(", %d, %d, (int[]){", type, nd);
-                        for (int d = 0; d < nd; d++) {
-                            if (d > 0) EMIT(",");
-                            EMIT("(int)(%s)", sbufs[d]);
-                            free(sbufs[d]);
-                        }
-                        EMIT("});\n");
-                    }
+                    EMIT("  { gw_value_t *_re = ");
+                    emit_elem_ptr(name, type, nd, sbufs);
+                    EMIT(";\n");
+                    for (int d = 0; d < nd; d++) free(sbufs[d]);
                     if (type == VT_STR) {
                         EMIT("    gw_str_free(&_re->sval);\n");
                         EMIT("    _re->sval = gw_str_from_cstr(gwrt_data_read());\n");
@@ -2929,6 +2982,16 @@ static void emit_stmt(void)
     tp++;
 }
 
+/* Fail on a stalled statement. Silently dropping a token would produce a
+ * successful compilation with changed program behavior. Inner emitters are
+ * additionally bounded by the output and scratch-buffer size limits. */
+static void emit_stmt_guarded(void)
+{
+    uint8_t *start = tp;
+    emit_stmt();
+    if (tp <= start && *tp) codegen_error("statement made no progress");
+}
+
 /* ---- Main code generation ---- */
 
 void codegen_emit(FILE *f, analysis_t *a, const codegen_opts_t *opts)
@@ -2941,6 +3004,8 @@ void codegen_emit(FILE *f, analysis_t *a, const codegen_opts_t *opts)
     ana = a;
     safe_mode = opts ? opts->safe_mode : false;
     no_gc_check = opts ? opts->no_gc_check : false;
+    inline_arrays = opts ? opts->inline_arrays : false;
+    cg_opt_level = opts ? opts->opt_level : 2;
     fast_math = opts ? opts->fast_math : false;
     main_name = (opts && opts->main_name) ? opts->main_name : "main";
     ret_label_counter = 0;
@@ -2984,6 +3049,17 @@ void codegen_emit(FILE *f, analysis_t *a, const codegen_opts_t *opts)
             EMIT(" = 0");
         EMIT(";\n");
     }
+
+    /* Cache only the shared allocation; no private copy of array values. */
+    if (inline_arrays && !safe_mode) {
+        for (int i = 0; i < a->array_count; i++) {
+            array_info_t *ai = &a->arrays[i];
+            if (!ai->inlinable || !ai->dimmed) continue;
+            EMIT("static gw_value_t *"); emit_arr_sym(ai->name, ai->type); EMIT(";\n");
+            EMIT("static unsigned long "); emit_arr_sym(ai->name, ai->type); EMIT("_generation;\n");
+            EMIT("static int "); emit_arr_sym(ai->name, ai->type); EMIT("_base;\n");
+        }
+    }
     EMIT("\n");
 
     /* DATA pool */
@@ -3011,6 +3087,13 @@ void codegen_emit(FILE *f, analysis_t *a, const codegen_opts_t *opts)
     EMIT("int %s(int argc, char **argv) {\n", main_name);
     EMIT("  (void)argc; (void)argv;\n");
     EMIT("  gwrt_init();\n");
+    if (inline_arrays && !safe_mode) {
+        for (int i = 0; i < a->array_count; i++) {
+            array_info_t *ai = &a->arrays[i];
+            if (!ai->inlinable || !ai->dimmed) continue;
+            EMIT("  "); emit_arr_sym(ai->name, ai->type); EMIT(" = NULL;\n");
+        }
+    }
     if (a->data_count > 0)
         EMIT("  gwrt_data_set(_data_pool, NULL, 0);\n");
     EMIT("\n");
@@ -3056,10 +3139,13 @@ void codegen_emit(FILE *f, analysis_t *a, const codegen_opts_t *opts)
 
             /* Check for dead code after unconditional transfers */
             uint8_t first = *tp;
-            emit_stmt();
+            emit_stmt_guarded();
 
-            /* Dead code elimination: skip remaining after GOTO/END/STOP/SYSTEM */
-            if (first == TOK_GOTO || first == TOK_END || first == TOK_STOP)
+            /* Dead code elimination: skip remaining after GOTO/END/STOP/SYSTEM.
+             * -O0 keeps the unreachable statements (they compile to dead C the
+             * host compiler drops anyway) for a more literal translation. */
+            if (cg_opt_level >= 1 &&
+                (first == TOK_GOTO || first == TOK_END || first == TOK_STOP))
                 break;
             if (first == TOK_PREFIX_FE && tp > line->tokens) {
                 /* Check if it was SYSTEM (xstmt after FE prefix) */
@@ -3071,5 +3157,27 @@ void codegen_emit(FILE *f, analysis_t *a, const codegen_opts_t *opts)
     /* Implicit END at bottom */
     EMIT("  gwrt_shutdown();\n");
     EMIT("  return 0;\n");
+
+    /* Undefined-line-number targets: a GOTO/GOSUB/THEN/etc. aimed at a line that
+     * does not exist would otherwise leave a dangling `goto L_n` with no label
+     * (a C compile error).  Real GW-BASIC raises "Undefined line number"
+     * (error 8) at run time; emit a stub label that does the same.  Placed past
+     * the implicit `return 0` so they are reached only by an explicit branch,
+     * never by fall-through.  gw_error() longjmps, so the trailing return is
+     * unreachable — it only keeps the C well-formed. */
+    {
+        int undefined = 0;
+        for (int gi = 0; gi < a->goto_count; gi++) {
+            uint16_t tgt = a->goto_targets[gi];
+            bool defined = false;
+            for (int li = 0; li < a->line_count; li++)
+                if (a->lines[li].line_num == tgt) { defined = true; break; }
+            if (!defined) {
+                EMIT("  L_%u: gw_error(8); /* undefined line number */\n", tgt);
+                undefined++;
+            }
+        }
+        if (undefined) EMIT("  return 1;\n");
+    }
     EMIT("}\n");
 }

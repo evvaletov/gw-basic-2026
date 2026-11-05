@@ -52,7 +52,7 @@ gw_value_t *gwrt_array_elem_safe(const char *name, int type, int ndims,
                                   int *subs, uint16_t line_num);
 
 /* DIM statement (wraps gw_stmt_dim via text_ptr) */
-void gwrt_dim(const char *name, int type, int ndims, int *dims);
+gw_value_t *gwrt_dim(const char *name, int type, int ndims, int *dims);
 
 /* Print helpers (wrappers around existing print.c) */
 void gwrt_print_sng(float v);

@@ -45,6 +45,8 @@ gw_value_t *gw_array_element(const char name[2], gw_valtype_t type);
 void gw_stmt_erase(void);
 void gw_stmt_option(void);
 void gw_arrays_clear(void);
+/* Changes whenever array storage can be freed or replaced. */
+extern unsigned long gw_array_generation;
 
 /* Input (input.c) */
 void gw_stmt_input(void);

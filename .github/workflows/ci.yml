@@ -30,6 +30,17 @@ jobs:
       - name: Compiler tests
         run: bash tests/run_compiler_tests.sh
 
+      - name: String and array compiler regressions
+        run: python3 tests/test_compiler_regressions.py
+
+      - name: Interactive terminal regressions
+        run: |
+          python3 -m pip install -r tests/requirements.txt
+          python3 tests/test_interactive.py
+
+      - name: Codegen safety (termination / bounded output)
+        run: bash tests/run_codegen_safety.sh
+
       - name: Cross-language (FFI) test
         run: bash tests/run_ffi_test.sh
 

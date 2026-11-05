@@ -263,6 +263,33 @@ static gw_valtype_t resolve_var_type(analysis_t *a, uint8_t first_char, uint8_t 
 
 /* Scan a token stream for variable references, GOTO targets, DATA.
  * When line_num != 0, also tracks assignment vs. use context. */
+static array_info_t *find_array_info(analysis_t *a, const char name[2], gw_valtype_t type)
+{
+    for (int i = 0; i < a->array_count; i++)
+        if (a->arrays[i].name[0] == name[0] && a->arrays[i].name[1] == name[1]
+            && a->arrays[i].type == type)
+            return &a->arrays[i];
+    return NULL;
+}
+
+/* Mark an array as never-inlinable (variable DIM, redefinition, or ERASE). */
+static void disqualify_array(analysis_t *a, const char name[2], gw_valtype_t type)
+{
+    array_info_t *ai = find_array_info(a, name, type);
+    if (ai) { ai->inlinable = false; return; }
+    if (a->array_count < MAX_ARRAYS) {
+        array_info_t *n = &a->arrays[a->array_count++];
+        n->name[0] = name[0]; n->name[1] = name[1]; n->type = type;
+        n->inlinable = false; n->dimmed = false; n->ndims = 0;
+    }
+}
+
+array_info_t *analysis_inlinable_array(analysis_t *a, const char name[2], gw_valtype_t type)
+{
+    array_info_t *ai = find_array_info(a, name, type);
+    return (ai && ai->inlinable && ai->dimmed) ? ai : NULL;
+}
+
 static void scan_tokens(analysis_t *a, uint8_t *tokens, int len, uint16_t line_num)
 {
     uint8_t *p = tokens;
@@ -302,9 +329,102 @@ static void scan_tokens(analysis_t *a, uint8_t *tokens, int len, uint16_t line_n
             continue;
         }
 
-        /* DIM — array names are declarations, not uses */
+        /* DIM — parse each declared array's constant bounds for --inline-arrays.
+         * An array is inlinable only if every dimension is a bare integer
+         * literal; anything else (a variable, an expression, a float) leaves it
+         * on the runtime path. */
         if (tok == TOK_DIM) {
-            while (p < end && *p && *p != ':') p++;
+            p++;
+            for (;;) {
+                while (p < end && *p == ' ') p++;
+                if (p >= end || *p == ':' || *p == 0 || !is_letter(*p)) break;
+                char nm[2] = {(char)toupper(*p), 0};
+                p++;
+                if (p < end && (is_letter(*p) || (*p >= '0' && *p <= '9'))) {
+                    nm[1] = (char)toupper(*p); p++;
+                    while (p < end && (is_letter(*p) || (*p >= '0' && *p <= '9'))) p++;
+                }
+                uint8_t suf = (p < end) ? *p : 0;
+                if (suf == '$' || suf == '%' || suf == '!' || suf == '#') p++;
+                else suf = 0;
+                gw_valtype_t type = resolve_var_type(a, (uint8_t)nm[0], suf);
+                while (p < end && *p == ' ') p++;
+                if (p >= end || *p != '(') { disqualify_array(a, nm, type); break; }
+                p++;  /* ( */
+                int dims[MAX_ARR_DIMS]; int nd = 0; bool ok = true;
+                int depth = 1; bool expect_num = true;
+                while (p < end && *p && depth > 0) {
+                    uint8_t t = *p;
+                    if (t == ' ') { p++; continue; }
+                    if (t == '(') { depth++; ok = false; p++; continue; }
+                    if (t == ')') { depth--; p++; continue; }
+                    if (depth == 1 && t == ',') { expect_num = true; p++; continue; }
+                    if (depth == 1 && expect_num
+                        && ((t >= 0x11 && t <= 0x1A) || t == TOK_INT1 || t == TOK_INT2)) {
+                        uint16_t v = read_encoded_int(&p);
+                        if (nd < MAX_ARR_DIMS) dims[nd++] = v; else ok = false;
+                        expect_num = false;
+                        continue;
+                    }
+                    ok = false;
+                    if (is_constant(t)) skip_constant(&p); else p++;
+                }
+                array_info_t *ai = find_array_info(a, nm, type);
+                if (ai) {
+                    ai->inlinable = false;  /* redefinition -> runtime DD error */
+                } else if (a->array_count < MAX_ARRAYS) {
+                    array_info_t *n = &a->arrays[a->array_count++];
+                    n->name[0] = nm[0]; n->name[1] = nm[1]; n->type = type;
+                    /* String arrays stay on the runtime path so their elements
+                     * remain visible to the string-pool garbage collector. */
+                    n->dimmed = true; n->ndims = nd;
+                    n->inlinable = ok && depth == 0 && !expect_num && nd > 0 && type != VT_STR;
+                    for (int i = 0; i < nd; i++) n->dims[i] = dims[i];
+                }
+                while (p < end && *p == ' ') p++;
+                if (p < end && *p == ',') { p++; continue; }
+                break;
+            }
+            assign_ctx = false;
+            continue;
+        }
+
+        /* OPTION BASE 0|1 — affects inlined array size and index base */
+        if (tok == TOK_OPTION) {
+            p++;
+            while (p < end && *p == ' ') p++;
+            while (p < end && is_letter(*p)) p++;  /* skip "BASE" */
+            while (p < end && *p == ' ') p++;
+            if (p < end && ((*p >= 0x11 && *p <= 0x1A) || *p == TOK_INT1 || *p == TOK_INT2))
+                a->option_base = read_encoded_int(&p);
+            while (p < end && *p && *p != ':' && *p != TOK_ELSE) {
+                if (is_constant(*p)) skip_constant(&p);
+                else if (*p == TOK_PREFIX_FD || *p == TOK_PREFIX_FE || *p == TOK_PREFIX_FF)
+                    p += 2;
+                else p++;
+            }
+            assign_ctx = false;
+            continue;
+        }
+
+        /* ERASE — the array leaves compile-time-known state; never inline it */
+        if (tok == TOK_ERASE) {
+            p++;
+            while (p < end && *p && *p != ':' && *p != TOK_ELSE) {
+                while (p < end && *p == ' ') p++;
+                if (p >= end || !*p || *p == ':' || *p == TOK_ELSE) break;
+                if (p < end && is_letter(*p)) {
+                    char nm[2] = {(char)toupper(*p), 0}; p++;
+                    if (p < end && (is_letter(*p) || (*p >= '0' && *p <= '9'))) {
+                        nm[1] = (char)toupper(*p); p++;
+                        while (p < end && (is_letter(*p) || (*p >= '0' && *p <= '9'))) p++;
+                    }
+                    uint8_t suf = (p < end) ? *p : 0;
+                    if (suf == '$' || suf == '%' || suf == '!' || suf == '#') p++;
+                    else suf = 0;
+                    disqualify_array(a, nm, resolve_var_type(a, (uint8_t)nm[0], suf));
+                } else p++;
+            }
             assign_ctx = false;
             continue;
         }

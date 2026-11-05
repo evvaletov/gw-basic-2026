@@ -3,6 +3,8 @@
 #include <string.h>
 #include <stdlib.h>
 
+unsigned long gw_array_generation;
+
 /*
  * Array support - reimplements DIMCON/VARGET from GWMAIN.ASM.
  * Column-major subscript calculation (leftmost varies fastest).
@@ -141,6 +143,7 @@ void gw_stmt_erase(void)
                 gw_str_free(&a->data[i].sval);
         }
         free(a->data);
+        gw_array_generation++;
 
         /* Remove from array by swapping with last */
         int idx = a - gw.arrays;
@@ -175,6 +178,7 @@ void gw_stmt_option(void)
 
 void gw_arrays_clear(void)
 {
+    gw_array_generation++;
     for (int i = 0; i < gw.array_count; i++) {
         if (gw.arrays[i].type == VT_STR) {
             for (int j = 0; j < gw.arrays[i].total_elements; j++)

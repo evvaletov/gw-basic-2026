@@ -8,6 +8,16 @@
 typedef struct {
     bool safe_mode;     /* --safe: emit runtime safety checks */
     bool warn_mode;     /* --warn: static analysis warnings */
+    bool inline_arrays; /* --inline-arrays: cache runtime storage of eligible
+                         * numeric arrays for direct indexing */
+    int  opt_level;     /* -O0..-O3: codegen optimization tier.
+                         * 0 = literal C (no constant folding, no dead-code
+                         *     elimination, always-buffered expression emitter);
+                         * 1 = + constant folding + dead-code elimination;
+                         * 2 = + fast-path direct expression emitter (default);
+                         * 3 = same codegen as 2 (drives gcc -O3 only).
+                         * Gated optimizations are semantically neutral: program
+                         * output is identical at every tier. */
     bool no_gc_check;   /* --no-gc-check: skip gwrt_check_line per line
                          * (no string-pool GC, no Ctrl+Break check) */
     bool fast_math;     /* --fast-math: skip / by-zero checks */

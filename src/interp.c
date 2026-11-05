@@ -1558,9 +1558,9 @@ void gw_exec_stmt(void)
         if (gw_chrgot() == ',') {
             gw_chrget();  /* skip comma */
             gw_skip_spaces();
-            if (gw_chrgot() && gw_chrgot() != ',' && gw_chrgot() != ':' && gw_chrgot() != 0)
+            if (gw_chrgot() && gw_chrgot() != ',' && gw_chrgot() != ':' && gw_chrgot() != TOK_ELSE)
                 new_pool = (size_t)gw_eval_int();
-        } else if (gw_chrgot() && gw_chrgot() != ':' && gw_chrgot() != 0) {
+        } else if (gw_chrgot() && gw_chrgot() != ':' && gw_chrgot() != TOK_ELSE) {
             new_pool = (size_t)gw_eval_int();
         }
         portio_reset();
@@ -1577,8 +1577,16 @@ void gw_exec_stmt(void)
         gw.in_error_handler = false;
         strpool_reset(new_pool);
         /* Skip remaining optional args (stack size) */
-        while (gw_chrgot() && gw_chrgot() != ':')
-            gw.text_ptr++;
+        while (gw_chrgot() && gw_chrgot() != ':' && gw_chrgot() != TOK_ELSE) {
+            uint8_t arg = gw_chrgot();
+            if (arg == TOK_INT1) gw.text_ptr += 2;
+            else if (arg == TOK_INT2) gw.text_ptr += 3;
+            else if (arg == TOK_CONST_SNG) gw.text_ptr += 5;
+            else if (arg == TOK_CONST_DBL) gw.text_ptr += 9;
+            else if (arg == TOK_PREFIX_FD || arg == TOK_PREFIX_FE || arg == TOK_PREFIX_FF)
+                gw.text_ptr += 2;
+            else gw.text_ptr++;
+        }
         return;
     }
 

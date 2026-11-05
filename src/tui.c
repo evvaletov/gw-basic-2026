@@ -462,6 +462,95 @@ char *tui_read_line(void)
     }
 }
 
+/* Prompted input owns a logical buffer. Screen-line extraction is appropriate
+ * for editing listed BASIC, but would include the prompt in INPUT's value and
+ * lose text when an answer wraps or scrolls. */
+char *tui_read_input(void)
+{
+    static char buf[TUI_MAX_LINE + 1];
+    int len = 0, pos = 0, drawn = 0;
+    int row = tui.cursor_row, col = tui.cursor_col;
+    const char *macro = NULL;
+    buf[0] = '\0';
+
+    for (;;) {
+        /* Make room for the answer and its insertion cursor. */
+        int last_row = row + (col + len) / tui.cols;
+        while (last_row > tui.view_bottom) {
+            scroll_up();
+            row--;
+            last_row--;
+        }
+        int extent = len > drawn ? len : drawn;
+        for (int i = 0; i <= extent; i++) {
+            int r = row + (col + i) / tui.cols;
+            int c = (col + i) % tui.cols;
+            if (r < 0 || r > tui.view_bottom) continue;
+            TUI_CELL(r, c).ch = i < len ? (uint8_t)buf[i] : ' ';
+            TUI_CELL(r, c).attr = tui.current_attr;
+        }
+        drawn = len;
+        tui.cursor_row = row + (col + pos) / tui.cols;
+        tui.cursor_col = (col + pos) % tui.cols;
+        if (tui.cursor_row < 0) tui.cursor_row = 0;
+        tui_refresh();
+        tui_update_cursor();
+
+        int key;
+        if (macro && *macro) key = (unsigned char)*macro++;
+        else { macro = NULL; key = tui_read_key(); }
+        if (key < 0 || key == TK_CTRL_C || key == TK_CTRL_BREAK || tui.break_flag) {
+            tui.break_flag = false;
+            return NULL;
+        }
+        if (key >= TK_F1 && key <= TK_F10) {
+            macro = tui.fkey_defs[key - TK_F1];
+            continue;
+        }
+        if (key == TK_ENTER) {
+            tui.cursor_row = row + (col + len) / tui.cols;
+            tui.cursor_col = (col + len) % tui.cols;
+            tui_puts("\n");
+            return buf;
+        }
+        switch (key) {
+        case TK_LEFT: if (pos > 0) pos--; break;
+        case TK_RIGHT: if (pos < len) pos++; break;
+        case TK_HOME: pos = 0; break;
+        case TK_END: pos = len; break;
+        case TK_BACKSPACE:
+        case 127:
+            if (pos > 0) {
+                memmove(buf + pos - 1, buf + pos, len - pos + 1);
+                pos--; len--;
+            }
+            break;
+        case TK_DELETE:
+            if (pos < len) {
+                memmove(buf + pos, buf + pos + 1, len - pos);
+                len--;
+            }
+            break;
+        case TK_ESCAPE: len = pos = 0; buf[0] = '\0'; break;
+        case TK_INSERT:
+            tui.insert_mode = !tui.insert_mode;
+            if (tui.insert_mode) tui_set_cursor_block();
+            else tui_set_cursor_line();
+            break;
+        default:
+            if (key >= 32 && key <= 255) {
+                if (pos < len && !tui.insert_mode) buf[pos++] = (char)key;
+                else if (len < TUI_MAX_LINE) {
+                    memmove(buf + pos + 1, buf + pos, len - pos + 1);
+                    buf[pos++] = (char)key;
+                    len++;
+                }
+            }
+            break;
+        }
+    }
+}
+
 static void render_key_bar(void)
 {
     int row = tui.rows - 1;

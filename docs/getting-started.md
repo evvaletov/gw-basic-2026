@@ -3,19 +3,19 @@
 ## Dependencies
 
 - C11 compiler (GCC or Clang)
-- CMake 3.10+
+- CMake 3.12+ and `pkg-config`
 - PulseAudio development library (`libpulse-simple`) -- optional, for `SOUND`/`BEEP`/`PLAY`
 
 On Debian/Ubuntu:
 
 ```bash
-sudo apt-get install build-essential cmake libpulse-dev
+sudo apt-get install build-essential cmake pkg-config libpulse-dev
 ```
 
 On Fedora/RHEL:
 
 ```bash
-sudo dnf install gcc cmake pulseaudio-libs-devel
+sudo dnf install gcc make cmake pkgconf-pkg-config pulseaudio-libs-devel
 ```
 
 ## Building
@@ -23,20 +23,20 @@ sudo dnf install gcc cmake pulseaudio-libs-devel
 ```bash
 git clone https://github.com/evvaletov/gw-basic-2026.git
 cd gw-basic-2026
-mkdir -p build && cd build
-cmake .. && make
+cmake -B build
+cmake --build build
 ```
 
-The binary is `build/gwbasic`.
+The binary is `build/gwbasic`. Run the examples below from the repository root.
 
 ## Usage
 
 ### Interactive Mode
 
-Running `./gwbasic` with no arguments launches the full-screen editor:
+Running `build/gwbasic` with no arguments launches the full-screen editor:
 
 ```
-$ ./gwbasic
+$ build/gwbasic
 GW-BASIC 2026 0.18.0
 (C) Eremey Valetov 2026. MIT License.
 Based on Microsoft GW-BASIC assembly source.
@@ -52,16 +52,20 @@ Ok
 Use arrow keys to move the cursor freely. Press Enter on any screen line to
 re-enter it. F1-F10 insert common commands (F2 runs the program).
 
+Entering, replacing, or deleting a numbered program line leaves the cursor ready
+for the next line. Direct commands print `Ok` when they finish. During `INPUT`
+or `LINE INPUT`, the editor returns the answer following the prompt.
+
 ### Running a Program File
 
 ```bash
-./gwbasic tests/programs/prime_sieve.bas
+build/gwbasic tests/programs/prime_sieve.bas
 ```
 
 ### Piped Input
 
 ```bash
-echo '10 FOR I=1 TO 10:PRINT I*I;:NEXT' | ./gwbasic
+printf '10 FOR I=1 TO 10:PRINT I*I;:NEXT\nRUN\n' | build/gwbasic
 ```
 
 ### Direct Mode Expressions
@@ -89,8 +93,10 @@ Options:
 
 ## Ahead-of-Time Compiler
 
-`gwbasic-compile` translates `.bas` programs to C source, then optionally
-invokes GCC to produce native executables linked against `libgwrt.a`.
+`gwbasic-compile` reads ASCII `.bas` programs and emits C source. With `-c`,
+it invokes GCC to produce native executables linked against `libgwrt.a`.
+GCC is needed for generated C, including when Clang built the interpreter.
+Convert a tokenized program with `SAVE "program.bas",A` before compiling it.
 
 ### Basic Usage
 
@@ -103,10 +109,9 @@ build/gwbasic-compile -c --runtime . program.bas
 ```
 
 Both numbered (`10 PRINT "HI"`) and unnumbered (`PRINT "HI"`) sources
-compile.  Unnumbered lines get auto-assigned numbers (10, 20, 30, ...) so
-the analysis pass and codegen can produce labeled statements; explicit
-line numbers are preserved.  Direct-mode scratchpad scripts and classic
-"just a list of statements" programs compile without manual renumbering.
+compile. Each unnumbered line receives a number ten greater than the previous
+line, starting at 10. Explicit line numbers are preserved. Keep the assigned
+numbers distinct when mixing the two forms.
 
 ### Compiler Options
 
@@ -115,54 +120,73 @@ Usage: gwbasic-compile [options] input.bas
 Options:
   -o FILE          Output C source file (default: stdout)
   -c               Compile to executable (invoke gcc)
-  -O LEVEL         GCC optimization level (default: 2)
+  -O LEVEL         Code generation and GCC optimization tier, 0-3 (default: 2)
   --keep-c         Keep generated C file (with -c)
   --runtime DIR    Path to runtime headers/library
   --warn           Static analysis warnings
   --safe           Runtime safety checks (implies --warn)
   --safe=sanitize  Above + address/UB sanitizers (with -c)
-  --no-gc-check    Skip per-line gwrt_check_line() (no GC, no Break)
+  --no-gc-check    Skip per-line garbage collection and Break checks
   --fast-math      Skip division-by-zero checks
+  --inline-arrays  Use direct indexing for eligible numeric arrays
+  --emit-obj       Compile to an object file (.o)
+  --main-name N    Rename the generated entry point
+  --max-output-size MB  Limit generated C output (default: 256; 0: unlimited)
 ```
+
+### Optimization Tiers and Arrays
+
+`-O0` disables constant folding, dead-code removal after unconditional
+transfers, and the fast expression emitter in the BASIC compiler. `-O1`
+enables constant folding and dead-code removal; `-O2` and `-O3` also enable
+the fast emitter. The selected level is passed to GCC when compiling C.
+Other transformations, such as the simplified `FOR ... STEP 1` loop, remain
+enabled at every tier.
+
+`--inline-arrays` caches storage for numeric arrays whose `DIM` bounds are
+known at compile time, then indexes that storage directly. The runtime still
+owns the array, so delegated statements use the same data. `CLEAR` and `ERASE`
+invalidate cached pointers. String arrays and arrays with dynamic bounds use
+the runtime access path. With `--safe`, array access uses the checked runtime
+path throughout.
 
 ### Performance Flags (`--no-gc-check` / `--fast-math`)
 
 `--no-gc-check` skips the `gwrt_check_line()` call emitted at the start of
-every non-REM line.  That call drives the string-pool compacting GC and
-the Ctrl+Break trap.  Removing it gives a small per-line speedup for
-programs that don't allocate strings or need responsive interruption.
-String reassignment can still trigger compaction lazily, but the
-guaranteed periodic check is gone.
+every non-REM line. That call updates the current BASIC line number, checks
+the string pool for garbage collection, and checks for Ctrl+Break when the
+TUI is active. Disabling it can affect error locations and string-space usage.
+`FRE("")` still requests garbage collection explicitly.
 
 `--fast-math` removes the explicit divide-by-zero check around the `/`
-operator.  The result of `X = 10 / 0` becomes `inf` rather than raising
-"Division by zero".  Useful for compute-bound code that already validates
-inputs.
+operator and permits the host floating-point result for a zero divisor.
+This flag changes BASIC error behavior; use it only when the program already
+validates its divisors.
 
 ### Memory Safety (`--warn` / `--safe`)
 
 The `--warn` flag enables compile-time static analysis warnings:
 
-- **Uninitialized variables** -- variables used before their first assignment
+- Uninitialized variables: variables used before their first assignment
   (via LET, FOR, READ, INPUT)
-- **GOTO/GOSUB to nonexistent line** -- jump targets that don't exist in the
+- GOTO/GOSUB to nonexistent line: jump targets that don't exist in the
   program
-- **Unreachable code** -- lines after unconditional GOTO/END/STOP that are not
+- Unreachable code: lines after unconditional GOTO/END/STOP that are not
   jump targets
 
 The `--safe` flag (implies `--warn`) adds runtime safety checks to the
 generated C:
 
-- **Integer overflow detection** -- arithmetic on integer (%) variables uses
-  checked functions (`gw_int_add`, `gw_int_sub`, `gw_int_mul`) that raise
-  "Overflow" instead of silently wrapping, matching real GW-BASIC behavior
-- **Enhanced array diagnostics** -- subscript errors report the array name,
+- Integer overflow detection: generated integer addition, subtraction,
+  multiplication, and negation use checked functions that raise "Overflow"
+- Enhanced array diagnostics: subscript errors report the array name,
   subscript value, line number, and which dimension exceeded its bound
-- **GOSUB stack diagnostics** -- stack overflow reports the source line and
+- GOSUB stack diagnostics: stack overflow reports the source line and
   current depth
 
 The `--safe=sanitize` flag (with `-c`) additionally passes
-`-fsanitize=address,undefined` to GCC for full memory error detection.
+`-fsanitize=address,undefined` to GCC. This instruments the generated C;
+instrumenting `libgwrt.a` also requires rebuilding the runtime with those flags.
 
 ```bash
 # Warnings only (zero runtime cost)
@@ -171,7 +195,7 @@ build/gwbasic-compile --warn program.bas
 # Runtime safety checks
 build/gwbasic-compile --safe -c --runtime . program.bas
 
-# Full sanitizer build (debugging)
+# Instrument generated C (debugging)
 build/gwbasic-compile --safe=sanitize -c --runtime . program.bas
 ```
 
@@ -191,6 +215,8 @@ build/gwbasic-compile --emit-obj --main-name=run_basic_greet \
 C driver:
 
 ```c
+#include <stddef.h>
+
 extern int run_basic_greet(int argc, char **argv);
 
 int main(void) {
@@ -202,7 +228,7 @@ int main(void) {
 Link both together:
 
 ```bash
-gcc driver.c greet.o -L./build -lgwrt -lm -lpthread -lpulse-simple
+gcc driver.c greet.o -L./build -lgwrt -lm -lpthread -lpulse-simple -o greet
 ```
 
 Fortran driver (modern, with `iso_c_binding`):
@@ -224,12 +250,15 @@ end program
 ```
 
 ```bash
-gfortran driver.f90 greet.o -L./build -lgwrt -lm -lpthread -lpulse-simple
+gfortran driver.f90 greet.o -L./build -lgwrt -lm -lpthread -lpulse-simple -o greet
 ```
 
+Omit `-lpthread -lpulse-simple` in these link commands if the runtime was built
+without PulseAudio.
+
 The BASIC code shares the `gw` interpreter state with `libgwrt`, so a
-single binary runs at most one BASIC program at a time.  Calling BASIC
-from C / Fortran is always safe; calling C / Fortran *from* BASIC uses
+single binary runs at most one BASIC program at a time. Do not call a generated
+entry point concurrently or recursively. Calls from BASIC to C or Fortran use
 the `'$EXTERN` pragma described next.
 
 ### Foreign Functions from BASIC (`'$EXTERN`)
@@ -260,6 +289,7 @@ The C side supplies the symbols at link time:
 
 ```c
 #include <stdint.h>
+#include <stdio.h>
 int16_t     Getn(void)                  { return 42; }
 double      Cmul(double a, double b)    { return a * b; }
 const char *Greet(const char *who) {
@@ -280,8 +310,8 @@ gcc demo.o lib.o -L./build -lgwrt -lm -lpthread -lpulse-simple -o demo
 Notes and constraints:
 
 - The function name is matched case-insensitively at the call site (BASIC
-  convention) but emitted as the C symbol with the **case written in the
-  pragma**, so `Cmul` calls C's `Cmul`, not `cmul`.
+  convention). The emitted C symbol preserves the case written in the pragma:
+  `Cmul` calls C's `Cmul`.
 - The BASIC call name must be a legal BASIC identifier (it starts with a
   letter) because the call site is tokenized as ordinary BASIC.  To call a C
   function whose name contains underscores or other characters, add an
@@ -289,9 +319,12 @@ Notes and constraints:
   is whatever you write:
 
   ```basic
-  10 '$EXTERN Sqlopen(STRING) AS INTEGER = sqlite3_open
-  20 RC = Sqlopen("data.db")
+  10 '$EXTERN Cmul(DOUBLE, DOUBLE) AS DOUBLE = c_multiply
+  20 PRINT Cmul(2.5, 4)
   ```
+  The linked function must have the declared ABI, for example
+  `double c_multiply(double a, double b)`. Use a C wrapper for APIs with
+  pointers, output parameters, or other unsupported argument types.
 - A string-returning extern works wherever a string expression is expected,
   including `PRINT`, `WRITE`, `INSTR`, and string comparison (`IF Greet(N$) =
   "..."`).
@@ -307,7 +340,7 @@ Two targets are available:
 
 ### 16-bit real-mode (recommended for FreeDOS)
 
-Produces a standalone 128KB MZ executable -- no DOS extender required.
+Produces a standalone MZ executable that runs without a DOS extender.
 
 ```bash
 wmake -f Makefile.dos16
@@ -318,7 +351,7 @@ Requires OpenWatcom V2 with 16-bit DOS target.  Uses MEDIUM memory model
 
 ### 32-bit DOS/4GW
 
-Produces a 175KB LE executable requiring `DOS4GW.EXE` (265KB) at runtime.
+Produces an LE executable requiring `DOS4GW.EXE` at runtime.
 Also builds the compiler (`GWBASCOM.EXE`) and runtime library (`GWRT.LIB`).
 
 ```bash
@@ -344,8 +377,8 @@ without `ANSI.SYS`.
 Two automated checks run from a Linux host:
 
 ```bash
-./build_dos.sh 16            # produces gwbasic16.exe (~128KB)
-./build_dos.sh 32            # produces gwbasic.exe (~175KB)
+./build_dos.sh 16            # produces gwbasic16.exe
+./build_dos.sh 32            # produces gwbasic.exe
 bash tests/run_dos_smoke.sh  # runs gwbasic16.exe under DOSBox-X, diffs golden
 ```
 
