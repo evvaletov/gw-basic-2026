@@ -136,6 +136,8 @@ jobs:
         with:
           name: dos-binaries
           path: .ci-stash/*.exe
+          include-hidden-files: true
+          if-no-files-found: error
 
   release-archives:
     needs: [build-and-test, dos-cross-compile]
@@ -166,3 +168,4 @@ jobs:
         with:
           name: release-archives
           path: dist/release/*
+          if-no-files-found: error
