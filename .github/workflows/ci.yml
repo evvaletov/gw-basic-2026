@@ -25,7 +25,9 @@ jobs:
           make -j$(nproc)
 
       - name: Harness regression tests
-        run: python3 tests/test_harnesses.py
+        run: |
+          python3 tests/test_harnesses.py
+          python3 tests/test_corpus.py
 
       - name: Interpreter tests (audio disabled)
         env:
@@ -37,6 +39,17 @@ jobs:
 
       - name: String and array compiler regressions
         run: python3 tests/test_compiler_regressions.py
+
+      - name: Curated compatibility corpus
+        run: bash tests/run_corpus.sh --report corpus-matrix.json
+
+      - name: Upload compatibility matrix
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: corpus-matrix
+          path: corpus-matrix.json
+          if-no-files-found: warn
 
       - name: Interactive terminal regressions
         run: |

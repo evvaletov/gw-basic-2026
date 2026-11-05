@@ -33,7 +33,7 @@ the [language reference](language-reference.md).
   highlighting; `pip install -e . && gwbasickernel-install --user`
 - Regression tests with expected-output files and a DOSBox-X harness for
   comparison with GWBASIC.EXE
-- MIT License
+- MIT-licensed implementation; vendored BASIC Computer Games listings use the Unlicense
 
 ```{toctree}
 :maxdepth: 2

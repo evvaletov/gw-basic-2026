@@ -1,0 +1,1284 @@
+{
+  "kind": "build-audit",
+  "upstream_revision": "a81c331c1d32f9553c6226639a415bfceb2daed6",
+  "rows": [
+    {
+      "source": "23matches.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "3dplot.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "aceyducey.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "amazing.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "animal.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "awari.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "exit:1",
+        "exit_code": 1,
+        "stderr": "<work>/awari/program.c: In function \u2018main\u2019:\n<work>/awari/program.c:371:5: error: label \u2018for_done_2\u2019 used but not defined\n  371 |     if (var_I_sng > _for_limit_2) goto for_done_2;\n      |     ^~\n"
+      }
+    },
+    {
+      "source": "bagels.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "banner.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "basketball.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "batnum.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "battle.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "blackjack.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "bombardment.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "bombsaway.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "bounce.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "bowling.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "boxing.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "bug.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "bullfight.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "bullseye.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "bunny.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "buzzword.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "calendar.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "change.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "checkers.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "exit:1",
+        "exit_code": 1,
+        "stderr": "<work>/checkers/program.c: In function \u2018main\u2019:\n<work>/checkers/program.c:520:16: error: \u2018_for_step_9\u2019 undeclared (first use in this function); did you mean \u2018_for_step_7\u2019?\n  520 |   var_A_sng += _for_step_9;\n      |                ^~~~~~~~~~~\n      |                _for_step_7\n<work>/checkers/program.c:520:16: note: each undeclared identifier is reported only once for each function it appears in\n<work>/checkers/program.c:495:5: error: label \u2018for_done_8\u2019 used but not defined\n  495 |     if (_for_step_8 >= 0 ? var_A_sng > _for_limit_8 : var_A_sng < _for_limit_8) goto for_done_8;\n      |     ^~\n"
+      }
+    },
+    {
+      "source": "chemist.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "chief.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "chomp.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "civilwar.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "combat.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "craps.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "cube.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "depthcharge.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "diamond.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "dice.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "digits.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "evenwins.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "flipflop.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "football.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "furtrader.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "golf.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "gomoko.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "guess.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "gunner.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "hammurabi.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "hangman.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "hello.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "hexapawn.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "hi-lo.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "highiq.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "hockey.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "horserace.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "hurkle.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "kinema.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "king.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "letter.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "life.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "lifefortwo.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "litquiz.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "love.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "lunar.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "mastermind.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "mathdice.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "mugwump.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "name.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "nicomachus.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "nim.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "number.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "onecheck.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "orbit.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "pizza.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "poetry.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "poker.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "qubit.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "queen.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "reverse.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "rockscissors.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "roulette.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "russianroulette.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "salvo.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "sinewave.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "slalom.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "slots.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "splat.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "stars.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "stockmarket.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "superstartrek.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "superstartrekins.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "synonym.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "target.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "tictactoe1.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "tictactoe2.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "tower.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "train.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "trap.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "war.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "weekday.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    },
+    {
+      "source": "word.bas",
+      "transpile": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      },
+      "cc": {
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
+      }
+    }
+  ],
+  "passed": 96,
+  "failed": 2,
+  "captured": "2026-11-05",
+  "note": "Build-only baseline; no runtime claims. Temporary paths removed."
+}

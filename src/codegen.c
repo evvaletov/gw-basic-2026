@@ -625,13 +625,30 @@ static void emit_atom(void)
         skip_spaces();
         /* Skip function name + arguments */
         while (is_letter(cur()) || (cur() >= '0' && cur() <= '9')) advance();
+        if (cur() == '%' || cur() == '!' || cur() == '#' || cur() == '$') advance();
+        skip_spaces();
         if (cur() == '(') {
             int depth = 1; advance();
             while (*tp && depth > 0) {
+                if (cur() == TOK_INT1) { tp += 2; continue; }
+                if (cur() == TOK_INT2) { tp += 3; continue; }
+                if (cur() == TOK_CONST_SNG) { tp += 5; continue; }
+                if (cur() == TOK_CONST_DBL) { tp += 9; continue; }
+                if (cur() == TOK_PREFIX_FD || cur() == TOK_PREFIX_FE || cur() == TOK_PREFIX_FF) {
+                    tp += 2; continue;
+                }
+                if (cur() == '"') {
+                    advance();
+                    while (cur() && cur() != '"') advance();
+                    if (cur()) advance();
+                    continue;
+                }
+                if (cur() == ':' || cur() == TOK_ELSE) break;
                 if (cur() == '(') depth++;
                 else if (cur() == ')') depth--;
                 advance();
             }
+            if (depth != 0) codegen_error("expected ')' in FN call");
         }
         int len = (int)(tp - start);
         /* Sync variables, embed tokens, call evaluator */
@@ -1713,7 +1730,9 @@ static void emit_delegate_stmt_ex(uint8_t *stmt_start, bool read_back, bool sync
     /* Variable sync: selective (scan tokens for referenced names) or full */
     for (int vi = 0; vi < ana->var_count; vi++) {
         var_info_t *v = &ana->vars[vi];
-        if (!sync_all) {
+        /* A delegate that reads every variable back must first receive every
+         * current value, including variables absent from the statement. */
+        if (!sync_all && !read_back) {
             bool found = false;
             uint8_t *sc = stmt_start;
             while (sc < tp) {
@@ -2428,6 +2447,7 @@ static void emit_stmt(void)
 
     /* DEF SEG / DEF FN */
     if (tok == TOK_DEF) {
+        uint8_t *def_start = tp;
         advance();
         skip_spaces();
         /* DEF SEG = expr  or  DEF FN */
@@ -2444,18 +2464,9 @@ static void emit_stmt(void)
                 EMIT("  gw.def_seg = 0;\n");
             }
         } else if (cur() == TOK_FN) {
-            /* DEF FN — embed tokens for runtime interpreter */
-            uint8_t *start = tp - 2;  /* back to TOK_DEF */
-            while (*tp && *tp != ':') tp++;
-            int len = (int)(tp - start);
-            EMIT("  { static const uint8_t _df[] = {");
-            for (int i = 0; i < len; i++)
-                EMIT("%s%u", i ? "," : "", start[i]);
-            EMIT(",0};\n");
-            EMIT("    uint8_t *_save = gw.text_ptr;\n");
-            EMIT("    gw.text_ptr = (uint8_t *)_df;\n");
-            EMIT("    gw_exec_stmt();\n");
-            EMIT("    gw.text_ptr = _save; }\n");
+            /* Use the token-aware boundary scanner: constants may contain
+             * zero bytes, and DEF/FN need not have exactly one space. */
+            emit_delegate_stmt(def_start, false);
         } else {
             while (cur() && cur() != ':' && cur() != 0) tp++;
         }

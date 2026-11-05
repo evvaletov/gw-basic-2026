@@ -30,10 +30,12 @@ Run the suites from the repository root after building:
 ```bash
 python3 -m pip install -r tests/requirements.txt
 python3 tests/test_harnesses.py          # harness failure and timeout checks
+python3 tests/test_corpus.py             # corpus harness failure checks
 bash tests/run_tests.sh                 # interpreter programs
 bash tests/run_compiler_tests.sh        # native executables
 python3 tests/test_interactive.py        # terminal input and prompt behavior
 python3 tests/test_compiler_regressions.py  # compiler option combinations
+bash tests/run_corpus.sh --report corpus-matrix.json  # curated corpus
 python3 -m gwbasickernel.test_kernel     # Jupyter kernel
 ```
 
@@ -76,6 +78,35 @@ optimization, safety, and array-access modes. The four interactive games in
 
 ### Compatibility Testing
 
+The curated corpus has 13 deterministic cases from eight original *BASIC
+Computer Games* listings. Each interpreter run and each of six compiler modes
+must match a checked-in Microsoft GW-BASIC transcript. Compiled output must also
+match the interpreter. Normalization converts CRLF to LF and removes trailing
+spaces and tabs; leading spaces and blank lines remain significant.
+
+```bash
+# Run one case, or leave off --case to run all 13.
+bash tests/run_corpus.sh --case plot --report corpus-matrix.json
+
+# Transpile and compile all 98 listings without executing them.
+# Currently exits 1: Awari and Checkers fail native compilation.
+bash tests/run_corpus.sh --audit --report corpus-audit.json
+```
+
+The corpus runner uses separate working directories, a five-second execution
+limit, 20 seconds for transpilation, and 60 seconds for C compilation. A timeout,
+nonzero status, missing build output, runtime stderr, or transcript mismatch fails
+the case. It checks source, input, and expected-output hashes before execution.
+Its timeout settings are fixed and independent of the shell harness variables.
+
+Reference capture uses a user-supplied Microsoft executable under DOSBox-X.
+Only I/O and error diagnostics are adapted; the original vendored files remain
+unchanged. The capture does not check terminal echo, screen wrapping, graphics,
+or audio. The checked-in transcripts let CI run without either proprietary
+software or DOSBox. See the [corpus instructions](https://github.com/evvaletov/gw-basic-2026/tree/main/tests/corpus)
+for provenance, capture commands, and the limits of this evidence.
+
+
 The DOSBox-X harness compares output with Microsoft GWBASIC.EXE:
 
 ```bash
@@ -92,6 +123,7 @@ before using them to assess compatibility.
 ## CI
 
 GitHub Actions builds the project with PulseAudio support and runs harness,
-interpreter, compiler, terminal, and compiler-regression checks on pushes to `main` and pull
-requests. See [the workflow](https://github.com/evvaletov/gw-basic-2026/blob/main/.github/workflows/ci.yml)
+interpreter, compiler, terminal, compiler-regression, and curated corpus checks
+on pushes to `main` and pull requests. The corpus JSON matrix is uploaded as an
+artifact, including on failures. See [the workflow](https://github.com/evvaletov/gw-basic-2026/blob/main/.github/workflows/ci.yml)
 for the current commands.

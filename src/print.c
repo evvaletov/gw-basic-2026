@@ -147,6 +147,8 @@ void gw_stmt_print(void)
             gw_expect_rparen();
             if (n < 1) n = 1;
             n--;
+            if (n < print_col)
+                gw_print_newline();
             if (n > print_col) {
                 while (print_col < n)
                     print_char(' ');
@@ -229,6 +231,8 @@ void gw_stmt_lprint(void)
             gw_expect_rparen();
             if (n < 1) n = 1;
             n--;
+            if (n < lpt_col)
+                lpt_char(fp, '\n');
             if (n > lpt_col) {
                 while (lpt_col < n)
                     lpt_char(fp, ' ');

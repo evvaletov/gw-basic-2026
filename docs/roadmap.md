@@ -68,9 +68,13 @@ gwbasickernel-install --user
 The harness now fails on output mismatches and process errors, with separate
 limits for audio, timer, and compilation tests (git-bug `54f3aa6`).
 
-1. Build a curated compatibility corpus with fixed input and expected output.
-   Compare interpreter and compiled results before expanding the collection
-   (git-bug `51679f0`).
+The curated compatibility suite now checks 13 scripted cases from eight original
+listings against Microsoft GW-BASIC output and across six compiler modes. The
+98-listing build audit passes 96; Awari and Checkers expose remaining FOR/NEXT
+code-generation failures. The broader corpus expansion stays open (`51679f0`).
+
+1. Fix FOR/NEXT code generation for Awari and Checkers, add focused regressions,
+   and rerun the full build audit (git-bug `ca3a8b8`).
 2. Validate terminal editing, audible output, and execution under DOS, then
    prepare a bugfix release. The 16-bit and 32-bit DOS targets cross-compile;
    that check does not establish runtime behavior (git-bug `e4b2824`).
@@ -88,14 +92,15 @@ repository for design notes and current status.
 
 | Theme | Item | git-bug | Priority |
 |-------|------|---------|----------|
+| testing | Expand scripted gameplay and reference coverage beyond the curated corpus | `51679f0` | P2 |
 | compiler | Export individual BASIC routines as C-callable functions | `1b7d59c` | P2 |
 | language | FORTRAN-style `WRITE` formatted I/O | `a6e99af` | P2 |
 | language | C-style `PRINTF` / `FPRINTF` | `cd8750c` | P2 |
 | ide | JetBrains support after the VS Code extension | `32a637c` | P2 |
 | stdlib | Numerical/data library with arrays, data frames, and plotting | `55a9d14` | P2 |
 
-The VS Code extension and larger *BASIC Computer Games* corpus are development
-work outside the supported build and regression suites.
+The VS Code extension remains development work outside the supported build.
+The corpus runtime checks cover only the cases listed in its fixture manifest.
 
 ## Known Limitations
 

@@ -124,6 +124,7 @@ Run the regression suites from the repository root:
 python3 tests/test_harnesses.py          # harness failure and timeout checks
 bash tests/run_tests.sh                 # interpreter
 bash tests/run_compiler_tests.sh        # compiled programs
+bash tests/run_corpus.sh --report corpus-matrix.json  # curated compatibility cases
 python3 -m gwbasickernel.test_kernel     # Jupyter kernel
 ```
 
@@ -137,6 +138,12 @@ This points PulseAudio at an unavailable socket, as the interpreter CI step does
 Audio fixtures have a 30-second limit so they can also finish with a live server.
 Output mismatches, execution failures, and timeouts fail the suites. See
 [Development](docs/development.md) for timeout settings and test coverage.
+
+The [compatibility corpus](tests/corpus/README.md) contains 98 original BASIC
+Computer Games listings. Its automated runtime suite checks 13 fixed-input cases
+from eight listings against Microsoft GW-BASIC transcripts and compares six
+compiler modes with the interpreter. The other listings have build-audit
+coverage only; Awari and Checkers currently fail native compilation.
 
 ## DOS / FreeDOS
 
@@ -160,4 +167,5 @@ cd docs && pip install -r requirements.txt && make html
 
 ## License
 
-MIT License. See [LICENSE](LICENSE).
+The implementation uses the [MIT License](LICENSE). The vendored BASIC Computer
+Games listings in `tests/corpus/` use the upstream [Unlicense](tests/corpus/LICENSE).

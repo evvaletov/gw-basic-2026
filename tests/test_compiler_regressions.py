@@ -8,6 +8,26 @@ import tempfile
 
 
 CASES = {
+    "compact_functions": ('''10 REM comment: PRINT "BAD"
+20 DEF    FNA(X)=X+256:PRINT "DEFINED"
+30 PRINT FNA(41)
+40 DEF FNB(Y)=Y+160
+50 PRINT FNB(256)
+60 DEF FNC(Z)=Z+1.5
+70 PRINT FNC(1.5)
+''', "", ["DEFINED", "297", "416", "3"]),
+    "input_preserves_state": ('''10 X=19:S$="KEPT"
+20 FOR J=1 TO 3
+30 INPUT A
+40 PRINT J;X;S$;A
+50 NEXT J
+60 PRINT J
+''', "1\n2\n3\n", ["? 1 19 KEPT 1", "? 2 19 KEPT 2", "? 3 19 KEPT 3", "4"]),
+    "backward_tab": ('''10 PRINT "ABCDE";TAB(3);"X"
+20 PRINT "AB";TAB(3);"C"
+30 LPRINT "ABCDE";TAB(3);"X"
+40 LPRINT "AB";TAB(3);"C"
+''', "", ["ABCDE", "X", "ABC"]),
     "grouped_strings": ('''10 A$="needle"
 20 PRINT ((A$))
 30 PRINT INSTR((A$),("e"))
@@ -167,6 +187,9 @@ def main():
             want = normalized("\n".join(expected))
             actual = normalized(run([str(build / "gwbasic"), str(bas)], root, stdin))
             assert actual == want, (name, "interpreter", actual, want)
+            if name == "backward_tab":
+                assert (root / "LPT1.TXT").read_bytes() == b"ABCDE\n  X\nABC\n"
+                (root / "LPT1.TXT").unlink()
             for opt, inline, safe in modes:
                 c = root / f"{name}.c"
                 exe = root / name
@@ -181,6 +204,9 @@ def main():
                      "-I" + str(repo / "include"), "-lm", "-pthread", *libs, "-o", str(exe)], root)
                 actual = normalized(run([str(exe)], root, stdin))
                 assert actual == want, (name, flags, actual, want)
+                if name == "backward_tab":
+                    assert (root / "LPT1.TXT").read_bytes() == b"ABCDE\n  X\nABC\n"
+                    (root / "LPT1.TXT").unlink()
                 count += 1
             print(f"PASS {name} (16 compiler modes)", flush=True)
 

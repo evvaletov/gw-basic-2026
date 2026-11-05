@@ -1,0 +1,497 @@
+{
+  "repository": "https://github.com/coding-horror/basic-computer-games",
+  "revision": "a81c331c1d32f9553c6226639a415bfceb2daed6",
+  "license": "Unlicense",
+  "files": {
+    "23matches.bas": {
+      "sha256": "81e0fb822966e771c67f0aa0b96edb44e247e35a8102d433fe6883dd89fdf8ec",
+      "git_blob": "dc5b27a637507c5ecc31280dfd5fd115eb884766",
+      "upstream_path": "93_23_Matches/23matches.bas"
+    },
+    "3dplot.bas": {
+      "sha256": "22a324267419506efa4674653856cb8cb9f970c3c9acdb96b9cf16046c856fa6",
+      "git_blob": "4ee0f8a5e9d27a34ff1409e82ecb3c19ec2d0119",
+      "upstream_path": "87_3-D_Plot/3dplot.bas"
+    },
+    "aceyducey.bas": {
+      "sha256": "0b6d4f37ca4d6fb7725ea76bf5879b447671babe5823070c222bf21d39ae8bc7",
+      "git_blob": "0b6f72db35ff9290c405234273b32721ef230e04",
+      "upstream_path": "01_Acey_Ducey/aceyducey.bas"
+    },
+    "amazing.bas": {
+      "sha256": "3f6fa3f264d148267a8216a4d9b57bdbaf2cf0c7fb346a4b60a8fe00728cd9f7",
+      "git_blob": "3b39c93af03435cb5f1968e44d32da51ec730344",
+      "upstream_path": "02_Amazing/amazing.bas"
+    },
+    "animal.bas": {
+      "sha256": "44af00a389dfb0e993f556f66ba027b34cbbf6ca2dbcd870c3f57a33d7bd086b",
+      "git_blob": "271eb0d0c3b4375fbc001d02211e69dc93fc927b",
+      "upstream_path": "03_Animal/animal.bas"
+    },
+    "awari.bas": {
+      "sha256": "86bd53f7dd523da2db021c9e8bb7e7941b1d9862f543038fb26b0310f635a0db",
+      "git_blob": "78c204e35faff270530802c326c90bd6ba7308fe",
+      "upstream_path": "04_Awari/awari.bas"
+    },
+    "bagels.bas": {
+      "sha256": "3c27f5ec877dc4c35f6da283e02a53833282a5ee3bd68310e8fecc9fb77a4001",
+      "git_blob": "d16c20c3c4fe5497c1812b57f278e69c36aa1432",
+      "upstream_path": "05_Bagels/bagels.bas"
+    },
+    "banner.bas": {
+      "sha256": "b7b55df020efa229d590687272baffdf83fa343579eb9f3ed331ab74f92aa002",
+      "git_blob": "3eb50c451fd98c40e9401b25cb0225b03dbec6f2",
+      "upstream_path": "06_Banner/banner.bas"
+    },
+    "basketball.bas": {
+      "sha256": "ffd41c02e403a72f1c83e415d434c88448afd49466cd4461e7c390aba40d0650",
+      "git_blob": "4a00875b00bdd1acb6617d7fb346f40b70032e27",
+      "upstream_path": "07_Basketball/basketball.bas"
+    },
+    "batnum.bas": {
+      "sha256": "3e03a5043317c62b4a0eae62011f1a2a1738e6fb8565108646be30dcdbb39086",
+      "git_blob": "40ec861614c8eac47182a3d5dd1bf45b0a6f5b9e",
+      "upstream_path": "08_Batnum/batnum.bas"
+    },
+    "battle.bas": {
+      "sha256": "a56a9821c95b6883c47206a0c778c8fa58e60c84d0ac90acdcc706eb814aa617",
+      "git_blob": "6f85f567228edec7fffc7b9496a191bed844d0e4",
+      "upstream_path": "09_Battle/battle.bas"
+    },
+    "blackjack.bas": {
+      "sha256": "dbe1900a910d9b35afa4020ae4a6e53ce291e05a00aa9459d909360d1e77031f",
+      "git_blob": "121c6502ce2fe94a560b1e41756dfd64fb465a86",
+      "upstream_path": "10_Blackjack/blackjack.bas"
+    },
+    "bombardment.bas": {
+      "sha256": "43e7111ea2671540d94463a3394d8fbb820c5dc43974db41a9687571a03f393a",
+      "git_blob": "0c2950ce425f9469a49d16913d4a2ff2a48cdd1f",
+      "upstream_path": "11_Bombardment/bombardment.bas"
+    },
+    "bombsaway.bas": {
+      "sha256": "3c3217ba40ce8b0dfa77c5b98df1e1dfc9210d27ad91b12e594c321b0c3948ce",
+      "git_blob": "bbf61c8a3ea2745158f44b2823247818a130278f",
+      "upstream_path": "12_Bombs_Away/bombsaway.bas"
+    },
+    "bounce.bas": {
+      "sha256": "a5edc806615d64be3d403cc04354f56020789522194f44b6900f6a82524dc59e",
+      "git_blob": "7dd04509a5d8b8ecb9d973bd8c82ecc690b684c4",
+      "upstream_path": "13_Bounce/bounce.bas"
+    },
+    "bowling.bas": {
+      "sha256": "bf047e81a87e5c61a9f5f95c22484c4e460e1e58db6920ab06b2532083be3722",
+      "git_blob": "a6732580ef318f04948f210a9ecdb837dc3278ce",
+      "upstream_path": "14_Bowling/bowling.bas"
+    },
+    "boxing.bas": {
+      "sha256": "108cc1666585d5fde409e02158dbb3c32afecb0c145b8212f6feeeeb0c6c53d1",
+      "git_blob": "f6d0d727770b472ddc185a1db8943843ac861feb",
+      "upstream_path": "15_Boxing/boxing.bas"
+    },
+    "bug.bas": {
+      "sha256": "0ebffa9505ef7461fd37a6e4901e5b6ba8f6ea5b70060faa97f4455a9e4ae365",
+      "git_blob": "ec129998b2451da0e78302df727ed61477deed1c",
+      "upstream_path": "16_Bug/bug.bas"
+    },
+    "bullfight.bas": {
+      "sha256": "f32b9cea5ca8af6ce3512f257aa940e6c5f11552ec546fd133ab4e337736eca2",
+      "git_blob": "32b04b891149e15c3cee69a6178ed24df41b3222",
+      "upstream_path": "17_Bullfight/bullfight.bas"
+    },
+    "bullseye.bas": {
+      "sha256": "797a53fb5198ec000fb7f945a25d3200d232b32eef37f8083eba167d25118a88",
+      "git_blob": "eec7cf0698e85dd94abf104f9db7584e13453774",
+      "upstream_path": "18_Bullseye/bullseye.bas"
+    },
+    "bunny.bas": {
+      "sha256": "9eb07117519909658830595cecc8cec4d6a0871ada5753f148484bea178d6428",
+      "git_blob": "1d37fb4a1309251efc77285b9ac53113bb3cc793",
+      "upstream_path": "19_Bunny/bunny.bas"
+    },
+    "buzzword.bas": {
+      "sha256": "f75f8fef8f038136c64cb9093593f9e03d4cf20c5e6edce8f7198882e4825f1d",
+      "git_blob": "7c751a703ad57ccb08febf886c58d1463f38e555",
+      "upstream_path": "20_Buzzword/buzzword.bas"
+    },
+    "calendar.bas": {
+      "sha256": "9b0f91fa65ac446c48a0f2e0bfbff493009356b152a7c387c0daded68cfb07e1",
+      "git_blob": "8a7703f9a87b3c16a4f412939e014041d5e8b24d",
+      "upstream_path": "21_Calendar/calendar.bas"
+    },
+    "change.bas": {
+      "sha256": "9f5d48d9ad5cd13637b931712c103e7cf82fe0fb13c1d10162414a64d6673ca8",
+      "git_blob": "ac84db06f70763f6420286a3736a1a73c36ecc7d",
+      "upstream_path": "22_Change/change.bas"
+    },
+    "checkers.bas": {
+      "sha256": "6fd724bd79e3a91c4b01ce5df2382472e07ca10867ff48d9dbaf5b44fd6cb250",
+      "git_blob": "634c24866c00bd4f1b4f8fdba8ae67de262d7919",
+      "upstream_path": "23_Checkers/checkers.bas"
+    },
+    "chemist.bas": {
+      "sha256": "2edc33508d51486158532882f35ecfd3ae666ef1caee7cc600ba306c47fd685d",
+      "git_blob": "8b673c27ed8b98fc5c2535dc5b80d883e9335f51",
+      "upstream_path": "24_Chemist/chemist.bas"
+    },
+    "chief.bas": {
+      "sha256": "a9f1c01d6a5565363bd34818d720fce179b21bca7839213d0772473688c9859f",
+      "git_blob": "d3157e735f13479c2ba1bc9d35c878ddeae2c9fa",
+      "upstream_path": "25_Chief/chief.bas"
+    },
+    "chomp.bas": {
+      "sha256": "9cf3f39b0263e4a60abccc48d767d3a72a65694ad54247d32fef477e3403763a",
+      "git_blob": "2ca7a51f0ab14c974223eed4306ecc9e8a705cde",
+      "upstream_path": "26_Chomp/chomp.bas"
+    },
+    "civilwar.bas": {
+      "sha256": "40ec66c57448478f954582b165ee711174d35156e20aa2ef135df250e77edb61",
+      "git_blob": "f8fe970181085abe8df31895d924943c5dab4517",
+      "upstream_path": "27_Civil_War/civilwar.bas"
+    },
+    "combat.bas": {
+      "sha256": "3e6bfe4af4091093d310a64ff56c97675220c1f88c518b1d2d8c55cd3457cc7a",
+      "git_blob": "c5fdf9b3e3224d99c530cbc6c7d57978c94cad39",
+      "upstream_path": "28_Combat/combat.bas"
+    },
+    "craps.bas": {
+      "sha256": "9ee33069f4ad31817ab7f943cd4a9ccf8157c6a097c4ecf9d4c324a60ee8489d",
+      "git_blob": "3a387059fe9df09bc0fb6c48b83bd22de2f17513",
+      "upstream_path": "29_Craps/craps.bas"
+    },
+    "cube.bas": {
+      "sha256": "1d668793b30bcbf8590645232bb0b675b33fa7723979cd33bd0f2d4cdb2b4bed",
+      "git_blob": "b2019839645ca6b254b23e8ec53d2d0871f065cc",
+      "upstream_path": "30_Cube/cube.bas"
+    },
+    "depthcharge.bas": {
+      "sha256": "bfec3b324c5799b2a4a437f8608f03700057e5c0eeea21fd9f0119b9cc0122dd",
+      "git_blob": "0b58467d81050219854149d90c112b0897652b42",
+      "upstream_path": "31_Depth_Charge/depthcharge.bas"
+    },
+    "diamond.bas": {
+      "sha256": "4772fae661945e293916b4f16f278b5fa81ba9fb3631b71a60a6ef5f9c60d242",
+      "git_blob": "5c94058023ca27466a9e0061ac5c2a4e00d06446",
+      "upstream_path": "32_Diamond/diamond.bas"
+    },
+    "dice.bas": {
+      "sha256": "a2709f1f9cadf2bdd75bf8ceb46385ba8fe2679db8d40463740015d7bc28bebc",
+      "git_blob": "b74bf724e68848f78db279e4eb0b2208e8b4cd95",
+      "upstream_path": "33_Dice/dice.bas"
+    },
+    "digits.bas": {
+      "sha256": "edf1df07fffc5473a5565fb25e29132afbaea900f6d477b3e46dc466b82b5b6c",
+      "git_blob": "76fbbaffe0aa7efe4e212b037e8d544084234319",
+      "upstream_path": "34_Digits/digits.bas"
+    },
+    "evenwins.bas": {
+      "sha256": "b516a8f191cf9a94f78fe28523ecfde5ea9a03ecd8bb70481dde2869c7c2a344",
+      "git_blob": "4e663c6816c6d900327649a316f687f4b95fc173",
+      "upstream_path": "35_Even_Wins/evenwins.bas"
+    },
+    "flipflop.bas": {
+      "sha256": "c715c5c44d9c6ab99dc3da11bf74cd7ab2dfe295b678132a68ab84c5ad48db2a",
+      "git_blob": "38d59879d4b1dec928fe77cf08c861d427170c28",
+      "upstream_path": "36_Flip_Flop/flipflop.bas"
+    },
+    "football.bas": {
+      "sha256": "87327d5ef2601beb059e62550976c1dfdb526d3772dcd6827511b8d122e3a34c",
+      "git_blob": "9ee2192f35494a80893d58917c603caae856ad17",
+      "upstream_path": "37_Football/football.bas"
+    },
+    "furtrader.bas": {
+      "sha256": "8ff9e7d39a0263a3531e5535c2de6fb9c70f38a0ac9d9493249a6f9ba376be32",
+      "git_blob": "9a379b2c1e66d5a01aa151700e36e3126b5714e6",
+      "upstream_path": "38_Fur_Trader/furtrader.bas"
+    },
+    "golf.bas": {
+      "sha256": "0eb11d9c8cafb6ef7ffb92149fdbc7fa0953a5d6d7ded25cfafd28f0c9f7e4ac",
+      "git_blob": "ae1357419374f62cf1d66ab152c757dc079e2f3b",
+      "upstream_path": "39_Golf/golf.bas"
+    },
+    "gomoko.bas": {
+      "sha256": "43a2d1af924c1002d2c4acbf67ce8603723424074f7502d3ce05bc34418f0e1f",
+      "git_blob": "d57c10a1bb4e18a7d4a570254ecd77816cdb1039",
+      "upstream_path": "40_Gomoko/gomoko.bas"
+    },
+    "guess.bas": {
+      "sha256": "b4ff3a52d7b7adb39805f26f021055deddccd2746b43aa4e575e841ceb60a469",
+      "git_blob": "96c57af5ca1981fd077f065e97a836cb8454240c",
+      "upstream_path": "41_Guess/guess.bas"
+    },
+    "gunner.bas": {
+      "sha256": "186a8af9841fa3135b92fdc3796107396915d7e8260e60cd370e4baf5de34f7b",
+      "git_blob": "2457728548e7a546eec47e44ba83345b065db3e8",
+      "upstream_path": "42_Gunner/gunner.bas"
+    },
+    "hammurabi.bas": {
+      "sha256": "93fea01f8b63766a83919653f798932ba33d4ca2654b70e87a54653d60c73831",
+      "git_blob": "e41fe4fbd5fbc0dc103d20166c0f8d32e7fa9889",
+      "upstream_path": "43_Hammurabi/hammurabi.bas"
+    },
+    "hangman.bas": {
+      "sha256": "86595fe2340b987330dadbdc1daf3207f775cd4a4e4f74d68e05eebc307cae3e",
+      "git_blob": "cdd1b15d3462ee5ef0c7c207c232981b0fe5bcf8",
+      "upstream_path": "44_Hangman/hangman.bas"
+    },
+    "hello.bas": {
+      "sha256": "bfa2a66c6c4a8beda25ed06c555ca6b78af66c65e050a629ff30034ca9f2d3d7",
+      "git_blob": "75f5d9b5d567b8eb311b3dcaf02315224e2924f0",
+      "upstream_path": "45_Hello/hello.bas"
+    },
+    "hexapawn.bas": {
+      "sha256": "9fbd40c55dbed61b11afab2f3030947e3e225be02189b0b57c4cc5760ae857b0",
+      "git_blob": "8319c162fabe68e2885c27f3721d7f56bafd8949",
+      "upstream_path": "46_Hexapawn/hexapawn.bas"
+    },
+    "hi-lo.bas": {
+      "sha256": "1ded92e1a6585e45417b0f9dc8c8f86cea7ea89d6e84bb16534dcea17c155a18",
+      "git_blob": "8aaa36bbd27f76853e06e11c62604107be75c46b",
+      "upstream_path": "47_Hi-Lo/hi-lo.bas"
+    },
+    "highiq.bas": {
+      "sha256": "f4ae79f08dedaea38e1cf6e7d1419604e781af2adb4cba1133e55c0fbabf6845",
+      "git_blob": "0552dc79bde94743d472571b18c2e7f078baf860",
+      "upstream_path": "48_High_IQ/highiq.bas"
+    },
+    "hockey.bas": {
+      "sha256": "c30d75746910a6bdc48ee4689d893e129b66a6e5805d2a398d6a3d7d6a3367c0",
+      "git_blob": "f0b5a8298d51a3e175efbba8e91d152fe0ec15fb",
+      "upstream_path": "49_Hockey/hockey.bas"
+    },
+    "horserace.bas": {
+      "sha256": "c20f82722e42b99a7a5d3030f331efa6ea40f5e6d398eb26410fe28d18ab4e51",
+      "git_blob": "b777f8839c83cdb23fd469c35629a47e6b5cf949",
+      "upstream_path": "50_Horserace/horserace.bas"
+    },
+    "hurkle.bas": {
+      "sha256": "9589b2b35f30b8b350b95361a6abc57ff9290bf0fd735401e844f7d3beff1c36",
+      "git_blob": "c758091c039a547b53f01db61855dc7fc1167ff8",
+      "upstream_path": "51_Hurkle/hurkle.bas"
+    },
+    "kinema.bas": {
+      "sha256": "4595af370831b8cf9f322e199219e437d11aa280e9f4fd2294aeacf47269afe7",
+      "git_blob": "2dbea7bdbb51472d5ac03bb1339c17bab603a369",
+      "upstream_path": "52_Kinema/kinema.bas"
+    },
+    "king.bas": {
+      "sha256": "f5f87ae8d70a64338b5622fb005c8c843de7490080818d8785339c318dc3ecdf",
+      "git_blob": "7352fa588d0653810c4b49741496fcb96bdcba99",
+      "upstream_path": "53_King/king.bas"
+    },
+    "letter.bas": {
+      "sha256": "e7978011f722203de52dbfbbf959f9038676ed6b031a645e197026c8869c8407",
+      "git_blob": "ab3efe0c51de74316e823a87f0f75df4301d2285",
+      "upstream_path": "54_Letter/letter.bas"
+    },
+    "life.bas": {
+      "sha256": "e268ed69874648a8f778655014433074f3ecdc8f4e93765f2132b20d73dda4a7",
+      "git_blob": "713135794e2a2e758991c03ebe40008306a1af3a",
+      "upstream_path": "55_Life/life.bas"
+    },
+    "lifefortwo.bas": {
+      "sha256": "48c09a677c11d735b2fb6387cee3a3ad7668b30c516c687880cd901195aa9074",
+      "git_blob": "4faf1f127c3b7f792b20e3eefba3c6f56057a994",
+      "upstream_path": "56_Life_for_Two/lifefortwo.bas"
+    },
+    "litquiz.bas": {
+      "sha256": "52c7167d267c31583d918a3dea18c0a0e6a219323717ef96d01dc5ba8e5b62e9",
+      "git_blob": "fe731b2cb998a8995852a0212cd0ff0e42e54a08",
+      "upstream_path": "57_Literature_Quiz/litquiz.bas"
+    },
+    "love.bas": {
+      "sha256": "4c79f76c90b130a4bb796258a66ae57269fe3eb3739d31488cff79150854d7ff",
+      "git_blob": "c53d2ae31314f613647ff6f462b22fe75f1ea212",
+      "upstream_path": "58_Love/love.bas"
+    },
+    "lunar.bas": {
+      "sha256": "08dcad500c6472be9e43d5016fb03ce84726a5e83b1b5a32a76beb438dc17f3b",
+      "git_blob": "3013361509b7678d519de9999a11e531b49006d8",
+      "upstream_path": "59_Lunar_LEM_Rocket/lunar.bas"
+    },
+    "mastermind.bas": {
+      "sha256": "9eab2349decb942b66f7831f4f667a05653ca77736366c8ea6b9706ce99383e3",
+      "git_blob": "e6d548935d809c118c88f8f8cf06b9c59fbf4764",
+      "upstream_path": "60_Mastermind/mastermind.bas"
+    },
+    "mathdice.bas": {
+      "sha256": "f291f344d2fb6b79502f4a57e452804e115d7766d49412bd281706f4dc3f5bde",
+      "git_blob": "a62a7d8c70cddc4065c2aba2ecf8f7adf4ab0e2b",
+      "upstream_path": "61_Math_Dice/mathdice.bas"
+    },
+    "mugwump.bas": {
+      "sha256": "5dc9d4c1b6f9662fae88d6abd1aac322f3b7bd7abc61aca68e2a7fe1f4e1973c",
+      "git_blob": "e238486d38d9e8e6dcbd6600a36f1fd13cf2294d",
+      "upstream_path": "62_Mugwump/mugwump.bas"
+    },
+    "name.bas": {
+      "sha256": "de46ed4749bab0d9dcac2c3e68c35631178b67f08b513754f59795c7c7d83a1a",
+      "git_blob": "6cdf3f91f6f355bc6de3d86f6850309cd4df600e",
+      "upstream_path": "63_Name/name.bas"
+    },
+    "nicomachus.bas": {
+      "sha256": "ca2482ceeb60f694c56e0da7ecf457376c8ba266bed581530f620afaa36bd06a",
+      "git_blob": "d478bc3c0036eab00f39cd96d11e90728ab040e2",
+      "upstream_path": "64_Nicomachus/nicomachus.bas"
+    },
+    "nim.bas": {
+      "sha256": "aac3400162273d50b43337a83a9862bb691d2fbce7aadebd8a16e156253b5a9e",
+      "git_blob": "d078a0c6afbc00ccf6c165099f886c0c2ca12bb7",
+      "upstream_path": "65_Nim/nim.bas"
+    },
+    "number.bas": {
+      "sha256": "b072c844c533a6d408d078735bff46e74dc01f840c93f5661cc0866bf97e1504",
+      "git_blob": "c5b9ff7c16ef5a72b3e26e05b863830156947497",
+      "upstream_path": "66_Number/number.bas"
+    },
+    "onecheck.bas": {
+      "sha256": "43009256f3b4963a96082e5ce36acfbae3375681c3e71910740dfac799e71aa2",
+      "git_blob": "2161a743310d0c06513edbbb65b8e7b8391ff541",
+      "upstream_path": "67_One_Check/onecheck.bas"
+    },
+    "orbit.bas": {
+      "sha256": "bcc85e22701fadae67d7abd3aff883ee40256f72f2de9fe2f4f57556d27d3a9b",
+      "git_blob": "f290eee4780de62b901066e10583af5d990c079f",
+      "upstream_path": "68_Orbit/orbit.bas"
+    },
+    "pizza.bas": {
+      "sha256": "91d2415fe8833c738441575d1f5200fe0019551a6d401cf3b4c392cbc781a2d3",
+      "git_blob": "a3d4e4f151c2dfed8f6e7d27ca6c8e1f46abd55d",
+      "upstream_path": "69_Pizza/pizza.bas"
+    },
+    "poetry.bas": {
+      "sha256": "92d3c4220a66bc45cfe3f62361fe98e724a5d1bfecbdc2d1b1e14d5b852b1e7b",
+      "git_blob": "7fa3a1c40eb84ca4a31cd06ade29b9385eb0a7b8",
+      "upstream_path": "70_Poetry/poetry.bas"
+    },
+    "poker.bas": {
+      "sha256": "cb70204bc418b938376d26caa944d1017c22a4089a58a65dfef52b868582bd15",
+      "git_blob": "82bfe862545f1edb1cb9033ee319198221504b7d",
+      "upstream_path": "71_Poker/poker.bas"
+    },
+    "qubit.bas": {
+      "sha256": "e9cb4093702190ea0e9f190534ae1d307930316b42f069b01b0ada6fba7cf98b",
+      "git_blob": "473e955aa5d020fedff9836110c76799df8bd200",
+      "upstream_path": "88_3-D_Tic-Tac-Toe/qubit.bas"
+    },
+    "queen.bas": {
+      "sha256": "e3345fd383c8db088f2bb3883ebfa3365d6fc027c7ccae9cc4e6ef205fe1f529",
+      "git_blob": "e7b8081053b64cd021d0c91073cd70e79e1538d8",
+      "upstream_path": "72_Queen/queen.bas"
+    },
+    "reverse.bas": {
+      "sha256": "c02c85cbcc8c53bb92b001744762a6fc9473ac9659defbf257156a6895ee9c9b",
+      "git_blob": "37d486767de3bb15ea7197f774ad17694477c9b9",
+      "upstream_path": "73_Reverse/reverse.bas"
+    },
+    "rockscissors.bas": {
+      "sha256": "021658222a60eba6c35366172a9ad4fa2daf65bb5f4efdc8d73ce0c99f7ee6b1",
+      "git_blob": "8c364b63d724470d4a1e0a2c0e843cd380f14768",
+      "upstream_path": "74_Rock_Scissors_Paper/rockscissors.bas"
+    },
+    "roulette.bas": {
+      "sha256": "eeb3c32b98c152f4d15558a98144e12d8084fc6cbe59cfb705eb865d498a33fc",
+      "git_blob": "461231c0bf6cda6f163c8e0c5934bf5b52a60f6d",
+      "upstream_path": "75_Roulette/roulette.bas"
+    },
+    "russianroulette.bas": {
+      "sha256": "40456928b180191e4e3287b664127aa4eb375664458a62d5b65bd4c90a0b1deb",
+      "git_blob": "437e53c110f2d324abfac50cd6c489b4715f9ae1",
+      "upstream_path": "76_Russian_Roulette/russianroulette.bas"
+    },
+    "salvo.bas": {
+      "sha256": "87b6f444f721ab4214f04b99073d072f19c8545b2a13a57ed258a4c8f95538e8",
+      "git_blob": "6a85d715e014842212c1a8b964aefc9133164d82",
+      "upstream_path": "77_Salvo/salvo.bas"
+    },
+    "sinewave.bas": {
+      "sha256": "fc0545ce132eeefcb0af18dd250bce7d3a112237eddc9e36f08d053bb3a6395f",
+      "git_blob": "0e362acd45162b45d3e5a41815f65e8fab49a8ce",
+      "upstream_path": "78_Sine_Wave/sinewave.bas"
+    },
+    "slalom.bas": {
+      "sha256": "35f58ed40b2a7f984df2365ccfdc849951547f647f222f35f6f690766ccff831",
+      "git_blob": "47c6d801002c091b117c5f29aabef9de6cb36d54",
+      "upstream_path": "79_Slalom/slalom.bas"
+    },
+    "slots.bas": {
+      "sha256": "86ecc621ca337e69c609e7631e04b0afd2791b7ed42df4f2ec1b0721e0eff6e4",
+      "git_blob": "ef7ed841d94ff591498c7b8a8b14f14cb7836e1f",
+      "upstream_path": "80_Slots/slots.bas"
+    },
+    "splat.bas": {
+      "sha256": "f995c2cdb05871c379fab45f169dbf8d9d9cb7b1f2cfa64981443577f193e81c",
+      "git_blob": "8561f6345155b769a36b0835fa8d41335ec12d28",
+      "upstream_path": "81_Splat/splat.bas"
+    },
+    "stars.bas": {
+      "sha256": "147b4ae6ddf39210c7a501d74b6e3a61a33a71de600622ff9f94020cd1d295f4",
+      "git_blob": "0536ed3a7395e65e57a5ec522635377f64ca98c1",
+      "upstream_path": "82_Stars/stars.bas"
+    },
+    "stockmarket.bas": {
+      "sha256": "371ef26c2578f79eafabdecf20fdf78e76e309cd2029d0f6b882abd6e45bedd8",
+      "git_blob": "402b6360b8c342dc1bd87d0d199ad273982bd060",
+      "upstream_path": "83_Stock_Market/stockmarket.bas"
+    },
+    "superstartrek.bas": {
+      "sha256": "a80bf9f6e4a32888e89809145c778d16ebcde5feaa24b159d922edd7f5b9b94a",
+      "git_blob": "efd74cb0daa9b63c606c616da99d0b4c7c16a6ea",
+      "upstream_path": "84_Super_Star_Trek/superstartrek.bas"
+    },
+    "superstartrekins.bas": {
+      "sha256": "b6b6d421617d4e8a61a41179e5dd0c8fd0c6725f20e5a91eecdd7aac8be69f05",
+      "git_blob": "b3aa1daa685377eac786497afdcd99de5c77736d",
+      "upstream_path": "84_Super_Star_Trek/superstartrekins.bas"
+    },
+    "synonym.bas": {
+      "sha256": "52402653f12ac056c4783d9a8d41b83506288748e3f045e8fc537e4672ffde57",
+      "git_blob": "868657d98b15f1ba11367d7f1aa3efc1fe426453",
+      "upstream_path": "85_Synonym/synonym.bas"
+    },
+    "target.bas": {
+      "sha256": "79dd053ed1df6d6a5ca2c69f472ffff5f8a7b4213fdc13d79628e3035cbefc54",
+      "git_blob": "7e99d3bb684298871c2f359b850e4a1100a94f7f",
+      "upstream_path": "86_Target/target.bas"
+    },
+    "tictactoe1.bas": {
+      "sha256": "e1125402f6dc596dbef7390a98eba386f4b6885282d52a202333372cd15e7614",
+      "git_blob": "57eace475ca8e83033ec8e31be79cd647a048aa3",
+      "upstream_path": "89_Tic-Tac-Toe/tictactoe1.bas"
+    },
+    "tictactoe2.bas": {
+      "sha256": "9945f459bb0b3ef5cbc5d36ee808d6bad321285bc1a692044a295f0ed5696b9d",
+      "git_blob": "ef6fee8e4de61a3d42a1cf9edf13ae32c764e1d7",
+      "upstream_path": "89_Tic-Tac-Toe/tictactoe2.bas"
+    },
+    "tower.bas": {
+      "sha256": "e81cec3b654aacc3471f0add5d93953e9187108e64db074bfbdf6c0104a2c7bd",
+      "git_blob": "ee826c18b2bd79cea685c28865eda9fd77f6f184",
+      "upstream_path": "90_Tower/tower.bas"
+    },
+    "train.bas": {
+      "sha256": "7628321ab7e457ce871b64c320376146204f06f5ee53c691b8ca0b0c001172e3",
+      "git_blob": "b98176167c2c3957d1edef325f8b0e1ca49ede64",
+      "upstream_path": "91_Train/train.bas"
+    },
+    "trap.bas": {
+      "sha256": "e5868e4876dad8a8ebb3abfa4e081a9bbbbf45c947c5d72d35f198d5c5d3f485",
+      "git_blob": "7827f8ca02aedb4290b25279bde39a9152c767c4",
+      "upstream_path": "92_Trap/trap.bas"
+    },
+    "war.bas": {
+      "sha256": "62506c9f7b3476ca735e7029a422e93c7a45d3c443a42c662152909e22f37b9b",
+      "git_blob": "388b0ec4584e37506376c4b88c2abab491c2bc75",
+      "upstream_path": "94_War/war.bas"
+    },
+    "weekday.bas": {
+      "sha256": "ccb9a9e5c44eb38ded6cc025686d7c172cb693e84cdc3e232e4cc557d546c909",
+      "git_blob": "33f982e88e7e02537473ec8fc2a85c90476c35d2",
+      "upstream_path": "95_Weekday/weekday.bas"
+    },
+    "word.bas": {
+      "sha256": "4a64d021627d86ce2e309fc910949d720ac4e736df7d179e83a3e32b29d13fd3",
+      "git_blob": "46e6906191cf6be1582f596ca37ad870efe7fabf",
+      "upstream_path": "96_Word/word.bas"
+    }
+  }
+}

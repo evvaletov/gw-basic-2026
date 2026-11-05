@@ -33,8 +33,10 @@ static int try_keyword(const char *text, int pos, const keyword_entry_t **match)
         }
 
         if (j == klen && klen > best_len) {
-            /* For alphabetic keywords, next char must not be alphanumeric */
-            if (isalpha((unsigned char)kw[0]) && kw[klen - 1] != '(' && kw[klen - 1] != '$') {
+            /* FN is immediately followed by its name (FNA). */
+            bool prefix_word = gw_keywords[i].prefix == 0 &&
+                gw_keywords[i].token == TOK_FN;
+            if (!prefix_word && isalpha((unsigned char)kw[0]) && kw[klen - 1] != '(' && kw[klen - 1] != '$') {
                 char next = text[pos + klen];
                 if (isalnum((unsigned char)next) || next == '.')
                     continue;

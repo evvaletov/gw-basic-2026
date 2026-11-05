@@ -480,8 +480,20 @@ static void stmt_def_fn(void)
 
     /* Skip past the expression (don't evaluate now) */
     /* We need to skip to end of statement */
-    while (*gw.text_ptr && *gw.text_ptr != ':' && *gw.text_ptr != TOK_ELSE)
-        gw.text_ptr++;
+    while (*gw.text_ptr && *gw.text_ptr != ':' && *gw.text_ptr != TOK_ELSE) {
+        uint8_t token = *gw.text_ptr;
+        if (token == TOK_INT1) gw.text_ptr += 2;
+        else if (token == TOK_INT2) gw.text_ptr += 3;
+        else if (token == TOK_CONST_SNG) gw.text_ptr += 5;
+        else if (token == TOK_CONST_DBL) gw.text_ptr += 9;
+        else if (token == TOK_PREFIX_FD || token == TOK_PREFIX_FE || token == TOK_PREFIX_FF)
+            gw.text_ptr += 2;
+        else if (token == '"') {
+            gw.text_ptr++;
+            while (*gw.text_ptr && *gw.text_ptr != '"') gw.text_ptr++;
+            if (*gw.text_ptr) gw.text_ptr++;
+        } else gw.text_ptr++;
+    }
 }
 
 /* Evaluate FN call - called from eval.c */
