@@ -68,20 +68,25 @@ gwbasickernel-install --user
 The harness now fails on output mismatches and process errors, with separate
 limits for audio, timer, and compilation tests (git-bug `54f3aa6`).
 
-The curated compatibility suite now checks 13 scripted cases from eight original
-listings against Microsoft GW-BASIC output and across six compiler modes. The
-98-listing build audit passes 96; Awari and Checkers expose remaining FOR/NEXT
-code-generation failures. The broader corpus expansion stays open (`51679f0`).
+The curated compatibility suite checks 13 scripted cases from eight original
+listings against Microsoft GW-BASIC output and across six compiler modes.
+Awari and Checkers now compile (`ca3a8b8`). The 98-listing build audit has
+97 successes and one syntax rejection: Super Star Trek's unspaced `TO`, also
+rejected by Microsoft GW-BASIC. Broader gameplay coverage stays open (`51679f0`).
 
-1. Fix FOR/NEXT code generation for Awari and Checkers, add focused regressions,
-   and rerun the full build audit (git-bug `ca3a8b8`).
-2. Validate terminal editing, audible output, and execution under DOS, then
-   prepare a bugfix release. The 16-bit and 32-bit DOS targets cross-compile;
-   that check does not establish runtime behavior (git-bug `e4b2824`).
-3. Finish and package the VS Code extension, including installation instructions
+The v0.18.1 work fixes terminal resize visibility and the 16-bit DOS string-pool
+allocation in addition to the compiler repairs. Release archives are prepared
+by CI with source metadata and checksums. Audio measurements validate the
+application stream; physical speaker fidelity remains unverified.
+
+1. Merge the reviewed changes and publish the prepared v0.18.1 release after
+   verifying its archives and notes (git-bug `e4b2824`).
+2. Finish and package the VS Code extension, including installation instructions
    and tests of its editor integration (git-bug `32a637c`).
-4. After release validation, prepare Show HN and Lobsters posts and a FreeDOS
-   package submission (git-bug `dc24012`, `ab8188c`).
+3. Expand scripted gameplay and fix remaining GW-BASIC FOR-entry and conditional
+   DEFTYPE differences (git-bug `51679f0`).
+4. Prepare Show HN and Lobsters posts and a FreeDOS package submission after the
+   release is published (git-bug `dc24012`, `ab8188c`).
 5. Check Sphinx warnings and executable documentation examples on pull requests,
    before the existing documentation deployment on `main` (git-bug `f3a24bc`).
 
@@ -112,6 +117,8 @@ The corpus runtime checks cover only the cases listed in its fixture manifest.
   original implementation.
 - Compiled programs do not support timer or key event handlers; `TRON` and
   `TROFF` are ignored by the compiler.
+- Nonempty FOR-entry validation and conditional DEFTYPE changes retain known
+  differences from Microsoft GW-BASIC; most corpus games lack runtime fixtures.
 - The compiler reads ASCII source. Save tokenized files with `SAVE "file.bas",A`
   before compiling them.
 - `DATE$` and `TIME$` assignments change a process-local clock offset and leave

@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
+#include <time.h>
 #ifndef __MSDOS__
 #include <unistd.h>
 #include <sys/ioctl.h>
@@ -22,6 +23,7 @@ static void (*orig_cls)(void);
 static void (*orig_locate)(int, int);
 static int  (*orig_get_cursor_row)(void);
 static int  (*orig_get_cursor_col)(void);
+static void render_key_bar(void);
 
 /* Default F-key definitions matching GW-BASIC */
 static const char *default_fkeys[10] = {
@@ -120,6 +122,7 @@ void tui_cls(void)
         }
     tui.cursor_row = 0;
     tui.cursor_col = 0;
+    if (tui.key_bar_visible) render_key_bar();
     tui_refresh();
     tui_update_cursor();
 }
@@ -144,39 +147,92 @@ int tui_get_cursor_col(void) { return tui.cursor_col; }
 static uint8_t row_chars[TUI_MAX_COLS];
 static uint8_t row_attrs[TUI_MAX_COLS];
 
+/* Keep the logical BASIC screen intact when a POSIX terminal shrinks. A
+ * viewport follows the cursor; enlarging the terminal exposes the saved cells. */
+static int viewport_top, viewport_left, viewport_rows, viewport_cols;
+static int viewport_key_row = -1;
+
+static bool update_viewport(void)
+{
+    int rows = tui.rows, cols = tui.cols;
+#ifndef __MSDOS__
+    struct winsize ws;
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0) {
+        if (ws.ws_row > 0 && ws.ws_row < rows) rows = ws.ws_row;
+        if (ws.ws_col > 0 && ws.ws_col < cols) cols = ws.ws_col;
+    }
+#endif
+    int key_row = tui.key_bar_visible && rows > 1 ? rows - 1 : -1;
+    int height = rows - (key_row >= 0 ? 1 : 0);
+    int logical_height = tui.rows - (tui.key_bar_visible ? 1 : 0);
+    if (height > logical_height) height = logical_height;
+    if (height < 1) height = 1;
+    int top = viewport_top, left = viewport_left;
+    if (tui.cursor_row < top) top = tui.cursor_row;
+    if (tui.cursor_row >= top + height) top = tui.cursor_row - height + 1;
+    if (top > logical_height - height) top = logical_height - height;
+    if (top < 0) top = 0;
+    if (tui.cursor_col < left) left = tui.cursor_col;
+    if (tui.cursor_col >= left + cols) left = tui.cursor_col - cols + 1;
+    if (left > tui.cols - cols) left = tui.cols - cols;
+    if (left < 0) left = 0;
+    bool changed = top != viewport_top || left != viewport_left ||
+        height != viewport_rows || cols != viewport_cols || key_row != viewport_key_row;
+    viewport_top = top;
+    viewport_left = left;
+    viewport_rows = height;
+    viewport_cols = cols;
+    viewport_key_row = key_row;
+    return changed;
+}
+
+static void render_visible_row(int row)
+{
+    int dest = row - viewport_top;
+    int left = viewport_left;
+    if (tui.key_bar_visible && row == tui.rows - 1) {
+        if (viewport_key_row < 0) return;
+        dest = viewport_key_row;
+        left = 0;
+    } else if (dest < 0 || dest >= viewport_rows) {
+        return;
+    }
+    for (int c = 0; c < viewport_cols; c++) {
+        row_chars[c] = TUI_CELL(row, left + c).ch;
+        row_attrs[c] = TUI_CELL(row, left + c).attr;
+    }
+    gw_hal->render_run(dest, 0, row_chars, row_attrs, viewport_cols);
+}
+
 void tui_refresh(void)
 {
-    int bottom = tui.key_bar_visible ? tui.rows : tui.view_bottom + 1;
-    int width = tui.cols < TUI_MAX_COLS ? tui.cols : TUI_MAX_COLS;
-    for (int r = 0; r < bottom; r++) {
-        for (int c = 0; c < width; c++) {
-            row_chars[c] = TUI_CELL(r, c).ch;
-            row_attrs[c] = TUI_CELL(r, c).attr;
-        }
-        gw_hal->render_run(r, 0, row_chars, row_attrs, width);
-    }
-
-    if (tui.key_bar_visible)
-        tui_refresh_row(tui.rows - 1);
+    if (update_viewport() && orig_cls) orig_cls();
+    for (int r = viewport_top; r < viewport_top + viewport_rows; r++)
+        render_visible_row(r);
+    if (tui.key_bar_visible) render_visible_row(tui.rows - 1);
 }
 
 void tui_refresh_row(int row)
 {
     if (row < 0 || row >= tui.rows) return;
-    int width = tui.cols < TUI_MAX_COLS ? tui.cols : TUI_MAX_COLS;
-    for (int c = 0; c < width; c++) {
-        row_chars[c] = TUI_CELL(row, c).ch;
-        row_attrs[c] = TUI_CELL(row, c).attr;
+    if (update_viewport()) {
+        if (orig_cls) orig_cls();
+        tui_refresh();
+    } else {
+        render_visible_row(row);
     }
-    gw_hal->render_run(row, 0, row_chars, row_attrs, width);
 }
 
 void tui_update_cursor(void)
 {
-    /* Use the platform's original locate (saved before tui_init swapped its
-     * own in) — gw_hal->locate now points at tui_locate, which would recurse. */
+    /* Moving outside the viewport pans and redraws without changing BASIC's
+     * cursor coordinates or any pending command/input buffer. */
+    if (update_viewport()) {
+        if (orig_cls) orig_cls();
+        tui_refresh();
+    }
     if (orig_locate)
-        orig_locate(tui.cursor_row + 1, tui.cursor_col + 1);
+        orig_locate(tui.cursor_row - viewport_top + 1, tui.cursor_col - viewport_left + 1);
 }
 
 int tui_read_key(void)
@@ -187,7 +243,20 @@ int tui_read_key(void)
         return buffered;
 
     gw_hal->enable_raw();
-
+#ifndef __MSDOS__
+    /* Poll only while waiting for an editor key, so resize needs no signal
+     * handler and cannot interrupt a read into an uninitialized byte. */
+    while (!gw_hal->kbhit()) {
+        if (tui.break_flag) return TK_CTRL_C;
+        if (update_viewport()) {
+            if (orig_cls) orig_cls();
+            tui_refresh();
+            tui_update_cursor();
+        }
+        struct timespec delay = {0, 20000000};
+        nanosleep(&delay, NULL);
+    }
+#endif
     int ch = gw_hal->getch();
     if (ch < 0) return -1;
 
@@ -736,6 +805,8 @@ void tui_install_break_handler(void)
 
 void tui_check_break(void)
 {
+    if (gw_hal && gw_hal->check_break && gw_hal->check_break())
+        tui.break_flag = true;
     if (tui.break_flag) {
         tui.break_flag = false;
         tui_puts("\nBreak\n");
@@ -747,6 +818,8 @@ void tui_check_break(void)
 void tui_init(bool fullscreen)
 {
     memset(&tui, 0, sizeof(tui));
+    viewport_top = viewport_left = viewport_rows = viewport_cols = 0;
+    viewport_key_row = -1;
     tui.current_attr = 0x07;
     tui.insert_mode = false;
     tui.active = true;

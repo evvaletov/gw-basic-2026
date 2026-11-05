@@ -33,8 +33,10 @@ void gwrt_gosub_push(int label);
 void gwrt_gosub_push_safe(int label, uint16_t from_line);
 int  gwrt_gosub_pop(void);
 
-/* FOR/NEXT stack (for NEXT without variable matching) */
-#define GWRT_FOR_MAX 16
+/* Active compiled FOR loops. NULL selects the innermost loop for bare NEXT. */
+void gwrt_control_clear(void);
+bool gwrt_for_push(void *var, gw_valtype_t type, double limit, double step, int label);
+int gwrt_for_next(void *var);   /* continuation label, or -1 when finished */
 
 /* Event checking (ON TIMER, ON KEY, Ctrl+Break) + string pool GC */
 void gwrt_check_line(uint16_t line_num);

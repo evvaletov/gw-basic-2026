@@ -97,6 +97,7 @@ static bool exec_direct_line(const char *line)
     gw.cur_line_num = LINE_DIRECT;
     gw.cur_line = NULL;
     int len = gw_crunch(line, gw.kbuf, sizeof(gw.kbuf));
+    if (len < 0) gw_error(ERR_BO);
 
     /* Check for line number -> program storage */
     uint16_t num;

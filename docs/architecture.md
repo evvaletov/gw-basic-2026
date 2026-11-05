@@ -109,7 +109,8 @@ Code generation (`codegen.c`) walks the token stream and emits C source:
 variables become `static int16_t var_A_int`, control flow uses `goto L_100`
 labels, and expressions are compiled inline using the same precedence-climbing
 structure as `eval.c`.  Optimizations include constant folding, dead code
-elimination, FOR step=1 elision, and fast-path expression emission.
+elimination and fast-path expression emission. Runtime stacks track active FOR
+loops and GOSUB return sites, including alternate and shared NEXT statements.
 
 With `--inline-arrays`, eligible numeric arrays use cached pointers into the
 runtime's storage. The cache generation changes when arrays are cleared or
@@ -143,7 +144,8 @@ evaluation, and program behavior.
   at the binary save/load boundary and for file I/O (CVI/CVS/CVD, MKI$/MKS$/MKD$),
   matching the original's on-disk format
 - Dynamic memory allocation: variables, arrays, and program storage use the heap
-- String space pool: a 32KB default pool with compacting garbage collection
+- String space pool: compacting garbage collection, with an 8 KiB default for
+  16-bit DOS and 32 KiB for other builds
 - `setjmp`/`longjmp`: error recovery follows the original's stack reset
   behavior
 - Terminal backends: the POSIX TUI uses ANSI escape sequences and the alternate

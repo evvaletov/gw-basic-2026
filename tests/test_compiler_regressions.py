@@ -8,6 +8,120 @@ import tempfile
 
 
 CASES = {
+    "locate_coordinates": ('''10 LOCATE 5,7
+20 PRINT "MARK"
+''', "", ["\x1b[5;7HMARK"]),
+    "shared_next": ('''10 S=0:FOR I=0 TO 2
+20 S=S+I
+30 NEXT I
+40 IF S<10 THEN FOR I=7 TO 9:GOTO 20
+50 PRINT S;I
+''', "", ["27 10"]),
+    "conditional_for_positive": ('''10 INPUT C
+20 IF C=1 THEN FOR A=-2 TO 2 STEP 4 ELSE FOR A=3 TO 1 STEP -1
+30 PRINT A;
+40 NEXT A
+50 PRINT
+''', "1\n", ["? -2 2"]),
+    "conditional_for_negative": ('''10 INPUT C
+20 IF C=1 THEN FOR A=-2 TO 2 STEP 4 ELSE FOR A=3 TO 1 STEP -1
+30 PRINT A;
+40 NEXT A
+50 PRINT
+''', "0\n", ["? 3 2 1"]),
+    "alternate_next": ('''10 FOR I=1 TO 3
+20 IF I=1 THEN NEXT I
+30 PRINT I
+40 NEXT I
+''', "", ["2", "3"]),
+    "next_discards_nested": ('''10 FOR I=1 TO 2
+20 FOR J=1 TO 2
+30 PRINT I;J
+40 NEXT I
+50 ON ERROR GOTO 90
+60 NEXT J
+70 END
+90 PRINT ERR
+''', "", ["1 1", "2 1", "1"]),
+    "bare_next_reentry": ('''10 FOR I=1 TO 5
+20 IF I=1 THEN FOR I=7 TO 8
+30 PRINT I
+40 NEXT
+''', "", ["7", "8"]),
+    "clear_gosub_state": ('''10 GOSUB 100
+20 PRINT "BAD"
+30 END
+100 CLEAR
+110 ON ERROR GOTO 200
+120 RETURN
+200 PRINT ERR
+''', "", ["3"]),
+    "clear_for_state": ('''10 FOR I=1 TO 2
+20 CLEAR
+30 ON ERROR GOTO 90
+40 NEXT I
+50 END
+90 PRINT ERR
+''', "", ["1"]),
+    "empty_for_and_types": ('''10 FOR I=5 TO 1:PRINT I:NEXT I
+20 FOR J#=1 TO 5 STEP -1:PRINT J#:NEXT J#
+30 FOR K%=1 TO 3 STEP 2:PRINT K%:NEXT K%
+40 PRINT I;J#;K%
+''', "", ["1", "3", "5 1 5"]),
+    "empty_skips_resume": ('''10 FOR I=2 TO 1
+20 RESUME NEXT
+25 OPEN "SKIPPED.TXT" FOR OUTPUT AS #1
+30 PRINT "NEXT";129;130;256
+40 NEXT I
+50 PRINT "DONE"
+''', "", ["DONE"]),
+    "empty_skips_implicit_deftype": ('''10 FOR I=5 TO 1
+20 DEFINT I
+30 NEXT I
+40 PRINT "DONE"
+''', "", ["DONE"]),
+    "empty_skips_deftype": ('''10 FOR I!=5 TO 1
+20 DEFINT I
+30 NEXT I
+40 PRINT "DONE"
+''', "", ["DONE"]),
+    "empty_next_error_line": ('''10 ON ERROR GOTO 100
+20 FOR I=2 TO 1
+30 NEXT I,J
+40 END
+100 PRINT ERR;ERL
+''', "", ["1 30"]),
+    "empty_wrong_next": ('''5 ON ERROR GOTO 100
+10 FOR I=5 TO 1
+20 PRINT "BAD"
+30 NEXT J
+40 END
+100 PRINT ERR;ERL
+''', "", ["1 30"]),
+    "empty_nested_next": ('''10 FOR I=1 TO 2
+20 FOR J=2 TO 1:PRINT "BAD"
+30 NEXT J,I
+40 PRINT I;J
+50 FOR A=5 TO 1
+60 FOR B=1 TO 2:PRINT "NEXT";256
+70 NEXT B
+80 GOTO 100:NEXT A
+90 PRINT "DONE"
+100 END
+''', "", ["3 2", "DONE"]),
+    "mixed_for_while": ('''10 N=0
+20 WHILE N<2
+30 FOR W%=1 TO 2
+40 N=N+1:PRINT N;W%
+50 NEXT W%
+60 WEND
+''', "", ["1 1", "2 2"]),
+    "forward_return_target": ('''10 GOTO 50
+20 PRINT "SUB"
+30 RETURN
+50 GOSUB 20
+60 PRINT "DONE"
+''', "", ["SUB", "DONE"]),
     "compact_functions": ('''10 REM comment: PRINT "BAD"
 20 DEF    FNA(X)=X+256:PRINT "DEFINED"
 30 PRINT FNA(41)
@@ -209,6 +323,17 @@ def main():
                     (root / "LPT1.TXT").unlink()
                 count += 1
             print(f"PASS {name} (16 compiler modes)", flush=True)
+
+        # Preserve native-build coverage for the original listings that exposed
+        # nonlexical FOR/NEXT paths. This does not claim complete gameplay.
+        for name in ("awari", "checkers"):
+            for opt in ("-O0", "-O1", "-O2", "-O3"):
+                c, exe = root / (name + ".c"), root / name
+                run([str(build / "gwbasic-compile"), str(repo / "tests/corpus" / (name + ".bas")),
+                     "-o", str(c), "--max-output-size", "1", opt], root)
+                run(["gcc", opt, *san, str(c), str(build / "libgwrt.a"),
+                     "-I" + str(repo / "include"), "-lm", "-pthread", *libs, "-o", str(exe)], root)
+            print(f"PASS {name}.bas (4 native builds; gameplay not exercised)", flush=True)
 
         # A malformed grouping must terminate with failure and remove partial C.
         bad = root / "bad.bas"

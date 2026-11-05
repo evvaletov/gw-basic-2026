@@ -84,17 +84,19 @@ bash tests/run_corpus.sh --audit --report corpus-audit.json
 ```
 
 The audit transpiles and compiles every vendored listing at `-O0`; it does not
-execute them. On 2026-11-05, 96 of 98 compiled. `build-audit.json` preserves the
+execute them. On 2026-11-05, 97 of 98 compiled. `build-audit.json` preserves the
 baseline with temporary paths removed. The command returns failure for either
 transpilation or native compilation errors, so the current audit exits 1.
 
 | Listing | Finding |
 |---------|---------|
-| Awari | Undefined `for_done_2` label in generated C |
-| Checkers | Undefined `for_done_8` label and undeclared `_for_step_9` |
+| Awari and Checkers | Native compilation fixed with runtime FOR/NEXT tracking; gameplay remains unverified |
+| Super Star Trek | Compiler rejects unspaced `TO` at line 4060; Microsoft GW-BASIC also rejects this syntax |
 | Sinewave | Builds, but Microsoft GW-BASIC reports syntax error at line 40 (`REMARKABLE`); excluded from runtime fixtures |
 
-The FOR/NEXT failures are tracked in git-bug `ca3a8b8`. Broader scripted gameplay,
-random-seed handling, and dialect triage remain under `51679f0`. Successful builds
+The FOR/NEXT native compilation failures (`ca3a8b8`) are resolved. Broader
+scripted gameplay, random-seed handling, and dialect triage remain under `51679f0`.
+Nonempty FOR entry validation and conditional DEFTYPE behavior still differ
+from Microsoft GW-BASIC in some cases. Successful builds
 are not counted as runtime passes. GitHub CI runs the curated suite and uploads
 its JSON matrix; the full build audit is an explicit development command.

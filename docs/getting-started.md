@@ -33,11 +33,16 @@ The binary is `build/gwbasic`. Run the examples below from the repository root.
 
 ### Interactive Mode
 
+The editor keeps its logical screen size for the session. If a POSIX terminal
+shrinks, a viewport follows the cursor and keeps pending commands and INPUT
+answers intact; enlarging the window reveals the saved screen cells. The
+`--full` option chooses the logical size from the terminal at startup.
+
 Running `build/gwbasic` with no arguments launches the full-screen editor:
 
 ```
 $ build/gwbasic
-GW-BASIC 2026 0.18.0
+GW-BASIC 2026 0.18.1
 (C) Eremey Valetov 2026. MIT License.
 Based on Microsoft GW-BASIC assembly source.
 Ok
@@ -384,8 +389,10 @@ bash tests/run_dos_smoke.sh  # runs gwbasic16.exe under DOSBox-X, diffs golden
 
 The smoke harness validates non-interactive features (arithmetic, strings,
 control flow, GOSUB, FOR/NEXT, DATA/READ, DEF FN, file I/O via OPEN/PRINT#).
-The interactive TUI features below need a manual session under DOSBox-X or
-real FreeDOS:
+The interactive TUI checks below can be exercised manually under DOSBox-X or
+real FreeDOS. The v0.18.1 release QA uses a headless FreeDOS/QEMU session for
+startup, numbered edits, AUTO, INPUT editing and wrapping, break handling,
+CLS, and exit:
 
 | Check | What to do | Expected |
 |-------|-----------|----------|
@@ -397,7 +404,13 @@ real FreeDOS:
 | Insert toggle | Press Ins; type characters mid-line | Cursor switches between block (insert) and underline (overwrite) shapes; characters insert vs overstrike accordingly |
 | Home / End | Press Home, End | Cursor jumps to column 0 / past last printable char on the row |
 | Scroll | Fill the screen with output | Bottom row pinned to the F-key bar; new lines push old ones up |
-| Ctrl-C | Run `10 GOTO 10` and press Ctrl-C | Program stops with `Break in 10` |
+| Ctrl-C | Run `10 GOTO 10` and press Ctrl-C | Program stops with `Break` |
 | KEY OFF / KEY ON | `KEY OFF` then `KEY ON` | F-key bar disappears / reappears |
 | CLS | `CLS` | Screen clears, cursor at top-left |
 | Exit | `SYSTEM` | Returns to DOS prompt cleanly (no leftover escape codes) |
+
+
+The 16-bit build defaults to an 8 KiB string pool to leave room for program
+storage and garbage collection in its 64 KiB near-data segment. Other builds
+use 32 KiB. Increasing the pool with `CLEAR` reduces memory available for program
+lines and arrays.

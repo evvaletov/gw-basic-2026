@@ -22,6 +22,7 @@
 | 0.16.0 | | AOT compiler: expanded regression coverage. CHAIN/COMMON/RUN "file" via runtime delegation, token embedding, string comparison, division-by-zero detection, FIELD read-back, graphics, file I/O delegation, RNG matching, dead code elimination |
 | 0.17.0 | `981aeab` | Compiler memory safety (`--warn`, `--safe`, `--safe=sanitize`); 16-bit real-mode DOS target (Makefile.dos16, far-heap TUI screen buffer); 32-bit DOS/4GW target (Makefile.dos); FreeDOS 1.4 compatibility |
 | 0.18.0 | `89fe0fb` | Cross-language linking: link BASIC objects into a C/Fortran project (`--emit-obj`/`--main-name`) and call C functions from BASIC (`'$EXTERN` FFI pragma); codegen parenthesized-string-comparison fix; `--no-gc-check`/`--fast-math`; larger 32-bit static caps; process-local `DATE$`/`TIME$` assignment |
+| 0.18.1 | | Terminal input and resize fixes; active FOR/NEXT and GOSUB control stacks; DOS memory and break-key repairs; checked tokenization; reference corpus and release archive validation |
 
 ## Tests
 
@@ -76,6 +77,10 @@ full-screen editor. Compiler regressions compare focused programs across
 optimization, safety, and array-access modes. The four interactive games in
 `tests/classic/` need a user at the keyboard.
 
+`python3 tests/test_tokenizer.py --sanitize` checks every output-buffer boundary
+for representative token widths and rejects oversized lines through the
+interpreter, LOAD, and compiler. It builds a small ASan/UBSan test helper.
+
 ### Compatibility Testing
 
 The curated corpus has 13 deterministic cases from eight original *BASIC
@@ -89,7 +94,7 @@ spaces and tabs; leading spaces and blank lines remain significant.
 bash tests/run_corpus.sh --case plot --report corpus-matrix.json
 
 # Transpile and compile all 98 listings without executing them.
-# Currently exits 1: Awari and Checkers fail native compilation.
+# Currently exits 1: Super Star Trek has unsupported unspaced TO syntax.
 bash tests/run_corpus.sh --audit --report corpus-audit.json
 ```
 
@@ -127,3 +132,32 @@ interpreter, compiler, terminal, compiler-regression, and curated corpus checks
 on pushes to `main` and pull requests. The corpus JSON matrix is uploaded as an
 artifact, including on failures. See [the workflow](https://github.com/evvaletov/gw-basic-2026/blob/main/.github/workflows/ci.yml)
 for the current commands.
+
+
+## Release preparation
+
+`include/gwbasic.h` sets the runtime version. Keep `CHANGES.TXT`, the README
+banner, `pkg/GWBASIC.LSM`, and `RELEASE_NOTES.md` consistent with it. The DOS
+builder checks header timestamps as well as source timestamps, so a version
+change rebuilds the executable.
+
+After CI passes, its `release-archives` job builds Linux binaries on Ubuntu 22.04
+and packages them with the DOS outputs from the same source commit. It tests the
+packaged compiler/runtime layout and uploads archives, `BUILD.json`, and
+`SHA256SUMS`. The workflow does not tag or publish a release.
+
+To package already-built binaries locally from a clean tracked checkout:
+
+```bash
+python3 pkg/build_release.py --dos16 gwbasic16.exe --dos32 gwbasic.exe \
+  --output dist/release-local
+```
+
+The output directory must be empty or absent. `BUILD.json` records the source
+commit, binary hashes, host and libc version. Local packaging checks versions;
+it cannot prove that supplied binaries were built from the current source.
+CI builds both platforms from the same commit and records its run URL. Use its
+Linux archive for the Ubuntu 22.04 baseline.
+Review release notes and checksum verification before publication. DOS runtime
+checks and isolated audio measurements are local release evidence, separate
+from cross-compilation and text-output tests in CI.

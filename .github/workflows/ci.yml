@@ -11,6 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Install dependencies
         run: |
@@ -28,6 +30,7 @@ jobs:
         run: |
           python3 tests/test_harnesses.py
           python3 tests/test_corpus.py
+          python3 tests/test_tokenizer.py --sanitize
 
       - name: Interpreter tests (audio disabled)
         env:
@@ -37,7 +40,7 @@ jobs:
       - name: Compiler tests
         run: bash tests/run_compiler_tests.sh
 
-      - name: String and array compiler regressions
+      - name: Compiler control flow, string and array regressions
         run: python3 tests/test_compiler_regressions.py
 
       - name: Curated compatibility corpus
@@ -66,6 +69,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Cache OpenWatcom V2
         id: cache-watcom
@@ -131,3 +136,33 @@ jobs:
         with:
           name: dos-binaries
           path: .ci-stash/*.exe
+
+  release-archives:
+    needs: [build-and-test, dos-cross-compile]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Install release build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake pkg-config libpulse-dev zip
+      - name: Build Linux binaries
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j2
+      - uses: actions/download-artifact@v4
+        with:
+          name: dos-binaries
+          path: build/dos
+      - name: Package and smoke-test archives
+        run: |
+          python3 pkg/build_release.py --dos16 build/dos/gwbasic16.exe \
+            --dos32 build/dos/gwbasic.exe --output dist/release
+          cd dist/release
+          sha256sum --check SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-archives
+          path: dist/release/*

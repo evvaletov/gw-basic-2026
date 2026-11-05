@@ -133,6 +133,11 @@ static int load_file(const char *filename)
         last_num = num;
 
         int tok_len = gw_crunch(content, kbuf, sizeof(kbuf));
+        if (tok_len < 0) {
+            fprintf(stderr, "Line buffer overflow in %s at %u\n", filename, (unsigned)num);
+            fclose(f);
+            return 1;
+        }
         store_line(num, kbuf, tok_len);
     }
 
@@ -263,6 +268,8 @@ int main(int argc, char **argv)
     FILE *f = c_file ? fopen(c_file, "w") : stdout;
     if (!f) {
         fprintf(stderr, "Cannot write: %s\n", c_file);
+        for (int i = 0; i < analysis.data_count; i++)
+            free(analysis.data_pool[i]);
         return 1;
     }
 
@@ -281,6 +288,8 @@ int main(int argc, char **argv)
         .out_path = (f == stdout) ? NULL : c_file,
     };
     codegen_emit(f, &analysis, &opts);
+    for (int i = 0; i < analysis.data_count; i++)
+        free(analysis.data_pool[i]);
 
     if (f != stdout)
         fclose(f);

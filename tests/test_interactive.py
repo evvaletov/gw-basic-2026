@@ -54,6 +54,7 @@ class InteractiveTests(unittest.TestCase):
     def load(self, source):
         (self.root / "test.bas").write_text(source)
         self.command('LOAD "test.bas"')
+        self.assertFalse(any("Syntax error" in line for line in self.lines()))
 
     def test_numbered_edits_do_not_print_ok(self):
         self.assertEqual(self.lines().count("Ok"), 1)
@@ -66,6 +67,10 @@ class InteractiveTests(unittest.TestCase):
         self.command("PRINT 1/0")
         self.assertTrue(any("Division by zero" in line for line in self.lines()))
         self.assertEqual(self.lines().count("Ok"), 3)
+
+    def test_locate_uses_one_based_coordinates(self):
+        self.command('LOCATE 5,7:PRINT "MARK";')
+        self.wait_for(lambda: self.screen.display[4][6:10] == 'MARK')
 
     def test_auto_does_not_duplicate_line_number(self):
         self.command("AUTO 10,10")
@@ -83,6 +88,7 @@ class InteractiveTests(unittest.TestCase):
         self.command("42")
         self.wait_for(lambda: "NAME?" in self.lines())
         self.command("Alice")
+        self.wait_for(lambda: "NUMBER= 42" in self.lines() and "VALUE=[Alice]" in self.lines())
         self.assertIn("NUMBER= 42", self.lines())
         self.assertIn("VALUE=[Alice]", self.lines())
         self.assertIn("N:42", self.lines())
@@ -114,6 +120,58 @@ class InteractiveTests(unittest.TestCase):
         self.command('PRINT "READY"')
         self.assertIn("READY", self.lines())
         self.assertNotIn("MUST NOT RUN", self.lines())
+
+    def resize(self, rows, cols):
+        self.screen.resize(lines=rows, columns=cols)
+        self.child.setwinsize(rows, cols)
+
+    def test_resize_preserves_input_and_pending_command(self):
+        self.load('10 LINE INPUT "VALUE:";S$\n'
+                  '20 OPEN "answer.txt" FOR OUTPUT AS #1\n'
+                  '30 PRINT #1,S$\n40 CLOSE #1\n50 PRINT "SAVED"\n')
+        self.command("RUN")
+        self.child.send("before-")
+        self.wait_for(lambda: any("VALUE:before-" in line for line in self.lines()))
+        self.resize(15, 60)
+        self.wait_for(lambda: "1LIST" in self.lines()[-1])
+        answer = "before-resize-" + "abcdefghij" * 12
+        self.child.send(answer[len("before-"):] + "\r")
+        self.wait_for(lambda: "SAVED" in self.lines())
+        self.assertEqual((self.root / "answer.txt").read_text().rstrip("\r\n"), answer)
+        self.child.send('OPEN "direct.txt" FOR OUTPUT ')
+        self.resize(25, 80)
+        self.child.send('AS #1:PRINT #1,"DIRECT OK":CLOSE #1\r')
+        self.wait_for(lambda: (self.root / "direct.txt").exists())
+        self.assertEqual((self.root / "direct.txt").read_text().strip(), "DIRECT OK")
+
+    def test_idle_resize_keeps_prompt_cursor_and_key_bar(self):
+        self.command("CLS")
+        self.assertIn("1LIST", self.lines()[-1])
+        self.child.send('PRINT "IDLE"')
+        self.wait_for(lambda: any('PRINT "IDLE"' in line for line in self.lines()))
+        self.resize(12, 20)
+        # No keypress after resize: polling must redraw the key bar and cursor.
+        self.wait_for(lambda: "1LIST" in self.lines()[-1])
+        self.assertLess(self.screen.cursor.y, 11)
+        self.assertLess(self.screen.cursor.x, 20)
+        self.child.send("\r")
+        self.wait_for(lambda: "IDLE" in self.lines())
+
+    def test_full_screen_prompt_pans_on_shrink(self):
+        self.child.terminate(force=True)
+        self.child = pexpect.spawn(str(BUILD / "gwbasic"), ["--full"], cwd=self.temp.name,
+                                   encoding="utf-8", dimensions=(40, 120), echo=False)
+        self.screen = pyte.Screen(120, 40)
+        self.stream = pyte.Stream(self.screen)
+        self.wait_for(lambda: "Ok" in self.lines())
+        self.load('10 LOCATE 20,90\n20 INPUT "N:",N\n30 PRINT "RESULT=";N\n')
+        self.command("RUN")
+        self.wait_for(lambda: any("N:" in line for line in self.lines()))
+        self.child.send("124")
+        self.resize(12, 40)
+        self.wait_for(lambda: any("N:124" in line for line in self.lines()))
+        self.child.send("\x1b[D\x1b[3~3\r")
+        self.wait_for(lambda: "RESULT= 123" in self.lines())
 
     def test_issue_6_guessing_game(self):
         self.load('10 INPUT "Random seed? ",seed\n20 RANDOMIZE seed\n'

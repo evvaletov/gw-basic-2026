@@ -21,6 +21,79 @@
 #include <errno.h>
 #include <time.h>
 
+static void stmt_next(void)
+{
+    /* Parse optional variable name(s) */
+    for (;;) {
+        var_entry_t *var = NULL;
+        if (gw_is_letter(gw_chrgot())) {
+            char name[2];
+            gw_valtype_t type = gw_parse_varname(name);
+            var = gw_var_find_or_create(name, type);
+        }
+
+        /* Find matching FOR */
+        int found = -1;
+        for (int i = gw.for_sp - 1; i >= 0; i--) {
+            if (!var || gw.for_stack[i].var == var) {
+                found = i;
+                break;
+            }
+        }
+        if (found < 0)
+            gw_error(ERR_NF);
+
+        /* Discard any nested FORs above */
+        gw.for_sp = found + 1;
+        for_entry_t *f = &gw.for_stack[found];
+
+        /* Increment */
+        double cur, lim, stp;
+        switch (f->var->type) {
+        case VT_INT:
+            f->var->val.ival = gw_int_add(f->var->val.ival,
+                gw_to_int(&f->step));
+            cur = f->var->val.ival;
+            break;
+        case VT_SNG:
+            f->var->val.fval += gw_to_sng(&f->step);
+            cur = f->var->val.fval;
+            break;
+        case VT_DBL:
+            f->var->val.dval += gw_to_dbl(&f->step);
+            cur = f->var->val.dval;
+            break;
+        default: cur = 0; break;
+        }
+        lim = gw_to_dbl(&f->limit);
+        stp = gw_to_dbl(&f->step);
+
+        /* Check termination */
+        bool done;
+        if (stp >= 0)
+            done = cur > lim;
+        else
+            done = cur < lim;
+
+        if (!done) {
+            /* Loop back */
+            gw.text_ptr = f->loop_text;
+            gw.cur_line = f->loop_line;
+            gw.cur_line_num = f->line_num;
+            return;
+        }
+
+        /* Loop done, pop stack */
+        gw.for_sp = found;
+
+        /* Check for more variables after comma */
+        gw_skip_spaces();
+        if (gw_chrgot() != ',')
+            break;
+        gw_chrget();
+    }
+}
+
 /* Portable monotonic time (seconds as double) */
 static double monotonic_time(void)
 {
@@ -2078,6 +2151,38 @@ void gw_exec_stmt(void)
             }
         }
 
+        /* GW-BASIC skips a loop whose initial value is past its limit. */
+        double current = gw_to_dbl(&var->val);
+        double bound = gw_to_dbl(&limit), increment = gw_to_dbl(&step);
+        if (increment >= 0 ? current > bound : current < bound) {
+            program_line_t direct = {0};
+            program_line_t *line = gw.cur_line;
+            if (!line) {
+                direct.tokens = gw.text_ptr;
+                direct.len = 0; /* Direct-mode tokens end with a token-aware NUL. */
+                line = &direct;
+            }
+            program_line_t *target;
+            uint8_t *after, *next_var;
+            if (!gw_for_exit(line, gw.text_ptr, &target, &after, &next_var)) gw_error(ERR_FW);
+            if (target != &direct) {
+                gw.cur_line = target;
+                gw.cur_line_num = target->num;
+            }
+            gw.text_ptr = next_var;
+            if (gw_is_letter(gw_chrgot())) {
+                char next_name[2];
+                gw_valtype_t next_type = gw_parse_varname(next_name);
+                if (next_type != type || memcmp(next_name, name, 2)) gw_error(ERR_NF);
+            }
+            gw.text_ptr = after;
+            if (gw_chrgot() == ',') {
+                gw_chrget();
+                stmt_next();
+            }
+            return;
+        }
+
         if (gw.for_sp >= MAX_FOR_DEPTH)
             gw_error(ERR_OM);
 
@@ -2096,75 +2201,7 @@ void gw_exec_stmt(void)
         gw_chrget();
         gw_skip_spaces();
 
-        /* Parse optional variable name(s) */
-        for (;;) {
-            var_entry_t *var = NULL;
-            if (gw_is_letter(gw_chrgot())) {
-                char name[2];
-                gw_valtype_t type = gw_parse_varname(name);
-                var = gw_var_find_or_create(name, type);
-            }
-
-            /* Find matching FOR */
-            int found = -1;
-            for (int i = gw.for_sp - 1; i >= 0; i--) {
-                if (!var || gw.for_stack[i].var == var) {
-                    found = i;
-                    break;
-                }
-            }
-            if (found < 0)
-                gw_error(ERR_NF);
-
-            /* Discard any nested FORs above */
-            gw.for_sp = found + 1;
-            for_entry_t *f = &gw.for_stack[found];
-
-            /* Increment */
-            double cur, lim, stp;
-            switch (f->var->type) {
-            case VT_INT:
-                f->var->val.ival = gw_int_add(f->var->val.ival,
-                    gw_to_int(&f->step));
-                cur = f->var->val.ival;
-                break;
-            case VT_SNG:
-                f->var->val.fval += gw_to_sng(&f->step);
-                cur = f->var->val.fval;
-                break;
-            case VT_DBL:
-                f->var->val.dval += gw_to_dbl(&f->step);
-                cur = f->var->val.dval;
-                break;
-            default: cur = 0; break;
-            }
-            lim = gw_to_dbl(&f->limit);
-            stp = gw_to_dbl(&f->step);
-
-            /* Check termination */
-            bool done;
-            if (stp >= 0)
-                done = cur > lim;
-            else
-                done = cur < lim;
-
-            if (!done) {
-                /* Loop back */
-                gw.text_ptr = f->loop_text;
-                gw.cur_line = f->loop_line;
-                gw.cur_line_num = f->line_num;
-                return;
-            }
-
-            /* Loop done, pop stack */
-            gw.for_sp = found;
-
-            /* Check for more variables after comma */
-            gw_skip_spaces();
-            if (gw_chrgot() != ',')
-                break;
-            gw_chrget();
-        }
+        stmt_next();
         return;
     }
 
@@ -2740,7 +2777,7 @@ void gw_exec_stmt(void)
             gw_chrget();
             col = gw_eval_int();
         }
-        if (gw_hal) gw_hal->locate(row - 1, col - 1);
+        if (gw_hal) gw_hal->locate(row, col);
         /* Skip additional optional params */
         while (gw_chrgot() == ',') {
             gw_chrget();

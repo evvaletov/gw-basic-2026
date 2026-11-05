@@ -1,6 +1,24 @@
 GW-BASIC 2026 -- Change History
 ================================
 
+v0.18.1
+  - Fix numbered-line Ok prompts, INPUT prompt boundaries, AUTO, and input editing.
+  - Preserve ASCII LOAD command buffers; keep output and the cursor visible
+    when terminals shrink; retain F-key labels after CLS.
+  - Reduce the 16-bit DOS string-pool default to 8 KiB so program lines can be stored.
+  - Reject token-buffer overflow without truncating or running the partial line.
+  - Poll DOS break keys so Ctrl-C interrupts loops without keyboard input.
+  - Align LOCATE and the DOS hardware cursor with BASIC's one-based coordinates.
+  - Correct parenthesized strings, shared array storage, DEF FN token scanning,
+    INPUT scalar preservation, and backward TAB behavior in compiled programs.
+  - Track active FOR loops at runtime so alternate and shared NEXT statements
+    work; retain all GOSUB return targets and clear both control stacks at CLEAR.
+  - Skip initially empty FOR loops in the interpreter and compiler.
+  - Add fixed-input Microsoft GW-BASIC reference comparisons and an explicit
+    build audit for 98 BASIC Computer Games listings.
+  - Fail test suites on mismatches, process errors, missing outputs, and timeouts.
+  - Prepare Linux and DOS release archives with source provenance and checksums.
+
 v0.18.0
   - Cross-language linking: link compiled BASIC objects into a C/Fortran
     project (--emit-obj, --main-name), and call C functions from BASIC via

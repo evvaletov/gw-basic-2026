@@ -75,9 +75,9 @@
         "stderr": ""
       },
       "cc": {
-        "status": "exit:1",
-        "exit_code": 1,
-        "stderr": "<work>/awari/program.c: In function \u2018main\u2019:\n<work>/awari/program.c:371:5: error: label \u2018for_done_2\u2019 used but not defined\n  371 |     if (var_I_sng > _for_limit_2) goto for_done_2;\n      |     ^~\n"
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
       }
     },
     {
@@ -322,9 +322,9 @@
         "stderr": ""
       },
       "cc": {
-        "status": "exit:1",
-        "exit_code": 1,
-        "stderr": "<work>/checkers/program.c: In function \u2018main\u2019:\n<work>/checkers/program.c:520:16: error: \u2018_for_step_9\u2019 undeclared (first use in this function); did you mean \u2018_for_step_7\u2019?\n  520 |   var_A_sng += _for_step_9;\n      |                ^~~~~~~~~~~\n      |                _for_step_7\n<work>/checkers/program.c:520:16: note: each undeclared identifier is reported only once for each function it appears in\n<work>/checkers/program.c:495:5: error: label \u2018for_done_8\u2019 used but not defined\n  495 |     if (_for_step_8 >= 0 ? var_A_sng > _for_limit_8 : var_A_sng < _for_limit_8) goto for_done_8;\n      |     ^~\n"
+        "status": "ok",
+        "exit_code": 0,
+        "stderr": ""
       }
     },
     {
@@ -1123,14 +1123,9 @@
     {
       "source": "superstartrek.bas",
       "transpile": {
-        "status": "ok",
-        "exit_code": 0,
-        "stderr": ""
-      },
-      "cc": {
-        "status": "ok",
-        "exit_code": 0,
-        "stderr": ""
+        "status": "exit:2",
+        "exit_code": 2,
+        "stderr": "gwbasic-compile: expected TO in FOR at BASIC line 4060 (token 0x54)\n"
       }
     },
     {
@@ -1277,8 +1272,8 @@
       }
     }
   ],
-  "passed": 96,
-  "failed": 2,
+  "passed": 97,
+  "failed": 1,
   "captured": "2026-11-05",
-  "note": "Build-only baseline; no runtime claims. Temporary paths removed."
+  "note": "Build-only baseline: 97 successes. Super Star Trek has an unspaced TO expression rejected by both the compiler and Microsoft GW-BASIC. Temporary paths removed."
 }

@@ -238,7 +238,8 @@ followed by the raw data bytes.
 
 ## String Space and Garbage Collection
 
-All string data lives in a contiguous pool (default 32,768 bytes), matching
+All string data lives in a contiguous pool (8,192 bytes by default on 16-bit DOS,
+32,768 bytes on other builds), matching
 the original GW-BASIC's string space architecture.  Allocation is a bump
 pointer; dead strings are reclaimed by a compacting garbage collector that
 runs automatically at statement boundaries when the pool is running low.

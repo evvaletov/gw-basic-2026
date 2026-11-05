@@ -231,16 +231,21 @@ static void load_binary(FILE *fp)
 static void load_ascii(FILE *fp)
 {
     char buf[256];
+    uint8_t tokbuf[300];  /* Keep the active direct command in gw.kbuf intact. */
     while (fgets(buf, sizeof(buf), fp)) {
         int len = strlen(buf);
         while (len > 0 && (buf[len - 1] == '\n' || buf[len - 1] == '\r'))
             buf[--len] = '\0';
         if (buf[0] == '\0') continue;
 
-        int clen = gw_crunch(buf, gw.kbuf, sizeof(gw.kbuf));
+        int clen = gw_crunch(buf, tokbuf, sizeof(tokbuf));
+        if (clen < 0) {
+            fclose(fp);
+            gw_error(ERR_BO);
+        }
 
         /* Parse line number from tokenized form */
-        uint8_t *tp = gw.kbuf;
+        uint8_t *tp = tokbuf;
         while (*tp == ' ') tp++;
         uint8_t tok = *tp;
         uint16_t num;
@@ -248,19 +253,19 @@ static void load_ascii(FILE *fp)
 
         if (tok >= 0x11 && tok <= 0x1A) {
             num = tok - 0x11;
-            skip = (tp - gw.kbuf) + 1;
+            skip = (tp - tokbuf) + 1;
         } else if (tok == 0x0F) {
             num = tp[1];
-            skip = (tp - gw.kbuf) + 2;
+            skip = (tp - tokbuf) + 2;
         } else if (tok == 0x0E) {
             num = (uint16_t)(tp[1] | (tp[2] << 8));
-            skip = (tp - gw.kbuf) + 3;
+            skip = (tp - tokbuf) + 3;
         } else {
             continue;
         }
 
         int data_len = clen - skip;
-        uint8_t *data = gw.kbuf + skip;
+        uint8_t *data = tokbuf + skip;
         while (*data == ' ' && data_len > 0) { data++; data_len--; }
 
         if (data_len > 0 && *data != 0)
@@ -317,7 +322,10 @@ void gw_stmt_load(void)
 {
     gw_skip_spaces();
     gw_value_t fname_val = gw_eval_str();
-    char *filename = gw_str_to_cstr(&fname_val.sval);
+    /* Keep the name alive across CLEAR without leaking it on load errors. */
+    char filename[256];
+    if (fname_val.sval.len) memcpy(filename, fname_val.sval.data, fname_val.sval.len);
+    filename[fname_val.sval.len] = '\0';
     gw_str_free(&fname_val.sval);
 
     bool run_after = false;
@@ -332,7 +340,6 @@ void gw_stmt_load(void)
     }
 
     gw_stmt_load_internal(filename, true);
-    free(filename);
 
     if (run_after && gw.prog_head) {
         gw.cur_line = gw.prog_head;
@@ -348,9 +355,10 @@ void gw_stmt_merge(void)
 {
     gw_skip_spaces();
     gw_value_t fname_val = gw_eval_str();
-    char *filename = gw_str_to_cstr(&fname_val.sval);
+    char filename[256];
+    if (fname_val.sval.len) memcpy(filename, fname_val.sval.data, fname_val.sval.len);
+    filename[fname_val.sval.len] = '\0';
     gw_str_free(&fname_val.sval);
 
     gw_stmt_load_internal(filename, false);
-    free(filename);
 }

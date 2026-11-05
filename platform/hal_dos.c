@@ -135,9 +135,81 @@ static bool dos_kbhit(void)
     return kbhit() != 0;
 }
 
+/* DOS raises SIGINT during selected DOS calls, so a compute-only BASIC loop
+ * needs its own keyboard poll.  Inspect the BIOS ring without reading ordinary
+ * keys: even a queued letter or function key must not hide a later Ctrl-C. */
+static unsigned bios_lock_keyboard(void);
+static void bios_unlock_keyboard(unsigned flags);
+#ifdef _M_I86
+#pragma aux bios_lock_keyboard = "pushf" "pop ax" "cli" \
+    __value [ax] __modify __exact [ax];
+#pragma aux bios_unlock_keyboard = "push ax" "popf" \
+    __parm [ax] __modify __exact [];
+typedef volatile uint16_t __far *bios_words_t;
+#else
+#pragma aux bios_lock_keyboard = "mov ax, 0900h" "int 31h" "movzx eax, ax" \
+    __value [eax] __modify __exact [eax];
+/* DPMI virtual interrupt state is independent of PUSHFD/POPFD.  Function
+ * 0900h returns AX=0900h or 0901h, which restores the old state when called. */
+#pragma aux bios_unlock_keyboard = "int 31h" \
+    __parm [eax] __modify __exact [eax];
+typedef volatile uint16_t *bios_words_t;
+#endif
+
+static bool dos_check_break(void)
+{
+#ifdef _M_I86
+    bios_words_t bda = (bios_words_t)MK_FP(0x40, 0);
+#else
+    /* DOS/4GW maps the first megabyte at its physical linear addresses. */
+    bios_words_t bda = (bios_words_t)0x400;
+#endif
+    unsigned flags;
+    uint16_t first, end, head, tail, read_pos, write_pos;
+    bool ctrl_break, found;
+
+    if (bda[0x1a / 2] == bda[0x1c / 2] && !(bda[0x70 / 2] & 0x8000))
+        return false;
+
+    flags = bios_lock_keyboard();
+    first = bda[0x80 / 2];
+    end = bda[0x82 / 2];
+    /* Older BIOSes have the fixed 16-word keyboard ring. */
+    if (first < 0x1e || first >= end || (first & 1) || (end & 1)) {
+        first = 0x1e;
+        end = 0x3e;
+    }
+    head = bda[0x1a / 2];
+    tail = bda[0x1c / 2];
+    ctrl_break = (bda[0x70 / 2] & 0x8000) != 0;
+    found = ctrl_break;
+    bda[0x70 / 2] &= (uint16_t)~0x8000;
+
+    if (head >= first && head < end && tail >= first && tail < end &&
+        !(head & 1) && !(tail & 1)) {
+        write_pos = head;
+        for (read_pos = head; read_pos != tail;) {
+            uint16_t key = bda[read_pos / 2];
+            if ((key & 0xff) == 3 || (ctrl_break && key == 0)) {
+                found = true;
+            } else {
+                if (write_pos != read_pos)
+                    bda[write_pos / 2] = key;
+                write_pos += 2;
+                if (write_pos == end) write_pos = first;
+            }
+            read_pos += 2;
+            if (read_pos == end) read_pos = first;
+        }
+        bda[0x1c / 2] = write_pos;
+    }
+    bios_unlock_keyboard(flags);
+    return found;
+}
+
 static void dos_locate(int row, int col)
 {
-    bios_set_cursor(row, col);
+    bios_set_cursor(row - 1, col - 1);
 }
 
 static int dos_get_cursor_row(void) { return cursor_row; }
@@ -222,7 +294,7 @@ static hal_ops_t dos_hal = {
     dos_write_raw,
     dos_tui_enter, dos_tui_leave, dos_render_run, dos_set_cursor_shape,
     80, 25, 1 /* is_tty */,
-    dos_init, dos_shutdown
+    dos_init, dos_shutdown, dos_check_break
 };
 
 hal_ops_t *hal_dos_create(void) { return &dos_hal; }

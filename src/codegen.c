@@ -29,10 +29,11 @@ static uint8_t *tp;  /* token pointer (mirrors gw.text_ptr) */
 static int ret_label_counter;
 static int for_label_counter;
 
-/* FOR stack: maps variable to its for_label_counter */
-#define FOR_STACK_MAX 64
-static struct { char name[2]; gw_valtype_t type; int label; bool has_step; } for_stack[FOR_STACK_MAX];
-static int for_stack_sp;
+/* WHILE/WEND have lexical pairing; FOR/NEXT are matched at runtime. */
+#define WHILE_STACK_MAX 64
+static int while_stack[WHILE_STACK_MAX];
+static int while_stack_sp;
+static int while_label_counter;
 
 /* Output-size guard.  A codegen path that emits without advancing the token
  * pointer produces unbounded C and can fill the disk (this happened once,
@@ -2050,23 +2051,25 @@ static void emit_stmt(void)
         return;
     }
 
-    /* RETURN */
+    /* RETURN targets can be defined by GOSUB sites later in the source. */
     if (tok == TOK_RETURN) {
         advance();
-        EMIT("  switch(gwrt_gosub_pop()) {\n");
-        for (int i = 0; i < ret_label_counter; i++)
-            EMIT("    case %d: goto ret_%d;\n", i, i);
-        EMIT("  }\n");
+        EMIT("  _gw_return = gwrt_gosub_pop(); goto _gw_return_dispatch;\n");
         return;
     }
 
-    /* FOR */
+    /* FOR records the executed loop, including its continuation label. */
     if (tok == TOK_FOR) {
         advance();
         char name[2];
+        uint8_t *for_suffix = tp;
+        while (is_letter(*for_suffix) || (*for_suffix >= '0' && *for_suffix <= '9')) for_suffix++;
+        bool for_explicit_type = *for_suffix == '%' || *for_suffix == '!' || *for_suffix == '#' || *for_suffix == '$';
         gw_valtype_t type = parse_var(name);
+        if (type == VT_STR) codegen_error("FOR requires a numeric variable");
         skip_spaces();
-        if (cur() == TOK_EQ) advance();
+        if (cur() != TOK_EQ) codegen_error("expected '=' in FOR");
+        advance();
         EMIT("  ");
         emit_varname(name, type);
         if (type == VT_INT) {
@@ -2079,187 +2082,96 @@ static void emit_stmt(void)
             EMIT(");\n");
         }
         skip_spaces();
-        if (cur() == TOK_TO) advance();
-        if (safe_mode && type == VT_INT) {
-            EMIT("  static int16_t _for_limit_%d; _for_limit_%d = gw_cint((double)(",
-                 for_label_counter, for_label_counter);
-            emit_num_expr();
-            EMIT("));\n");
-        } else {
-            EMIT("  static %s _for_limit_%d; _for_limit_%d = (%s)(",
-                 c_type(type), for_label_counter, for_label_counter, c_type(type));
-            emit_num_expr();
-            EMIT(");\n");
-        }
-        bool has_step = false;
+        if (cur() != TOK_TO) codegen_error("expected TO in FOR");
+        advance();
+        EMIT("  { int _entry_type = ");
+        if (for_explicit_type) EMIT("%d", type);
+        else EMIT("gw.def_type[%d]", name[0] - 'A');
+        EMIT(";\n    double _limit = (double)(");
+        emit_num_expr();
+        EMIT(");\n    double _step = ");
         skip_spaces();
         if (cur() == TOK_STEP) {
-            has_step = true;
-            if (safe_mode && type == VT_INT) {
-                EMIT("  static int16_t _for_step_%d; _for_step_%d = gw_cint((double)(",
-                     for_label_counter, for_label_counter);
-                advance();
-                emit_num_expr();
-                EMIT("));\n");
-            } else {
-                EMIT("  static %s _for_step_%d; _for_step_%d = (%s)(",
-                     c_type(type), for_label_counter, for_label_counter, c_type(type));
-                advance();
-                emit_num_expr();
-                EMIT(");\n");
-            }
+            advance();
+            EMIT("(double)(");
+            emit_num_expr();
+            EMIT(")");
+        } else {
+            EMIT("1");
         }
         int fc = for_label_counter++;
-        EMIT("    for_top_%d:\n", fc);
-        if (has_step) {
-            /* Variable step: need sign check */
-            EMIT("    if (_for_step_%d >= 0 ? ", fc);
-            emit_varname(name, type);
-            EMIT(" > _for_limit_%d : ", fc);
-            emit_varname(name, type);
-            EMIT(" < _for_limit_%d) goto for_done_%d;\n", fc, fc);
+        EMIT(";\n    if (!gwrt_for_push(&");
+        emit_varname(name, type);
+        EMIT(", %d, _limit, _step, %d)) ", type, fc);
+        program_line_t *line = gw.prog_head, *target;
+        uint8_t *after, *next_var;
+        while (line && line->num != emit_line) line = line->next;
+        if (gw_for_exit(line, tp, &target, &after, &next_var)) {
+            uint8_t *save = tp;
+            tp = next_var;
+            EMIT("{ ");
+            if (is_letter(cur())) {
+                char next_name[2];
+                uint8_t *suffix = tp;
+                while (is_letter(*suffix) || (*suffix >= '0' && *suffix <= '9')) suffix++;
+                bool explicit_type = *suffix == '%' || *suffix == '!' || *suffix == '#' || *suffix == '$';
+                gw_valtype_t next_type = parse_var(next_name);
+                EMIT("if (%d || ", memcmp(name, next_name, 2) != 0);
+                if (explicit_type) EMIT("%d", next_type);
+                else EMIT("gw.def_type[%d]", next_name[0] - 'A');
+                EMIT(" != _entry_type) { gw.cur_line_num = %u; gw_error(ERR_NF); } ", target->num);
+            }
+            tp = save;
+            EMIT("gw.cur_line_num = %u; goto for_exit_%u_%d; }",
+                 target->num, target->num, (int)(after - target->tokens));
         } else {
-            /* Default step=1: simple comparison */
-            EMIT("    if (");
-            emit_varname(name, type);
-            EMIT(" > _for_limit_%d) goto for_done_%d;\n", fc, fc);
+            EMIT("gw_error(ERR_FW);");
         }
-        /* Push onto FOR stack */
-        if (for_stack_sp < FOR_STACK_MAX) {
-            for_stack[for_stack_sp].name[0] = name[0];
-            for_stack[for_stack_sp].name[1] = name[1];
-            for_stack[for_stack_sp].type = type;
-            for_stack[for_stack_sp].label = fc;
-            for_stack[for_stack_sp].has_step = has_step;
-            for_stack_sp++;
-        }
+        EMIT(" }\n");
+        EMIT("for_body_%d: ;\n", fc);
         return;
     }
 
-    /* NEXT [var[,var...]] */
+    /* NEXT J,I executes NEXT I only when J has finished. */
     if (tok == TOK_NEXT) {
         advance();
-        skip_spaces();
-        /* Handle one or more variables (NEXT J,I = NEXT J : NEXT I) */
         do {
             skip_spaces();
-            int fc = -1;
+            EMIT("  _gw_loop = gwrt_for_next(");
             if (is_letter(cur())) {
                 char name[2];
                 gw_valtype_t type = parse_var(name);
-                /* Search stack from top for matching variable */
-                bool step_custom = true;
-                for (int i = for_stack_sp - 1; i >= 0; i--) {
-                    if (for_stack[i].name[0] == name[0] &&
-                        for_stack[i].name[1] == name[1] &&
-                        for_stack[i].type == type) {
-                        fc = for_stack[i].label;
-                        step_custom = for_stack[i].has_step;
-                        for_stack_sp = i;
-                        break;
-                    }
-                }
-                if (fc < 0) {
-                    /* NEXT variable matches no open FOR (an unstructured jump
-                     * into a loop, or a NEXT-without-FOR).  Fall back to the
-                     * most recent loop label with a step of 1 — never emit a
-                     * reference to a _for_step_N this loop may not have
-                     * declared (which would not compile). */
-                    fc = for_label_counter > 0 ? for_label_counter - 1 : 0;
-                    step_custom = false;
-                }
-                EMIT("  ");
-                if (safe_mode && type == VT_INT) {
-                    emit_varname(name, type);
-                    if (step_custom) {
-                        EMIT(" = gw_int_add(");
-                        emit_varname(name, type);
-                        EMIT(", _for_step_%d);\n", fc);
-                    } else {
-                        EMIT(" = gw_int_add(");
-                        emit_varname(name, type);
-                        EMIT(", 1);\n");
-                    }
-                } else {
-                    emit_varname(name, type);
-                    if (step_custom)
-                        EMIT(" += _for_step_%d;\n", fc);
-                    else
-                        EMIT("++;\n");
-                }
+                EMIT("&");
+                emit_varname(name, type);
             } else {
-                /* NEXT without variable -- match most recent FOR */
-                char bname[2] = {0, 0};
-                gw_valtype_t btype = VT_SNG;
-                bool bstep = false;
-                if (for_stack_sp > 0) {
-                    for_stack_sp--;
-                    fc = for_stack[for_stack_sp].label;
-                    bname[0] = for_stack[for_stack_sp].name[0];
-                    bname[1] = for_stack[for_stack_sp].name[1];
-                    btype = for_stack[for_stack_sp].type;
-                    bstep = for_stack[for_stack_sp].has_step;
-                } else {
-                    fc = for_label_counter > 0 ? for_label_counter - 1 : 0;
-                }
-                if (bname[0]) {
-                    EMIT("  ");
-                    if (safe_mode && btype == VT_INT) {
-                        emit_varname(bname, btype);
-                        if (bstep) {
-                            EMIT(" = gw_int_add(");
-                            emit_varname(bname, btype);
-                            EMIT(", _for_step_%d);\n", fc);
-                        } else {
-                            EMIT(" = gw_int_add(");
-                            emit_varname(bname, btype);
-                            EMIT(", 1);\n");
-                        }
-                    } else {
-                        emit_varname(bname, btype);
-                        if (bstep)
-                            EMIT(" += _for_step_%d;\n", fc);
-                        else
-                            EMIT("++;\n");
-                    }
-                }
+                EMIT("NULL");
             }
-            EMIT("  goto for_top_%d;\n", fc);
-            EMIT("  for_done_%d: ;\n", fc);
+            EMIT(");\n  if (_gw_loop >= 0) goto _gw_for_dispatch;\n");
             skip_spaces();
+            program_line_t *line = gw.prog_head;
+            while (line && line->num != emit_line) line = line->next;
+            EMIT("for_exit_%u_%d: ;\n", emit_line, (int)(tp - line->tokens));
         } while (cur() == ',' && (advance(), 1));
         return;
     }
 
-    /* WHILE */
+    /* WHILE/WEND use a separate stack so FORs cannot disturb their pairing. */
     if (tok == TOK_WHILE) {
-        int wl = for_label_counter++;
-        EMIT("  while_top_%d:\n", wl);
+        if (while_stack_sp >= WHILE_STACK_MAX) codegen_error("WHILE nesting too deep");
+        int wl = while_label_counter++;
+        while_stack[while_stack_sp++] = wl;
+        EMIT("while_top_%d: ;\n", wl);
         advance();
         EMIT("  if (!(");
         emit_num_expr();
         EMIT(")) goto while_done_%d;\n", wl);
-        /* Push on FOR stack (reuse for WEND matching) */
-        if (for_stack_sp < FOR_STACK_MAX) {
-            for_stack[for_stack_sp].name[0] = 'W';
-            for_stack[for_stack_sp].name[1] = 0;
-            for_stack[for_stack_sp].type = VT_INT;
-            for_stack[for_stack_sp].label = wl;
-            for_stack_sp++;
-        }
         return;
     }
-
-    /* WEND */
     if (tok == TOK_WEND) {
         advance();
-        int wl = 0;
-        if (for_stack_sp > 0) {
-            for_stack_sp--;
-            wl = for_stack[for_stack_sp].label;
-        }
-        EMIT("  goto while_top_%d;\n", wl);
-        EMIT("  while_done_%d: ;\n", wl);
+        if (!while_stack_sp) codegen_error("WEND without WHILE");
+        int wl = while_stack[--while_stack_sp];
+        EMIT("  goto while_top_%d;\nwhile_done_%d: ;\n", wl, wl);
         return;
     }
 
@@ -2508,7 +2420,7 @@ static void emit_stmt(void)
             emit_num_expr();
             EMIT(");\n");
         }
-        EMIT("  if (gw_hal) gw_hal->locate(_row - 1, _col - 1); }\n");
+        EMIT("  if (gw_hal) gw_hal->locate(_row, _col); }\n");
         return;
     }
 
@@ -2639,6 +2551,7 @@ static void emit_stmt(void)
     /* Array lifetime and variable reset must use the shared runtime state. */
     if (tok == TOK_ERASE || tok == TOK_CLEAR) {
         emit_delegate_stmt(tp, tok == TOK_CLEAR);
+        if (tok == TOK_CLEAR) EMIT("  gwrt_control_clear();\n");
         return;
     }
 
@@ -2652,10 +2565,10 @@ static void emit_stmt(void)
         return;
     }
 
-    /* DEFINT/DEFSNG/DEFDBL/DEFSTR — compile-time only, skip */
+    /* Retain executed default types for delegated code and empty-loop checks. */
     if (tok == TOK_DEFINT || tok == TOK_DEFSNG ||
         tok == TOK_DEFDBL || tok == TOK_DEFSTR) {
-        while (cur() && cur() != ':' && cur() != 0) tp++;
+        emit_delegate_stmt(tp, false);
         return;
     }
 
@@ -3021,7 +2934,8 @@ void codegen_emit(FILE *f, analysis_t *a, const codegen_opts_t *opts)
     main_name = (opts && opts->main_name) ? opts->main_name : "main";
     ret_label_counter = 0;
     for_label_counter = 0;
-    for_stack_sp = 0;
+    while_stack_sp = 0;
+    while_label_counter = 0;
 
     /* Header */
     EMIT("/* Generated by gwbasic-compile */\n");
@@ -3097,6 +3011,7 @@ void codegen_emit(FILE *f, analysis_t *a, const codegen_opts_t *opts)
      * --main-name renames it for link into a larger C / Fortran project. */
     EMIT("int %s(int argc, char **argv) {\n", main_name);
     EMIT("  (void)argc; (void)argv;\n");
+    EMIT("  int _gw_loop, _gw_return;\n");
     EMIT("  gwrt_init();\n");
     if (inline_arrays && !safe_mode) {
         for (int i = 0; i < a->array_count; i++) {
@@ -3155,7 +3070,7 @@ void codegen_emit(FILE *f, analysis_t *a, const codegen_opts_t *opts)
             /* Dead code elimination: skip remaining after GOTO/END/STOP/SYSTEM.
              * -O0 keeps the unreachable statements (they compile to dead C the
              * host compiler drops anyway) for a more literal translation. */
-            if (cg_opt_level >= 1 &&
+            if (cg_opt_level >= 1 && for_label_counter == 0 &&
                 (first == TOK_GOTO || first == TOK_END || first == TOK_STOP))
                 break;
             if (first == TOK_PREFIX_FE && tp > line->tokens) {
@@ -3168,6 +3083,17 @@ void codegen_emit(FILE *f, analysis_t *a, const codegen_opts_t *opts)
     /* Implicit END at bottom */
     EMIT("  gwrt_shutdown();\n");
     EMIT("  return 0;\n");
+
+    /* The complete target sets are known only after every line was emitted. */
+    EMIT("_gw_for_dispatch:\n  switch (_gw_loop) {\n");
+    for (int i = 0; i < for_label_counter; i++)
+        EMIT("    case %d: goto for_body_%d;\n", i, i);
+    EMIT("  }\n  gw_error(ERR_NF); return 1;\n");
+    EMIT("_gw_return_dispatch:\n  switch (_gw_return) {\n");
+    for (int i = 0; i < ret_label_counter; i++)
+        EMIT("    case %d: goto ret_%d;\n", i, i);
+    EMIT("  }\n  gw_error(ERR_RG); return 1;\n");
+    if (while_stack_sp) codegen_error("WHILE without WEND");
 
     /* Undefined-line-number targets: a GOTO/GOSUB/THEN/etc. aimed at a line that
      * does not exist would otherwise leave a dangling `goto L_n` with no label

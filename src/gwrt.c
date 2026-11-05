@@ -73,6 +73,82 @@ static int data_line_count;
 static int gosub_stack[GWRT_GOSUB_MAX];
 static int gosub_sp;
 
+/* FOR identity is the address of the generated scalar, not a source-order
+ * match. Different FOR statements can share NEXT or re-enter the same name. */
+static struct {
+    void *var;
+    gw_valtype_t type;
+    double limit, step;
+    int label;
+} compiled_for[MAX_FOR_DEPTH];
+static int compiled_for_sp;
+
+void gwrt_control_clear(void)
+{
+    compiled_for_sp = 0;
+    gosub_sp = 0;
+}
+
+bool gwrt_for_push(void *var, gw_valtype_t type, double limit, double step, int label)
+{
+    for (int i = compiled_for_sp - 1; i >= 0; i--) {
+        if (compiled_for[i].var == var) {
+            compiled_for_sp = i;
+            break;
+        }
+    }
+    double current;
+    switch (type) {
+    case VT_INT: current = *(int16_t *)var; break;
+    case VT_SNG: current = *(float *)var; break;
+    case VT_DBL: current = *(double *)var; break;
+    default: gw_error(ERR_TM); return false;
+    }
+    if (step >= 0 ? current > limit : current < limit) return false;
+    if (compiled_for_sp >= MAX_FOR_DEPTH) gw_error(ERR_OM);
+    int i = compiled_for_sp++;
+    compiled_for[i].var = var;
+    compiled_for[i].type = type;
+    compiled_for[i].limit = limit;
+    compiled_for[i].step = step;
+    compiled_for[i].label = label;
+    return true;
+}
+
+int gwrt_for_next(void *var)
+{
+    int i;
+    for (i = compiled_for_sp - 1; i >= 0; i--)
+        if (!var || compiled_for[i].var == var) break;
+    if (i < 0) gw_error(ERR_NF);
+    compiled_for_sp = i + 1;
+    double value;
+    double step = compiled_for[i].step;
+    void *address = compiled_for[i].var;
+    switch (compiled_for[i].type) {
+    case VT_INT:
+        *(int16_t *)address = gw_int_add(*(int16_t *)address, gw_cint(step));
+        value = *(int16_t *)address;
+        break;
+    case VT_SNG:
+        *(float *)address += (float)step;
+        value = *(float *)address;
+        break;
+    case VT_DBL:
+        *(double *)address += step;
+        value = *(double *)address;
+        break;
+    default:
+        gw_error(ERR_TM);
+        return -1;
+    }
+    if (step >= 0 ? value > compiled_for[i].limit : value < compiled_for[i].limit) {
+        compiled_for_sp--;
+        return -1;
+    }
+    return compiled_for[i].label;
+}
+
 /* Error handling */
 jmp_buf gwrt_error_jmp;
 int gwrt_error_target;
@@ -98,7 +174,7 @@ void gwrt_init(void)
     data_index = 0;
     data_line_map = NULL;
     data_line_count = 0;
-    gosub_sp = 0;
+    gwrt_control_clear();
     gwrt_error_target = 0;
     gwrt_resume_label = 0;
 }

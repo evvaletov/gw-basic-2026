@@ -31,7 +31,7 @@ GW-BASIC-style full-screen editor:
 
 ```
 $ build/gwbasic
-GW-BASIC 2026 0.18.0
+GW-BASIC 2026 0.18.1
 (C) Eremey Valetov 2026. MIT License.
 Based on Microsoft GW-BASIC assembly source.
 Ok
@@ -143,7 +143,8 @@ The [compatibility corpus](tests/corpus/README.md) contains 98 original BASIC
 Computer Games listings. Its automated runtime suite checks 13 fixed-input cases
 from eight listings against Microsoft GW-BASIC transcripts and compares six
 compiler modes with the interpreter. The other listings have build-audit
-coverage only; Awari and Checkers currently fail native compilation.
+coverage only. Awari and Checkers compile; Super Star Trek is rejected for an
+unspaced `TO` expression that Microsoft GW-BASIC also rejects.
 
 ## DOS / FreeDOS
 
@@ -156,6 +157,12 @@ wmake -f Makefile.dos     # 32-bit DOS/4GW, requires DOS4GW.EXE
 
 The 16-bit build runs on FreeDOS, MS-DOS, and compatible systems without
 a DOS extender.  See [Getting Started](docs/getting-started.md) for details.
+
+## Release archives
+
+The v0.18.1 [release notes](RELEASE_NOTES.md) describe the Linux and DOS archives,
+checksums, and validation limits. CI builds archives after its checks pass;
+publication is a separate step.
 
 ## Documentation
 
