@@ -4,6 +4,7 @@ import argparse
 import os
 from pathlib import Path
 import shlex
+import struct
 import subprocess
 import tempfile
 
@@ -87,6 +88,19 @@ def main():
             if command[0].endswith('gwbasic-compile'):
                 assert result.returncode != 0 and not result.stdout, result
         print('PASS 4 oversized-line entry paths')
+        # Binary containers can be well formed while a token's payload is short.
+        # CLEAR ignores extra arguments, but must still stay within the line.
+        for token, width in [(0x0F, 2), (0x0E, 3), (0x1C, 5), (0x1F, 9),
+                             (0xFD, 2), (0xFE, 2), (0xFF, 2)]:
+            tokens = b'\x91,,' + bytes([token]) + b'\x01' * (width - 2)
+            program.write_bytes(b'\xff' + struct.pack('<HH', len(tokens) + 6, 10) +
+                                tokens + b'\0\0\0')
+            result = subprocess.run([str(build / 'gwbasic'), str(program)],
+                                    text=True, capture_output=True, timeout=10)
+            assert 'Syntax error in 10' in result.stdout + result.stderr, result
+            assert result.returncode >= 0, result
+            assert 'Sanitizer' not in result.stderr and 'runtime error:' not in result.stderr, result
+        print('PASS 7 truncated CLEAR token payloads')
 
 
 if __name__ == '__main__':

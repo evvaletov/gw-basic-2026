@@ -241,7 +241,7 @@ void gw_stmt_close(void)
 static void fprint_value(FILE *fp, gw_value_t *v)
 {
     if (v->type == VT_STR) {
-        fwrite(v->sval.data, 1, v->sval.len, fp);
+        if (v->sval.len > 0) fwrite(v->sval.data, 1, v->sval.len, fp);
         gw_str_free(&v->sval);
     } else {
         char buf[64];
@@ -331,7 +331,7 @@ void gw_stmt_write_file(void)
         gw_value_t v = gw_eval();
         if (v.type == VT_STR) {
             fputc('"', f->fp);
-            fwrite(v.sval.data, 1, v.sval.len, f->fp);
+            if (v.sval.len > 0) fwrite(v.sval.data, 1, v.sval.len, f->fp);
             fputc('"', f->fp);
             gw_str_free(&v.sval);
         } else {

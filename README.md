@@ -11,7 +11,9 @@ original behavior. Hardware access uses emulation or device stubs; see the
 ## Building
 
 ```bash
-cmake -B build && cmake --build build
+mkdir -p build
+(cd build && cmake ..)
+cmake --build build
 ```
 
 The POSIX build requires a C11 compiler, CMake 3.12+, and `pkg-config`.

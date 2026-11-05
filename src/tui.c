@@ -579,6 +579,9 @@ char *tui_read_input(void)
         if (key == TK_ENTER) {
             tui.cursor_row = row + (col + len) / tui.cols;
             tui.cursor_col = (col + len) % tui.cols;
+            /* A scrolled answer can be shortened above the visible screen. */
+            if (tui.cursor_row < 0) tui.cursor_row = 0;
+            if (tui.cursor_row > tui.view_bottom) tui.cursor_row = tui.view_bottom;
             tui_puts("\n");
             return buf;
         }

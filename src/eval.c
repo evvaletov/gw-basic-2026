@@ -392,7 +392,7 @@ static gw_value_t eval_string_literal(void)
     gw_value_t v;
     v.type = VT_STR;
     v.sval = gw_str_alloc(len);
-    memcpy(v.sval.data, start, len);
+    if (len > 0) memcpy(v.sval.data, start, len);
 
     if (*gw.text_ptr == '"')
         gw.text_ptr++;  /* skip closing " - don't use chrget, next token reads normally */

@@ -8,6 +8,13 @@ import tempfile
 
 
 CASES = {
+    "empty_string_io": ('''10 A$=""
+20 OPEN "EMPTY.TXT" FOR OUTPUT AS #1
+30 PRINT #1,A$
+40 WRITE #1,A$
+50 CLOSE #1
+60 PRINT "DONE"
+''', "", ["DONE"]),
     "locate_coordinates": ('''10 LOCATE 5,7
 20 PRINT "MARK"
 ''', "", ["\x1b[5;7HMARK"]),
@@ -304,6 +311,9 @@ def main():
             if name == "backward_tab":
                 assert (root / "LPT1.TXT").read_bytes() == b"ABCDE\n  X\nABC\n"
                 (root / "LPT1.TXT").unlink()
+            if name == "empty_string_io":
+                assert (root / "EMPTY.TXT").read_bytes() == b'\n""\n'
+                (root / "EMPTY.TXT").unlink()
             for opt, inline, safe in modes:
                 c = root / f"{name}.c"
                 exe = root / name
@@ -321,6 +331,9 @@ def main():
                 if name == "backward_tab":
                     assert (root / "LPT1.TXT").read_bytes() == b"ABCDE\n  X\nABC\n"
                     (root / "LPT1.TXT").unlink()
+                if name == "empty_string_io":
+                    assert (root / "EMPTY.TXT").read_bytes() == b'\n""\n'
+                    (root / "EMPTY.TXT").unlink()
                 count += 1
             print(f"PASS {name} (16 compiler modes)", flush=True)
 

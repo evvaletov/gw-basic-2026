@@ -20,7 +20,7 @@ gw_string_t gw_str_from_cstr(const char *cs)
     int len = strlen(cs);
     if (len > 255) len = 255;
     gw_string_t s = gw_str_alloc(len);
-    memcpy(s.data, cs, len);
+    if (len > 0) memcpy(s.data, cs, len);
     return s;
 }
 
@@ -43,7 +43,7 @@ char *gw_str_to_cstr(gw_string_t *s)
 {
     char *cs = malloc(s->len + 1);
     if (!cs) gw_error(ERR_OS);
-    memcpy(cs, s->data, s->len);
+    if (s->len > 0) memcpy(cs, s->data, s->len);
     cs[s->len] = '\0';
     return cs;
 }

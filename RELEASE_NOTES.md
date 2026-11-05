@@ -7,10 +7,12 @@ archives for Linux and DOS.
 - Numbered edits no longer print an extra `Ok`. INPUT excludes its prompt;
   AUTO and input editing retain the typed answer. Loading ASCII source preserves
   the active command buffer. Lines whose expanded tokens exceed the buffer are
-  rejected before execution.
+  rejected before execution. CLEAR rejects truncated binary token payloads.
 - The terminal keeps pending input and commands when resized. A viewport follows
   the cursor when the window is smaller than the BASIC screen; the logical
   screen retains its startup dimensions. CLS preserves the visible F-key bar.
+  Shortening a scrolled answer on a very small screen keeps the cursor within
+  the screen buffer, including an empty answer.
 - The 16-bit DOS string pool defaults to 8 KiB, leaving room for program lines
   and GC scratch space in the 64 KiB near-data segment. Other builds retain
   32 KiB. `CLEAR` can request a different size within available memory.

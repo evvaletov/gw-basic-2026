@@ -1662,15 +1662,26 @@ void gw_exec_stmt(void)
         gw.in_error_handler = false;
         strpool_reset(new_pool);
         /* Skip remaining optional args (stack size) */
+        uint8_t *arg_end = NULL;
+        if (gw.cur_line) {
+            uintptr_t start = (uintptr_t)gw.cur_line->tokens;
+            uintptr_t pos = (uintptr_t)gw.text_ptr;
+            /* Compiled delegates can use a separate, validated token buffer. */
+            if (pos >= start && pos - start <= (uintptr_t)gw.cur_line->len)
+                arg_end = gw.cur_line->tokens + gw.cur_line->len;
+        }
         while (gw_chrgot() && gw_chrgot() != ':' && gw_chrgot() != TOK_ELSE) {
             uint8_t arg = gw_chrgot();
-            if (arg == TOK_INT1) gw.text_ptr += 2;
-            else if (arg == TOK_INT2) gw.text_ptr += 3;
-            else if (arg == TOK_CONST_SNG) gw.text_ptr += 5;
-            else if (arg == TOK_CONST_DBL) gw.text_ptr += 9;
+            int width = 1;
+            if (arg == TOK_INT1) width = 2;
+            else if (arg == TOK_INT2) width = 3;
+            else if (arg == TOK_CONST_SNG) width = 5;
+            else if (arg == TOK_CONST_DBL) width = 9;
             else if (arg == TOK_PREFIX_FD || arg == TOK_PREFIX_FE || arg == TOK_PREFIX_FF)
-                gw.text_ptr += 2;
-            else gw.text_ptr++;
+                width = 2;
+            if (arg_end && width > arg_end - gw.text_ptr)
+                gw_error(ERR_SN);
+            gw.text_ptr += width;
         }
         return;
     }

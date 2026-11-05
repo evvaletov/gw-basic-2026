@@ -23,7 +23,8 @@ sudo dnf install gcc make cmake pkgconf-pkg-config pulseaudio-libs-devel
 ```bash
 git clone https://github.com/evvaletov/gw-basic-2026.git
 cd gw-basic-2026
-cmake -B build
+mkdir -p build
+(cd build && cmake ..)
 cmake --build build
 ```
 

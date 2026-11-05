@@ -7,6 +7,7 @@ v0.18.1
     when terminals shrink; retain F-key labels after CLS.
   - Reduce the 16-bit DOS string-pool default to 8 KiB so program lines can be stored.
   - Reject token-buffer overflow without truncating or running the partial line.
+  - Bound CLEAR token skips and keep shortened input safe on very small screens.
   - Poll DOS break keys so Ctrl-C interrupts loops without keyboard input.
   - Align LOCATE and the DOS hardware cursor with BASIC's one-based coordinates.
   - Correct parenthesized strings, shared array storage, DEF FN token scanning,

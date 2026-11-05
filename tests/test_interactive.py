@@ -16,16 +16,14 @@ BUILD = Path(__file__).resolve().parents[1] / "build"
 class InteractiveTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="gw-tui-")
+        self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.child = pexpect.spawn(str(BUILD / "gwbasic"), cwd=self.temp.name,
                                    encoding="utf-8", dimensions=(25, 80), echo=False)
+        self.addCleanup(self.child.terminate, force=True)
         self.screen = pyte.Screen(80, 25)
         self.stream = pyte.Stream(self.screen)
         self.wait_for(lambda: "Ok" in self.lines())
-
-    def tearDown(self):
-        self.child.terminate(force=True)
-        self.temp.cleanup()
 
     def lines(self):
         return [line.rstrip() for line in self.screen.display]
@@ -62,9 +60,11 @@ class InteractiveTests(unittest.TestCase):
             self.command(text)
             self.assertEqual(self.lines().count("Ok"), 1)
         self.command("RUN")
+        self.wait_for(lambda: "HELLO" in self.lines() and self.lines().count("Ok") == 2)
         self.assertIn("HELLO", self.lines())
         self.assertEqual(self.lines().count("Ok"), 2)
         self.command("PRINT 1/0")
+        self.wait_for(lambda: self.lines().count("Ok") == 3)
         self.assertTrue(any("Division by zero" in line for line in self.lines()))
         self.assertEqual(self.lines().count("Ok"), 3)
 
@@ -77,6 +77,7 @@ class InteractiveTests(unittest.TestCase):
         self.command('PRINT "AUTO WORKS"')
         self.command("")
         self.command("RUN")
+        self.wait_for(lambda: "AUTO WORKS" in self.lines())
         self.assertIn("AUTO WORKS", self.lines())
         self.assertFalse(any("Syntax error" in line for line in self.lines()))
 
@@ -118,6 +119,7 @@ class InteractiveTests(unittest.TestCase):
         self.child.send("\x03")
         self.wait_for(lambda: any("Break" in line for line in self.lines()))
         self.command('PRINT "READY"')
+        self.wait_for(lambda: "READY" in self.lines())
         self.assertIn("READY", self.lines())
         self.assertNotIn("MUST NOT RUN", self.lines())
 
@@ -161,6 +163,7 @@ class InteractiveTests(unittest.TestCase):
         self.child.terminate(force=True)
         self.child = pexpect.spawn(str(BUILD / "gwbasic"), ["--full"], cwd=self.temp.name,
                                    encoding="utf-8", dimensions=(40, 120), echo=False)
+        self.addCleanup(self.child.terminate, force=True)
         self.screen = pyte.Screen(120, 40)
         self.stream = pyte.Stream(self.screen)
         self.wait_for(lambda: "Ok" in self.lines())
@@ -173,6 +176,32 @@ class InteractiveTests(unittest.TestCase):
         self.child.send("\x1b[D\x1b[3~3\r")
         self.wait_for(lambda: "RESULT= 123" in self.lines())
 
+    def test_narrow_screen_shortened_answer(self):
+        self.child.terminate(force=True)
+        self.child = pexpect.spawn(str(BUILD / "gwbasic"), ["--full"], cwd=self.temp.name,
+                                   encoding="utf-8", dimensions=(4, 40), echo=False)
+        self.addCleanup(self.child.terminate, force=True)
+        self.screen = pyte.Screen(40, 4)
+        self.stream = pyte.Stream(self.screen)
+        self.wait_for(lambda: "Ok" in self.lines())
+        for answer in ("y", ""):
+            with self.subTest(answer=answer):
+                self.command("CLS")
+                self.load('10 LINE INPUT "A:";S$\n20 OPEN "ANSWER.TXT" FOR OUTPUT AS #1\n'
+                          '30 PRINT #1,S$\n40 CLOSE #1\n50 PRINT "SAVED"\n')
+                self.command("RUN")
+                self.wait_for(lambda: any("A:" in line for line in self.lines()))
+                self.child.send("x" * 240)
+                self.wait_for(lambda: "x" * 40 in self.lines())
+                self.child.send("\x1b")
+                # Escape is a standalone key, not the prefix of an ANSI sequence.
+                self.wait_for(lambda: self.screen.cursor.y == 0 and
+                              not any("xxxxxxxx" in line for line in self.lines()))
+                self.child.send(answer + "\r")
+                self.wait_for(lambda: (self.root / "ANSWER.TXT").exists() and "SAVED" in self.lines())
+                self.assertEqual((self.root / "ANSWER.TXT").read_text(), answer + "\n")
+                (self.root / "ANSWER.TXT").unlink()
+
     def test_issue_6_guessing_game(self):
         self.load('10 INPUT "Random seed? ",seed\n20 RANDOMIZE seed\n'
                   '30 num=INT(RND(1)*100)+1\n40 PRINT "Guess a number between 1 and 100"\n'
@@ -182,11 +211,14 @@ class InteractiveTests(unittest.TestCase):
         self.command("RUN")
         self.command("1")
         self.command("1")
+        self.wait_for(lambda: "Too low" in self.lines())
         self.assertIn("Too low", self.lines())
         self.assertNotIn("That's right!", self.lines())
         self.command("100")
+        self.wait_for(lambda: "Too high" in self.lines())
         self.assertIn("Too high", self.lines())
         self.command("76")
+        self.wait_for(lambda: "That's right!" in self.lines())
         self.assertIn("That's right!", self.lines())
 
 
