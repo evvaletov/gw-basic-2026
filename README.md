@@ -121,6 +121,7 @@ Statements:
 Run the regression suites from the repository root:
 
 ```bash
+python3 tests/test_harnesses.py          # harness failure and timeout checks
 bash tests/run_tests.sh                 # interpreter
 bash tests/run_compiler_tests.sh        # compiled programs
 python3 -m gwbasickernel.test_kernel     # Jupyter kernel
@@ -132,8 +133,10 @@ For an interpreter run without audio playback:
 PULSE_SERVER=unix:/tmp/gwbasic-no-audio-server bash tests/run_tests.sh
 ```
 
-This points PulseAudio at an unavailable socket. With a live audio server,
-`play_music.bas` can exceed the harness's five-second timeout.
+This points PulseAudio at an unavailable socket, as the interpreter CI step does.
+Audio fixtures have a 30-second limit so they can also finish with a live server.
+Output mismatches, execution failures, and timeouts fail the suites. See
+[Development](docs/development.md) for timeout settings and test coverage.
 
 ## DOS / FreeDOS
 

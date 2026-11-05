@@ -24,7 +24,12 @@ jobs:
           cmake ..
           make -j$(nproc)
 
-      - name: Interpreter tests
+      - name: Harness regression tests
+        run: python3 tests/test_harnesses.py
+
+      - name: Interpreter tests (audio disabled)
+        env:
+          PULSE_SERVER: unix:/tmp/gwbasic-ci-no-audio-server
         run: bash tests/run_tests.sh
 
       - name: Compiler tests

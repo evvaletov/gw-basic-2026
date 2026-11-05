@@ -29,6 +29,7 @@ Run the suites from the repository root after building:
 
 ```bash
 python3 -m pip install -r tests/requirements.txt
+python3 tests/test_harnesses.py          # harness failure and timeout checks
 bash tests/run_tests.sh                 # interpreter programs
 bash tests/run_compiler_tests.sh        # native executables
 python3 tests/test_interactive.py        # terminal input and prompt behavior
@@ -36,21 +37,37 @@ python3 tests/test_compiler_regressions.py  # compiler option combinations
 python3 -m gwbasickernel.test_kernel     # Jupyter kernel
 ```
 
-Each interpreter program has a five-second timeout. With a live PulseAudio
-server, `play_music.bas` can take longer. To check execution and text output
-without audio playback, point PulseAudio at an unavailable socket:
+The harnesses allow five seconds for ordinary programs, 30 seconds for audio
+fixtures, and ten seconds for timer fixtures. Each compiler invocation has a
+60-second limit. A process that ignores termination is killed after a further
+two seconds. On slower machines, set `GW_TEST_TIMEOUT` for ordinary programs
+or `GW_TEST_COMPILE_TIMEOUT` for compilation; both accept positive decimal
+seconds. Audio and timer fixtures keep their separate limits.
+
+The interpreter CI step disables audio playback. To run the same check locally,
+point PulseAudio at an unavailable socket:
 
 ```bash
 PULSE_SERVER=unix:/tmp/gwbasic-no-audio-server bash tests/run_tests.sh
 ```
 
-This run does not test audible output.
+For a separate check with audio playback, run `bash tests/run_tests.sh` with a
+working PulseAudio server and its normal connection settings. The harness checks
+execution and text output; sound quality still needs listening.
 
 The interpreter and compiler harnesses compare output with files in
 `tests/expected/`, normalizing carriage returns, trailing whitespace, and blank
-lines. Timing-dependent and visual tests can only check that execution finishes;
-inspect their behavior separately. Compiler tests skip the helper programs loaded
-by `CHAIN`, plus interactive, timing-dependent, and audio programs.
+lines. A mismatch fails the test and prints a unified diff. Execution errors,
+timeouts, comparison-tool errors, and suites with no runnable tests also return
+a failing status. Tests without an expected-output file are marked `[no expected]`
+and check execution only. Inspect timing-dependent and visual behavior separately.
+Both harnesses report skipped helper programs; compiler tests also skip interactive,
+timing-dependent, and audio programs.
+
+`test_harnesses.py` runs controlled executables in temporary fixture directories.
+It checks failure propagation using deliberately wrong output, failed compilation,
+timeouts, and a process that ignores termination, as well as normalization and
+the documented skips. It does not replace the BASIC regression suites.
 
 The terminal tests run the interpreter under a pseudo-terminal to exercise the
 full-screen editor. Compiler regressions compare focused programs across
@@ -74,7 +91,7 @@ before using them to assess compatibility.
 
 ## CI
 
-GitHub Actions builds the project with PulseAudio support and runs interpreter,
-compiler, terminal, and compiler-regression checks on pushes to `main` and pull
+GitHub Actions builds the project with PulseAudio support and runs harness,
+interpreter, compiler, terminal, and compiler-regression checks on pushes to `main` and pull
 requests. See [the workflow](https://github.com/evvaletov/gw-basic-2026/blob/main/.github/workflows/ci.yml)
 for the current commands.

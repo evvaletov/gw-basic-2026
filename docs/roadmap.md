@@ -65,18 +65,21 @@ gwbasickernel-install --user
 
 ## Near-Term Priorities
 
-1. Make every regression failure fail the harness, including expected-output
-   mismatches, and set timeouts that allow audio tests to finish (git-bug
-   `54f3aa6`).
-2. Build a curated compatibility corpus with fixed input and expected output.
-   Compare interpreter and compiled results before expanding the collection.
-3. Validate terminal editing, audible output, and execution under DOS, then
+The harness now fails on output mismatches and process errors, with separate
+limits for audio, timer, and compilation tests (git-bug `54f3aa6`).
+
+1. Build a curated compatibility corpus with fixed input and expected output.
+   Compare interpreter and compiled results before expanding the collection
+   (git-bug `51679f0`).
+2. Validate terminal editing, audible output, and execution under DOS, then
    prepare a bugfix release. The 16-bit and 32-bit DOS targets cross-compile;
    that check does not establish runtime behavior (git-bug `e4b2824`).
-4. Finish and package the VS Code extension, including installation instructions
+3. Finish and package the VS Code extension, including installation instructions
    and tests of its editor integration (git-bug `32a637c`).
-5. After release validation, prepare Show HN and Lobsters posts and a FreeDOS
-   package submission.
+4. After release validation, prepare Show HN and Lobsters posts and a FreeDOS
+   package submission (git-bug `dc24012`, `ab8188c`).
+5. Check Sphinx warnings and executable documentation examples on pull requests,
+   before the existing documentation deployment on `main` (git-bug `f3a24bc`).
 
 ## Longer-Term Plans
 
