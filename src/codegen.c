@@ -2628,9 +2628,12 @@ static void emit_stmt(void)
         if (is_const(cur())) {
             uint16_t target = read_int();
             EMIT("    goto L_%u;\n", target);
+            skip_spaces();
         } else {
             /* THEN followed by statements */
-            while (cur() && cur() != TOK_ELSE && cur() != 0) {
+            for (;;) {
+                skip_spaces();
+                if (!cur() || cur() == TOK_ELSE) break;
                 if (cur() == ':') { advance(); continue; }
                 emit_stmt_guarded();
             }
@@ -2642,8 +2645,12 @@ static void emit_stmt(void)
             if (is_const(cur())) {
                 uint16_t target = read_int();
                 EMIT("    goto L_%u;\n", target);
+                skip_spaces();
             } else {
-                while (cur() && cur() != 0) {
+                /* A further ELSE belongs to an enclosing IF. */
+                for (;;) {
+                    skip_spaces();
+                    if (!cur() || cur() == TOK_ELSE) break;
                     if (cur() == ':') { advance(); continue; }
                     emit_stmt_guarded();
                 }

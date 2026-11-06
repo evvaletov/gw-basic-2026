@@ -467,10 +467,11 @@ static void scan_tokens(analysis_t *a, uint8_t *tokens, int len, uint16_t line_n
             continue;
         }
 
-        /* GOTO/GOSUB/THEN/RESTORE/RESUME/RUN — mark targets */
+        /* GOTO/GOSUB/THEN/ELSE/RESTORE/RESUME/RUN — mark targets */
         if (tok == TOK_GOTO || tok == TOK_GOSUB || tok == TOK_THEN ||
+            tok == TOK_ELSE ||
             tok == TOK_RESTORE || tok == TOK_RESUME || tok == TOK_RUN) {
-            bool is_then = (tok == TOK_THEN);
+            bool is_branch = (tok == TOK_THEN || tok == TOK_ELSE);
             p++;
             while (p < end && *p == ' ') p++;
             /* Read line number(s) */
@@ -487,8 +488,9 @@ static void scan_tokens(analysis_t *a, uint8_t *tokens, int len, uint16_t line_n
                     break;
                 }
             }
-            /* After THEN, remaining tokens form a new statement (IF x THEN A=5) */
-            assign_ctx = is_then;
+            /* THEN/ELSE can also introduce an assignment rather than a line. */
+            assign_ctx = is_branch;
+            multi_assign = false;
             continue;
         }
 

@@ -74,21 +74,26 @@ Awari and Checkers now compile (`ca3a8b8`). The 98-listing build audit has
 97 successes and one syntax rejection: Super Star Trek's unspaced `TO`, also
 rejected by Microsoft GW-BASIC. Broader gameplay coverage stays open (`51679f0`).
 
-The v0.18.1 work fixes terminal resize visibility and the 16-bit DOS string-pool
-allocation in addition to the compiler repairs. Release archives are prepared
-by CI with source metadata and checksums. Audio measurements validate the
-application stream; physical speaker fidelity remains unverified.
+The v0.18.1 fixes cover terminal resize visibility, the 16-bit DOS string pool,
+and compiler control flow. Numeric and nested IF/ELSE regressions include
+missing-line errors and have Microsoft GW-BASIC reference checks (`b2bb5ca`).
+Release archives are prepared by CI with source metadata and checksums.
+Audio measurements validate the application stream; physical speaker fidelity
+remains unverified.
 
-1. Merge the reviewed changes and publish the prepared v0.18.1 release after
-   verifying its archives and notes (git-bug `e4b2824`).
-2. Finish and package the VS Code extension, including installation instructions
+After v0.18.1:
+
+1. Finish and package the VS Code extension, including installation instructions
    and tests of its editor integration (git-bug `32a637c`).
-3. Expand scripted gameplay and fix remaining GW-BASIC FOR-entry and conditional
+2. Expand scripted gameplay and fix remaining GW-BASIC FOR-entry and conditional
    DEFTYPE differences (git-bug `51679f0`).
-4. Prepare Show HN and Lobsters posts and a FreeDOS package submission after the
+3. Prepare Show HN and Lobsters posts and a FreeDOS package submission after the
    release is published (git-bug `dc24012`, `ab8188c`).
-5. Check Sphinx warnings and executable documentation examples on pull requests,
+4. Check Sphinx warnings and executable documentation examples on pull requests,
    before the existing documentation deployment on `main` (git-bug `f3a24bc`).
+5. Automate FreeDOS runtime smoke tests for both DOS builds in CI. The existing
+   CI cross-builds do not exercise keyboard, cursor, or saved-output behavior
+   (git-bug `b3de88c`).
 
 ## Longer-Term Plans
 

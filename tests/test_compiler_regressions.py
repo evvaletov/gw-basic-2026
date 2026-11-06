@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare string/array semantics across codegen tiers and safety modes."""
+"""Compare control-flow, string and array semantics across compiler modes."""
 import argparse
 from pathlib import Path
 import shlex
@@ -8,6 +8,98 @@ import tempfile
 
 
 CASES = {
+    "if_nested_goto_boundary": ('''10 IF 0 THEN IF 0 THEN END ELSE GOTO 20 ELSE PRINT "OUTER"
+20 END
+''', "", ["OUTER"]),
+    "if_nested_gosub_boundary": ('''10 IF 0 THEN IF 0 THEN END ELSE GOSUB 100 ELSE PRINT "OUTER"
+20 END
+100 PRINT "BAD":RETURN
+''', "", ["OUTER"]),
+    "if_goto_else": ('''10 FOR X=0 TO 1
+20 IF X GOTO 50 ELSE PRINT "ELSE"
+30 GOTO 60
+50 PRINT "THEN"
+60 NEXT X:END
+''', "", ["ELSE", "THEN"]),
+    "if_gosub_else": ('''10 FOR X=0 TO 1
+20 IF X THEN GOSUB 100 ELSE PRINT "ELSE"
+30 NEXT X:END
+100 PRINT "THEN":RETURN
+''', "", ["ELSE", "THEN"]),
+    "if_numeric_false": ('''10 INPUT X
+20 IF X THEN 50 ELSE 60
+30 PRINT "FALLTHROUGH":END
+50 PRINT "THEN":END
+60 PRINT "ELSE":END
+''', "0\n", ["? ELSE"]),
+    "if_numeric_true": ('''10 INPUT X
+20 IF X THEN 50 ELSE 60
+30 PRINT "FALLTHROUGH":END
+50 PRINT "THEN":END
+60 PRINT "ELSE":END
+''', "1\n", ["? THEN"]),
+    "if_numeric_spaces": ('''10 X=0
+20 IF X THEN 50    ELSE 60
+30 PRINT "FALLTHROUGH":END
+50 PRINT "THEN":END
+60 PRINT "ELSE":END
+''', "", ["ELSE"]),
+    "if_numeric_else_assignment": ('''10 X=0
+20 IF X THEN 50 ELSE A$="ANSWER":B=7
+30 PRINT A$;B:END
+50 PRINT "BAD":END
+''', "", ["ANSWER 7"]),
+    "if_numeric_else_error": ('''10 ON ERROR GOTO 100
+20 X=0
+30 IF X THEN 50 ELSE 999
+40 PRINT "FALLTHROUGH":END
+50 PRINT "BAD":END
+100 PRINT ERR;ERL:END
+''', "", ["8 30"]),
+    "if_statement_else_error": ('''10 ON ERROR GOTO 100
+20 X=0
+30 IF X THEN PRINT "BAD" ELSE 999
+40 PRINT "FALLTHROUGH":END
+100 PRINT ERR;ERL:END
+''', "", ["8 30"]),
+    "if_numeric_else_untaken": ('''10 ON ERROR GOTO 100
+20 X=1
+30 IF X THEN 50 ELSE 999
+40 PRINT "FALLTHROUGH":END
+50 PRINT "THEN":END
+100 PRINT "BAD ERROR";ERR;ERL:END
+''', "", ["THEN"]),
+    "if_statement_else_untaken": ('''10 ON ERROR GOTO 100
+20 X=1
+30 IF X THEN PRINT "THEN" ELSE 999
+40 END
+100 PRINT "BAD ERROR";ERR;ERL:END
+''', "", ["THEN"]),
+    "if_nested_numeric": ('''10 FOR X=0 TO 1:FOR Y=0 TO 1
+20 IF X THEN IF Y THEN 50 ELSE 60 ELSE 70
+30 PRINT "FALLTHROUGH":END
+50 PRINT "TT":GOTO 80
+60 PRINT "TF":GOTO 80
+70 PRINT "F"
+80 NEXT Y:NEXT X:END
+''', "", ["F", "F", "TF", "TT"]),
+    "if_nested_statements": ('''10 FOR X=0 TO 1:FOR Y=0 TO 1
+20 IF X THEN IF Y THEN PRINT "TT" ELSE PRINT "TF" ELSE PRINT "F"
+30 NEXT Y:NEXT X:END
+''', "", ["F", "F", "TF", "TT"]),
+    "if_else_nested": ('''10 FOR X=0 TO 1:FOR Y=0 TO 1
+20 IF X THEN PRINT "T" ELSE IF Y THEN 50 ELSE 60
+30 GOTO 70
+50 PRINT "FT":GOTO 70
+60 PRINT "FF"
+70 NEXT Y:NEXT X:END
+''', "", ["FF", "FT", "T", "T"]),
+    "if_nested_error": ('''10 ON ERROR GOTO 100
+20 X=1:Y=0
+30 IF X THEN IF Y THEN PRINT "BAD" ELSE 999 ELSE PRINT "BAD OUTER"
+40 END
+100 PRINT ERR;ERL:END
+''', "", ["8 30"]),
     "empty_string_io": ('''10 A$=""
 20 OPEN "EMPTY.TXT" FOR OUTPUT AS #1
 30 PRINT #1,A$

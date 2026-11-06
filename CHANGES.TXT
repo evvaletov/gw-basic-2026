@@ -15,6 +15,8 @@ v0.18.1
   - Track active FOR loops at runtime so alternate and shared NEXT statements
     work; retain all GOSUB return targets and clear both control stacks at CLEAR.
   - Skip initially empty FOR loops in the interpreter and compiler.
+  - Preserve numeric and nested IF/ELSE branches; raise BASIC errors for missing
+    ELSE targets instead of falling through or generating undefined C labels.
   - Add fixed-input Microsoft GW-BASIC reference comparisons and an explicit
     build audit for 98 BASIC Computer Games listings.
   - Fail test suites on mismatches, process errors, missing outputs, and timeouts.

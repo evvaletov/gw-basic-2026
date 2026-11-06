@@ -26,6 +26,10 @@ archives for Linux and DOS.
 - Compiler fixes cover grouped strings, shared array storage, INPUT variable
   preservation, DEF FN tokens, and backward TAB. Regression failures and
   timeouts now fail CI.
+- Numeric THEN/ELSE branches retain their targets across whitespace, and nested
+  ELSE clauses bind to the matching IF. Missing ELSE targets raise BASIC error
+  8 when reached, including through ON ERROR handlers, instead of producing
+  undefined C labels. Sixteen focused cases also match Microsoft GW-BASIC.
 
 The corpus checks 13 scripted cases against Microsoft GW-BASIC transcripts in
 the interpreter and six compiler modes. Awari and Checkers now compile. The full
