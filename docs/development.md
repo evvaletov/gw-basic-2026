@@ -142,6 +142,55 @@ uploaded as the `vscode-extension-stable` artifact. See [extension development](
 for local commands. Native compiler launch tests cover literal filenames, custom
 runtime/C-output paths, object output, sanitizer arguments, and GCC failures.
 
+### Documentation checks
+
+The Docs workflow runs on every pull request to `main`, every push to `main`,
+and manual dispatch. This includes README-only changes, edits to the included
+VS Code README, and runtime changes that could break an example. Sphinx runs
+with `-W --keep-going -n`, so warnings and unresolved references fail the job.
+
+The build job has read-only repository permissions and does not retain checkout
+credentials. Pages upload and deployment run only on `main` push/manual events,
+after all documentation checks pass. Only the deployment job has Pages/OIDC
+write permissions. Each pull request has its own concurrency group.
+
+After building the runtime, run the same checks locally:
+
+```bash
+python3 -m pip install -r docs/requirements.txt
+python3 -m sphinx -W --keep-going -n -b html docs docs/_build/html
+python3 tests/test_doc_examples.py
+python3 tests/run_doc_examples.py --report docs/_build/examples.json
+```
+
+The full example suite requires Bash, GCC, GFortran, and PulseAudio development
+libraries for the documented link commands. CI installs these dependencies.
+Use `--build /path/to/build` for an alternate runtime build or `--case guide-pipe`
+to select a workflow. The failure-detection tests use the repository's `build/`.
+
+The runner reads 18 marked code blocks directly from `README.md` and
+`docs/getting-started.md`. Ten workflows exercise program-file and piped input,
+C emission, native and safety-mode compilation, BASIC called from C/Fortran,
+and C functions called from BASIC. Each workflow gets a fresh temporary copy of
+the binaries, headers, and fixtures. Output values/text are compared after
+whitespace splitting; terminal layout is tested by the separate PTY suite.
+The documented C drivers/providers are also compiled alongside generated
+prototypes, catching ABI mismatches that separate-object linking can miss.
+
+A marker such as `<!-- docs-test: guide-pipe -->` immediately precedes the
+fenced example. IDs, languages, and expected outputs are registered in
+`tests/run_doc_examples.py`. To add coverage, add a marker and an example entry
+there. Missing, duplicate, malformed, or unused IDs fail the check. The runner
+executes the marked Bash blocks exactly, with strict error/pipeline handling;
+installation commands and interactive transcripts are outside this smoke suite.
+These are ordinary commands in a temporary directory, not a security sandbox.
+
+The JSON report records snippet locations/hashes and per-workflow results,
+including failures, and CI uploads it as `documentation-example-results`.
+Commands have timeouts and timeout cleanup kills their process groups.
+`test_doc_examples.py` deliberately breaks paths, RUN, pipelines, C ABIs,
+Fortran symbols, and markers, and checks timeout cleanup.
+
 ## Release preparation
 
 `include/gwbasic.h` sets the runtime version. Keep `CHANGES.TXT`, the README

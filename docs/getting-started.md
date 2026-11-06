@@ -64,12 +64,14 @@ or `LINE INPUT`, the editor returns the answer following the prompt.
 
 ### Running a Program File
 
+<!-- docs-test: guide-run -->
 ```bash
 build/gwbasic tests/programs/prime_sieve.bas
 ```
 
 ### Piped Input
 
+<!-- docs-test: guide-pipe -->
 ```bash
 printf '10 FOR I=1 TO 10:PRINT I*I;:NEXT\nRUN\n' | build/gwbasic
 ```
@@ -106,6 +108,15 @@ Convert a tokenized program with `SAVE "program.bas",A` before compiling it.
 
 ### Basic Usage
 
+Save this as `program.bas`:
+
+<!-- docs-test: guide-program -->
+```basic
+10 PRINT "HELLO FROM BASIC"
+20 END
+```
+
+<!-- docs-test: guide-compiler -->
 ```bash
 # Emit C source to stdout
 build/gwbasic-compile program.bas
@@ -207,6 +218,7 @@ The `--safe=sanitize` flag (with `-c`) additionally passes
 `-fsanitize=address,undefined` to GCC. This instruments the generated C;
 instrumenting `libgwrt.a` also requires rebuilding the runtime with those flags.
 
+<!-- docs-test: guide-safety -->
 ```bash
 # Warnings only (zero runtime cost)
 build/gwbasic-compile --warn program.bas
@@ -225,14 +237,24 @@ build/gwbasic-compile --safe=sanitize -c --runtime . program.bas
 the host project's `main()`.  Together they let you link BASIC into a
 larger C or Fortran build.
 
+For example, save this as `greet.bas`:
+
+<!-- docs-test: guide-greet -->
+```basic
+10 PRINT "HELLO FROM BASIC"
+20 END
+```
+
+<!-- docs-test: guide-object -->
 ```bash
 # BASIC source compiled to greet.o with renamed entry point
 build/gwbasic-compile --emit-obj --main-name=run_basic_greet \
     --runtime . greet.bas
 ```
 
-C driver:
+Save this C driver as `driver.c`:
 
+<!-- docs-test: guide-c-driver -->
 ```c
 #include <stddef.h>
 
@@ -246,12 +268,14 @@ int main(void) {
 
 Link both together:
 
+<!-- docs-test: guide-c-link -->
 ```bash
 gcc driver.c greet.o -L./build -lgwrt -lm -lpthread -lpulse-simple -o greet
 ```
 
-Fortran driver (modern, with `iso_c_binding`):
+Save this Fortran driver as `driver.f90` (using `iso_c_binding`):
 
+<!-- docs-test: guide-fortran-driver -->
 ```fortran
 program main
   use iso_c_binding
@@ -268,6 +292,7 @@ program main
 end program
 ```
 
+<!-- docs-test: guide-fortran-link -->
 ```bash
 gfortran driver.f90 greet.o -L./build -lgwrt -lm -lpthread -lpulse-simple -o greet
 ```
@@ -284,8 +309,9 @@ the `'$EXTERN` pragma described next.
 
 A `'$EXTERN` pragma declares a C function that compiled BASIC can call
 directly.  It is written as an apostrophe comment, so the interpreter
-ignores it while the compiler picks it up:
+ignores it while the compiler picks it up. Save this as `demo.bas`:
 
+<!-- docs-test: guide-extern-program -->
 ```basic
 10 '$EXTERN Cmul(DOUBLE, DOUBLE) AS DOUBLE
 20 '$EXTERN Greet(STRING) AS STRING
@@ -304,8 +330,9 @@ Type mapping at the boundary:
 | `DOUBLE`   | `double`      |
 | `STRING`   | `const char *` (NUL-terminated) |
 
-The C side supplies the symbols at link time:
+Save the C implementation as `lib.c`; it supplies the symbols at link time:
 
+<!-- docs-test: guide-extern-library -->
 ```c
 #include <stdint.h>
 #include <stdio.h>
@@ -320,6 +347,7 @@ const char *Greet(const char *who) {
 
 Build and link as in the `--emit-obj` example above:
 
+<!-- docs-test: guide-extern-build -->
 ```bash
 build/gwbasic-compile --emit-obj --runtime . demo.bas   # -> demo.o
 gcc -c lib.c -o lib.o
