@@ -29,6 +29,9 @@
     },
     {
       "include": "#operator"
+    },
+    {
+      "include": "#identifier"
     }
   ],
   "repository": {
@@ -104,6 +107,10 @@
     "operator": {
       "match": "<=|>=|<>|[-+*/\\\\^=<>]",
       "name": "keyword.operator.gwbasic"
+    },
+    "identifier": {
+      "match": "(?i)\\b[A-Z][A-Z0-9.]*[!#%$]?",
+      "name": "variable.other.gwbasic"
     }
   }
 }

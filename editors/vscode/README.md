@@ -70,7 +70,7 @@ the published v0.18.1 compiler does not handle those paths safely.
   extension (`game.bas` → `game`). The compiler overwrites an existing executable
   there. It does not run the result. For extensionless or dotfile source names,
   the current compiler adds `.out` instead of overwriting the source.
-- Use `"compileArgs": []` to print generated C in the task terminal, or
+- Use `"gwbasic.compileArgs": []` to print generated C in the task terminal, or
   `["-o", "game.c"]` to write C. `--emit-obj` writes an object instead of an
   executable. `-o` names the generated C file, not the executable.
 - In Restricted Mode, highlighting and snippets remain available. Run/Compile

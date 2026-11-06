@@ -153,7 +153,9 @@ class InteractiveTests(unittest.TestCase):
         self.wait_for(lambda: any('PRINT "IDLE"' in line for line in self.lines()))
         self.resize(12, 20)
         # No keypress after resize: polling must redraw the key bar and cursor.
-        self.wait_for(lambda: "1LIST" in self.lines()[-1])
+        # A PTY read can end after the key bar, before the cursor restore escape.
+        self.wait_for(lambda: "1LIST" in self.lines()[-1] and
+                      self.screen.cursor.y < 11 and self.screen.cursor.x < 20)
         self.assertLess(self.screen.cursor.y, 11)
         self.assertLess(self.screen.cursor.x, 20)
         self.child.send("\r")

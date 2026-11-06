@@ -25,6 +25,14 @@ test('TextMate tokenization covers source and stops unterminated strings at EOL'
       ['&O77', 'constant.numeric.octal.gwbasic'], ['1.2E-3!', 'constant.numeric.gwbasic'],
       ['INPUT$', 'support.function.builtin.gwbasic'], ['REM done', 'comment.line.rem.gwbasic']
     ]) assert.ok(scope(text).includes(expected), `${text}: ${scope(text)}`);
+    for (const literal of ['&HFF', '&O77', '1.2E-3!', '.5#']) {
+      const start = source.indexOf(literal);
+      const token = result.tokens.find(item => item.startIndex === start);
+      assert.equal(token?.endIndex, start + literal.length, `full numeric span: ${literal}`);
+    }
+    const dotted = grammar.tokenizeLine('10 A.REM=1:PRINT A.REM');
+    assert.ok(dotted.tokens.every(token => !token.scopes.some(item => item.startsWith('comment.'))));
+    assert.ok(dotted.tokens.some(token => token.scopes.includes('keyword.other.gwbasic')));
     const unterminated = grammar.tokenizeLine('20 PRINT "unfinished');
     const next = grammar.tokenizeLine('30 INPUT A$', unterminated.ruleStack);
     assert.ok(next.tokens.some(token => token.scopes.includes('keyword.other.gwbasic')));

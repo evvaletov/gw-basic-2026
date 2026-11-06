@@ -151,6 +151,8 @@ The corpus runtime checks cover only the cases listed in its fixture manifest.
 - Most corpus games lack runtime fixtures; build success is separate evidence.
 - The interpreter rejects ASCII line labels above 32767; full GW-BASIC line
   numbering through 65529 is tracked in `58ea19c`.
+- Dotted variable names currently raise a syntax error in the runtime parser;
+  tokenizer/parser and original-GW-BASIC triage is tracked in `b036f08`.
 - The compiler reads ASCII source. Save tokenized files with `SAVE "file.bas",A`
   before compiling them.
 - `DATE$` and `TIME$` assignments change a process-local clock offset and leave
