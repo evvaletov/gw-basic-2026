@@ -79,7 +79,7 @@ static struct {
     void *var;
     gw_valtype_t type;
     double limit, step;
-    int label;
+    int label, gosub_depth;
 } compiled_for[MAX_FOR_DEPTH];
 static int compiled_for_sp;
 
@@ -92,6 +92,7 @@ void gwrt_control_clear(void)
 bool gwrt_for_push(void *var, gw_valtype_t type, double limit, double step, int label)
 {
     for (int i = compiled_for_sp - 1; i >= 0; i--) {
+        if (compiled_for[i].gosub_depth != gosub_sp) break;
         if (compiled_for[i].var == var) {
             compiled_for_sp = i;
             break;
@@ -112,14 +113,17 @@ bool gwrt_for_push(void *var, gw_valtype_t type, double limit, double step, int 
     compiled_for[i].limit = limit;
     compiled_for[i].step = step;
     compiled_for[i].label = label;
+    compiled_for[i].gosub_depth = gosub_sp;
     return true;
 }
 
 int gwrt_for_next(void *var)
 {
     int i;
-    for (i = compiled_for_sp - 1; i >= 0; i--)
+    for (i = compiled_for_sp - 1; i >= 0; i--) {
+        if (compiled_for[i].gosub_depth != gosub_sp) { i = -1; break; }
         if (!var || compiled_for[i].var == var) break;
+    }
     if (i < 0) gw_error(ERR_NF);
     compiled_for_sp = i + 1;
     double value;
@@ -156,6 +160,9 @@ int gwrt_resume_label;
 
 void gwrt_init(void)
 {
+    extern int print_col;
+    print_col = 0;
+    gw_errno = 0;
 #ifdef __MSDOS__
     gw_hal = hal_dos_create();
 #else
@@ -233,7 +240,10 @@ int gwrt_gosub_pop(void)
 {
     if (gosub_sp <= 0)
         gw_error(ERR_RG);
-    return gosub_stack[--gosub_sp];
+    gosub_sp--;
+    while (compiled_for_sp && compiled_for[compiled_for_sp - 1].gosub_depth > gosub_sp)
+        compiled_for_sp--;
+    return gosub_stack[gosub_sp];
 }
 
 /* --- Array support --- */

@@ -1,0 +1,528 @@
+{
+  "reference_sha256": "3d83e8d2bbc71e8b79e20c6cfb7bceba36c4dd4bda2a7af4c415cab6b3f3203c",
+  "adapter_sha256": "f4f55313bb8615df8fbd0b98eea33c35af1670aacbecaeb5c1dd9f3308296f3c",
+  "method": "Microsoft GW-BASIC under DOSBox-X; only I/O redirected",
+  "captured_on": "2026-11-06",
+  "cases": [
+    {
+      "id": "shared_next",
+      "source": "5 ON ERROR GOTO 9000\n10 S=0:FOR I=0 TO 2\n20 S=S+I\n30 NEXT I\n40 IF S<10 THEN FOR I=7 TO 9:GOTO 20\n50 PRINT S;I\n8999 END\n9000 PRINT ERR;ERL:END\n",
+      "stdin": "",
+      "output": " 26  40\n",
+      "source_sha256": "a64edeb2bf61a9ce0cc44edac7461c95885064a52469941d9601e3a5883c6340",
+      "capture_sha256": "be41bbe38c607bc8c3acd7f85bb6f04c421a8bfc601a584c56d06642f518c089",
+      "sha256": "ca0687cd3af4ea24509fafc44b4ebd0a957c5260b6d75ff428ae58ae842d6bd0",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "conditional_for_positive",
+      "source": "5 ON ERROR GOTO 9000\n10 INPUT C\n20 IF C=1 THEN FOR A=-2 TO 2 STEP 4 ELSE FOR A=3 TO 1 STEP -1\n30 PRINT A;\n40 NEXT A\n50 PRINT\n8999 END\n9000 PRINT ERR;ERL:END\n",
+      "stdin": "1\n",
+      "output": "?  26  20\n",
+      "source_sha256": "d1219a43793fa1618ff6c05023d5e0b9d7f3143c3e8b2831f74507b5177ffa04",
+      "capture_sha256": "bf5e824265e8d56071ed5b18467e0bd3d848b8d55fe02fba9dc6f35299766d7f",
+      "sha256": "566652c08a220ade9b91d27dda8520f4da54f9cce3d6224515585296ca94a1b5",
+      "input_sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "id": "conditional_for_negative",
+      "source": "5 ON ERROR GOTO 9000\n10 INPUT C\n20 IF C=1 THEN FOR A=-2 TO 2 STEP 4 ELSE FOR A=3 TO 1 STEP -1\n30 PRINT A;\n40 NEXT A\n50 PRINT\n8999 END\n9000 PRINT ERR;ERL:END\n",
+      "stdin": "0\n",
+      "output": "?  3  2  1\n",
+      "source_sha256": "d1219a43793fa1618ff6c05023d5e0b9d7f3143c3e8b2831f74507b5177ffa04",
+      "capture_sha256": "bf5e824265e8d56071ed5b18467e0bd3d848b8d55fe02fba9dc6f35299766d7f",
+      "sha256": "05b2d152dc92fb32afed4065c9c72da5fe15c617647a92287cd67caeb916eae6",
+      "input_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "id": "next_discards_nested",
+      "source": "5 ON ERROR GOTO 9000\n10 FOR I=1 TO 2\n20 FOR J=1 TO 2\n30 PRINT I;J\n40 NEXT I\n50 ON ERROR GOTO 90\n60 NEXT J\n70 END\n90 PRINT ERR\n8999 END\n9000 PRINT ERR;ERL:END\n",
+      "stdin": "",
+      "output": " 1  60\n",
+      "source_sha256": "865e8baebe9e100b54f296128175246e2c256b02cf75e2f420e3121d0ab9e42a",
+      "capture_sha256": "df058a3a84ccc4b657267682d00cf12e1e64d03cb22bf20b03cc305919c73917",
+      "sha256": "af7aea781ee0c89fc98a554eb391e9dfaf63ccbb680ac27189ce7b75dedb4365",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "bare_next_reentry",
+      "source": "5 ON ERROR GOTO 9000\n10 FOR I=1 TO 5\n20 IF I=1 THEN FOR I=7 TO 8\n30 PRINT I\n40 NEXT\n8999 END\n9000 PRINT ERR;ERL:END\n",
+      "stdin": "",
+      "output": " 26  10\n",
+      "source_sha256": "b00e54e3d89352ca3de3b4728606ab1bc4a2ef5901b63bf51ba220d2eae7d203",
+      "capture_sha256": "1d06df32c904c6fd3f30a88d1fc04e18468b612436fbf111b4333193f2831930",
+      "sha256": "307c80ba580ff0c8762088286586d00d41ff601adb7e637bf2c9b658f18e86b3",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "compat_missing",
+      "source": "5 ON ERROR GOTO 9000\n10 FOR I=1 TO 2\n20 PRINT \"BODY\"\n30 END\n9000 PRINT ERR;ERL:END\n",
+      "stdin": "",
+      "output": " 26  10\n",
+      "source_sha256": "8b7d404cc586f9b2bf315f1a3c28392e3a122d4569a0ccd71bf63ae9aef20080",
+      "capture_sha256": "3454ee67f81b1846dd60d271ea62069fb0e03e8a135ab51eac71e2be2f683dea",
+      "sha256": "307c80ba580ff0c8762088286586d00d41ff601adb7e637bf2c9b658f18e86b3",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "compat_wrong_name",
+      "source": "5 ON ERROR GOTO 9000\n10 FOR I=1 TO 2\n20 PRINT \"BODY\"\n30 NEXT J\n40 END\n9000 PRINT ERR;ERL:END\n",
+      "stdin": "",
+      "output": " 1  30\n",
+      "source_sha256": "a97f62ee8bf9a6aba710bca6ffc93de4782820c74a0c042855a2ac7e142bee76",
+      "capture_sha256": "713b715381015a1897f13094ab4677bc0748752d836ce5bf5abc27580bf3cbbd",
+      "sha256": "d4691714387f8017ce17ca80f2e2df8de875a58b0b1994caf119c36efe690ed4",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "compat_nested_names",
+      "source": "5 ON ERROR GOTO 9000\n10 FOR I=1 TO 2\n20 FOR J=1 TO 2\n30 PRINT \"BODY\"\n40 NEXT I\n50 NEXT J\n60 END\n9000 PRINT ERR;ERL:END\n",
+      "stdin": "",
+      "output": " 1  50\n",
+      "source_sha256": "3231c742c70efab00df28b34ccfa92c5ff1586df7ea94fac82ef79a9da0d9426",
+      "capture_sha256": "e6e40161b805ca247ab790915c5c7949062f73bf0080f3a2f3542464c59e1bf5",
+      "sha256": "34dc3d5f24bdc8352771f07940fb0b856df53ad78cd1b0343bb6a81ed430d0a9",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "compat_nested_missing",
+      "source": "5 ON ERROR GOTO 9000\n10 FOR I=1 TO 2\n20 FOR J=1 TO 2\n30 PRINT \"BODY\"\n40 NEXT J\n50 END\n9000 PRINT ERR;ERL:END\n",
+      "stdin": "",
+      "output": " 26  10\n",
+      "source_sha256": "abf856cda08e905aacceb34f0b55a0ead1e7b710cbf78794426737ddfa697135",
+      "capture_sha256": "c5f6e03ac2f67a0749516c3c68204474cbaaf238c5c2449e87ef50f5687a7f62",
+      "sha256": "307c80ba580ff0c8762088286586d00d41ff601adb7e637bf2c9b658f18e86b3",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "compat_next_else",
+      "source": "5 ON ERROR GOTO 9000\n10 FOR I=1 TO 2\n20 IF 0 THEN PRINT \"BAD\" ELSE NEXT I\n30 PRINT I\n40 END\n9000 PRINT ERR;ERL:END\n",
+      "stdin": "",
+      "output": " 3\n",
+      "source_sha256": "618ba39b42b001998284fa9d88832acf7b0d4ce49159943cbc1fb00ece3a5a6f",
+      "capture_sha256": "f408b7557ed7d4bf2eba94db935d886ceb86e483cb7a6f43b50b39fb2a657334",
+      "sha256": "97a48af4ff00379bde03c1da991ba363755ff1ee1624a0d061edc9219d1e664b",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "compat_deftype_false",
+      "source": "5 ON ERROR GOTO 9000\n10 IF 0 THEN DEFINT A\n20 A=1.5:PRINT A;A!;A%\n30 END\n9000 PRINT ERR;ERL:END\n",
+      "stdin": "",
+      "output": " 1.5  1.5  0\n",
+      "source_sha256": "b3ddcc7ac05e2bf4aa6935eb0999f747137fc2cc48f2c3358a90c73602d44fcc",
+      "capture_sha256": "82a0ce00005e280e74b6aebc753a6ebc0ffcf616e6942c1d03d19289ecb55e61",
+      "sha256": "4dc08e62077c4a794f14d8f422f5eb901da3c1bd23712613ee3c6c7d7ac596e0",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "compat_deftype_true",
+      "source": "5 ON ERROR GOTO 9000\n10 A=1.5:IF 1 THEN DEFINT A\n20 A=2.5:PRINT A;A!;A%\n30 DEFSNG A:PRINT A\n40 END\n9000 PRINT ERR;ERL:END\n",
+      "stdin": "",
+      "output": " 3  1.5  3\n 1.5\n",
+      "source_sha256": "f28e5b134767be8eaf7d0068630afcfdd9877fb702ccbdf3af40ff70c43eb022",
+      "capture_sha256": "042ff20a41dc08911d37352c57fc3fc78aa5e29a768298c2812559a3b47695f7",
+      "sha256": "da1ecf044f189223f981a02c27f9cdf55d5dd58fe36c9a7eecc0e47fd751ef72",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "compat_deftype_string",
+      "source": "5 ON ERROR GOTO 9000\n10 A=1.5:DEFSTR A\n20 A=\"TEXT\":PRINT A;A$;A!\n30 DEFSNG A:PRINT A\n40 END\n9000 PRINT ERR;ERL:END\n",
+      "stdin": "",
+      "output": "TEXTTEXT 1.5\n 1.5\n",
+      "source_sha256": "d29b9d184570d32680e34f549e95e5aeef442dcb7a42232454601b9ecd97c926",
+      "capture_sha256": "7c2cbfd7ed2760751a0f628f486fd4f5d627b42996d4ebe47fe51bb84232c38b",
+      "sha256": "4f343fd99742b9977e5629248640fd6b0f09a32ead324cf469ad41a355c88ac3",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "compat_for_deftype",
+      "source": "5 ON ERROR GOTO 9000\n10 FOR I=1 TO 2\n20 DEFINT I\n30 PRINT \"BODY\"\n40 NEXT I\n50 END\n9000 PRINT ERR;ERL:END\n",
+      "stdin": "",
+      "output": "BODY\n 1  40\n",
+      "source_sha256": "c9da83e15a3c0b42e27317cd9e4ef4e234fdd0eca900777f0b52c6da41ae8a93",
+      "capture_sha256": "ebe304c97a30f3f8eb181936b03a26b134d1cdb418800a267029330a1ebbb479",
+      "sha256": "4f2d26f8f437f5041ab958d0456c9230175bd9ba889d9f83dd425e92b74219ff",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "compat_for_explicit_mismatch",
+      "source": "5 ON ERROR GOTO 9000\n10 FOR I!=1 TO 2\n20 PRINT \"BODY\"\n30 NEXT I%\n40 END\n9000 PRINT ERR;ERL:END\n",
+      "stdin": "",
+      "output": " 1  30\n",
+      "source_sha256": "25709156ecb6186bc4fe8588d5b611cc6ecd5c9e99b1aac671414d92134827d2",
+      "capture_sha256": "d5959466be79838795b90087b346231f9b1094fcff089837ef4919ddd250ae34",
+      "sha256": "d4691714387f8017ce17ca80f2e2df8de875a58b0b1994caf119c36efe690ed4",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "compat_for_missing_assignment",
+      "source": "5 ON ERROR GOTO 100\n10 FOR I=7 TO 9\n20 END\n100 PRINT ERR;ERL;I:END\n",
+      "stdin": "",
+      "output": " 26  10  0\n",
+      "source_sha256": "9fe74f3d1c0c1af59403223630c2d6b2cbb0793ad56ff4d58136c24a543fa82a",
+      "capture_sha256": "11f564393aaba7a308753560135acda3bcf11f02c0051a5d4d0d0195ef3131dd",
+      "sha256": "a50102395ce1abac3c4063f8b69e69a2b417b24b287429fc5df54b7e3da849df",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "compat_for_bad_nested",
+      "source": "5 ON ERROR GOTO 9000\n10 FOR I=1 TO 2\n20 FOR J=1 TO 2\n30 NEXT K\n40 NEXT I\n50 END\n9000 PRINT ERR;ERL:END\n",
+      "stdin": "",
+      "output": " 1  30\n",
+      "source_sha256": "1f8308bff2f7a60da04a26ab9b93f97e137f69618aa80e52823d1332ec5b575a",
+      "capture_sha256": "cff3261b989a41ba240c4a370c309c071d909746ed9261c227dc73e077cd6377",
+      "sha256": "d4691714387f8017ce17ca80f2e2df8de875a58b0b1994caf119c36efe690ed4",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "compat_for_header_order",
+      "source": "5 ON ERROR GOTO 100\n10 I=4:FOR I=1/0 TO 2\n20 END\n100 PRINT ERR;ERL;I:END\n",
+      "stdin": "",
+      "output": " 11  10  4\n",
+      "source_sha256": "fd6333c248dd70fc112c94d4ae52f5c1532242d25332e177323b7a8f828b025b",
+      "capture_sha256": "312a6182c66f5543c56a02994499f178eb866d4bb3c6eef26fa426e78708bb65",
+      "sha256": "528d7fcbafbbbcc45e3fd2cb8da2e53d73de9c158ba6956c34e4ec40dc393990",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "compat_for_wrong_assignment",
+      "source": "5 ON ERROR GOTO 100\n10 I=4:FOR I=7 TO 9\n20 NEXT J\n30 END\n100 PRINT ERR;ERL;I:END\n",
+      "stdin": "",
+      "output": " 1  20  4\n",
+      "source_sha256": "16a0fe67304d7559afe2db1cc27cc4eb4d6b3981ced76e68e9f80ae8d95983fd",
+      "capture_sha256": "8935cd367ac34f7f0bbfbd58dbb7bd5b82bb0e59896d618b7b6c32114bc3063d",
+      "sha256": "8feca27191ee53a28289699a4190bb3fe69a2ac44bc32c230bbd947d2fb1449a",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "compat_int_rounding",
+      "source": "5 ON ERROR GOTO 9000\n10 PRINT CINT(2.5);CINT(1.5);CINT(-2.5);CINT(-1.5)\n20 A%=2.5:B%=-2.5:PRINT A%;B%\n30 END\n9000 PRINT ERR;ERL:END\n",
+      "stdin": "",
+      "output": " 3  2 -3 -2\n 3 -3\n",
+      "source_sha256": "ff508ba649c6c60c34e84ecee9027352295a1ad8289f3462a87122d16fc12413",
+      "capture_sha256": "da9f985fc1a86e59e0cfdb39352ac2af777b115f97474cc8b92ec1e440507c44",
+      "sha256": "ef64730831b0ea899534f651d0880d0640bc312ec06a77d0637c18afd2eebaaf",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "compat_int_boundary",
+      "source": "5 ON ERROR GOTO 100\n10 PRINT CINT(32767.4);CINT(-32768.4)\n20 PRINT CINT(32767.5)\n30 END\n100 PRINT ERR;ERL:END\n",
+      "stdin": "",
+      "output": " 32767 -32768\n 6  20\n",
+      "source_sha256": "a963616b81f0a965109ddd363fee8ae13e1831a7c01f10b11db166a292cee871",
+      "capture_sha256": "bcbed158632323d30c710641ff289bc400af5cb8a7269794dccc5cce6bf75c3e",
+      "sha256": "430fde1967aab2005361e1dbf35c97edb4409501bcd2b155474ccbf0b2794eec",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "compat_for_limit_order",
+      "source": "5 ON ERROR GOTO 100\n10 I=4:FOR I=7 TO 1/0\n20 END\n100 PRINT ERR;ERL;I:END\n",
+      "stdin": "",
+      "output": " 11  10  4\n",
+      "source_sha256": "ba2037f955db8a406eb2bd67cf3937138caf176a5b8876ee33f05d235ba412f6",
+      "capture_sha256": "37c6dbafc3ac4f7c3ab8be8896bdc601f58e20d8458f3ff3e8a33a1b29652ecd",
+      "sha256": "528d7fcbafbbbcc45e3fd2cb8da2e53d73de9c158ba6956c34e4ec40dc393990",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "compat_for_step_order",
+      "source": "5 ON ERROR GOTO 100\n10 I=4:FOR I=7 TO 9 STEP 1/0\n20 END\n100 PRINT ERR;ERL;I:END\n",
+      "stdin": "",
+      "output": " 11  10  4\n",
+      "source_sha256": "cdb31ae9e3a23592e5134e6fbe2169bbc4e5bc07fd753f0083297f8d4ab78fc0",
+      "capture_sha256": "bc9450359d8585c7c4ccb97cbcd186c8dc92b7c1edfbacb5b86b54bd041174e7",
+      "sha256": "528d7fcbafbbbcc45e3fd2cb8da2e53d73de9c158ba6956c34e4ec40dc393990",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "compat_for_limit_identity",
+      "source": "5 ON ERROR GOTO 9000\n10 I=4:FOR I=7 TO I+1\n20 PRINT I\n30 NEXT I\n40 PRINT \"END\";I:END\n9000 PRINT ERR;ERL:END\n",
+      "stdin": "",
+      "output": "END 7\n",
+      "source_sha256": "a4ef1f5fcbe360b25994fab7033c42be501519acb041c40d37953a7637235fb7",
+      "capture_sha256": "26b36870db70b96a0e4e7d5b232eac34f2a51e9254485c55cb6651b851dc78d7",
+      "sha256": "9a3cf827192cf93f960bff8cc2556caa8c31deaa6a6b78cca9656f5978b3095c",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "compat_for_init_error_wrong",
+      "source": "5 ON ERROR GOTO 100\n10 I=4:FOR I=1/0 TO 9\n20 NEXT J\n30 END\n100 PRINT ERR;ERL;I:END\n",
+      "stdin": "",
+      "output": " 11  10  4\n",
+      "source_sha256": "77eb9e0261da6281e388e2709e0ec518996abb61b7a65cdf13123606672a3c3e",
+      "capture_sha256": "fd18ea56d7c56a81b64c16e3a544be8f28d8503d000a2d825beba4ceb9496bce",
+      "sha256": "528d7fcbafbbbcc45e3fd2cb8da2e53d73de9c158ba6956c34e4ec40dc393990",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "compat_for_limit_error_wrong",
+      "source": "5 ON ERROR GOTO 100\n10 I=4:FOR I=7 TO 1/0\n20 NEXT J\n30 END\n100 PRINT ERR;ERL;I:END\n",
+      "stdin": "",
+      "output": " 11  10  4\n",
+      "source_sha256": "7a6b3dd2a4f7c7290086c3412e2c67db2da42bf50b22f7d83ab9564a0ffb2ee7",
+      "capture_sha256": "8612d06cca92ce67f9183938bb0fd12f36849193aa5bcd3363689d6fc1d7980e",
+      "sha256": "528d7fcbafbbbcc45e3fd2cb8da2e53d73de9c158ba6956c34e4ec40dc393990",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "compat_for_gosub_same",
+      "source": "5 ON ERROR GOTO 9000\n10 FOR I=1 TO 2\n20 GOSUB 100\n30 NEXT I\n40 PRINT \"END\";I:END\n100 FOR I=5 TO 6\n110 PRINT I\n120 NEXT I\n130 RETURN\n9000 PRINT ERR;ERL:END\n",
+      "stdin": "",
+      "output": " 5\n 6\nEND 8\n",
+      "source_sha256": "111b8e5cf8dbfb6599ae76515de88a46f0c49fcefaa23a8448d619ffc700161a",
+      "capture_sha256": "8d070154d05edf48ba8445e13ed552b927a5dd72d211488f200aaacee965facf",
+      "sha256": "c9c12706c17089b4e3e115ca277e687b5cc580cf5391e17cb1702315da09ccb1",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "compat_for_gosub_barrier",
+      "source": "5 ON ERROR GOTO 200\n10 FOR I=1 TO 2\n20 GOSUB 100\n30 NEXT I\n40 END\n100 NEXT I\n110 RETURN\n200 PRINT ERR;ERL:END\n",
+      "stdin": "",
+      "output": " 1  100\n",
+      "source_sha256": "e7fa62a7a7952a6788be115bc33ee9802bc426ef1215b6f40433dd730a2f01a0",
+      "capture_sha256": "9a01357db37b3498d46206d1ba6bf179329c176c8c934a84e68fb9929353d8f9",
+      "sha256": "95d8345ef5a4c65978053fe910f978a693ffdfc70655b6bbe7b3f53dd08d9bf4",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "compat_for_gosub_discard",
+      "source": "5 ON ERROR GOTO 200\n10 GOSUB 100\n20 NEXT I\n30 END\n100 FOR I=1 TO 2\n110 RETURN\n120 NEXT I\n130 END\n200 PRINT ERR;ERL:END\n",
+      "stdin": "",
+      "output": " 1  20\n",
+      "source_sha256": "3acd194b3f40ec7e2787b4370864b9705dd399cb71232baf78872a02cb3f05eb",
+      "capture_sha256": "36d2394caf653b2819e5a0d489667c700a76f62dbc53f5d3e1de6752b2c9c84d",
+      "sha256": "0bea5363cbdb6e7f7d38044affdd57c57e7312a70d6d67b00a8391aeac4d62d3",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "compat_for_round_before_validation",
+      "source": "5 ON ERROR GOTO 100\n10 I%=4:FOR I%=40000 TO 50000\n20 END\n100 PRINT ERR;ERL;I%:END\n",
+      "stdin": "",
+      "output": " 6  10  4\n",
+      "source_sha256": "31164bd9ab8f347a14651afce20618e0bc2c82a07a5b1c6e3acb3fde53a6fefc",
+      "capture_sha256": "849aff42da268e6bf0bc0360e402c901b637ec8928d0c9a76a6f5d2571de28b5",
+      "sha256": "dcbad85c526a5713be568ad385455ba942437aaf0717b3e301897a8e2065ded6",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "compat_for_limit_before_assignment",
+      "source": "5 ON ERROR GOTO 100\n10 I%=4:FOR I%=7 TO 40000\n20 NEXT I%\n30 END\n100 PRINT ERR;ERL;I%:END\n",
+      "stdin": "",
+      "output": " 6  10  4\n",
+      "source_sha256": "f92189154c133b4f3b43871d867a33408072f378c6a8ecac3bcb1f6dd2b9d859",
+      "capture_sha256": "172842c2a5778327e9c9582b32b0cb2bd182cf7c32773dcc58f9d37b91e43194",
+      "sha256": "dcbad85c526a5713be568ad385455ba942437aaf0717b3e301897a8e2065ded6",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "deftype_branch_else",
+      "source": "10 IF 0 THEN DEFINT A ELSE DEFSTR A\n20 A=\"TEXT\":PRINT A;A$\n30 END\n",
+      "stdin": "",
+      "output": "TEXTTEXT\n",
+      "source_sha256": "24711e00db2f15380342e70915c574434bc2545da055cc5aa5368ef1306bdfd8",
+      "capture_sha256": "ab0f6f265f714ce599126afa35645c868d2c2d228503fc2de9f640fa99af3021",
+      "sha256": "2aef5cff0479f657f397167d982cb8e350bb7a1d668c0e2d5a9993aac95b7b41",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "deftype_arrays",
+      "source": "10 DIM A(2):A(1)=1.5\n20 DEFINT A:DIM A(2):A(1)=2.5\n30 PRINT A(1);A%(1);A!(1)\n40 DEFSTR A:DIM A(2):A(1)=\"TEXT\":PRINT A(1);A$(1);A!(1)\n50 DEFSNG A:PRINT A(1)\n60 END\n",
+      "stdin": "",
+      "output": " 3  3  1.5\nTEXTTEXT 1.5\n 1.5\n",
+      "source_sha256": "bb7083bc778fe989b388b193cdbdea8d669aa7a95a27ca17161f799f4d706524",
+      "capture_sha256": "371a3e5e29d98525779dcdf8e4c861e859d349690fe65f2b40bf41bc862838bb",
+      "sha256": "617ce7b42dab1b8c9878e221dfd2f21ef3c2f8ecbcd17b14792983a0d385279f",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "deftype_jump",
+      "source": "10 GOTO 30\n20 DEFSTR A\n30 A=1.5:PRINT A;A!;A%\n40 END\n",
+      "stdin": "",
+      "output": " 1.5  1.5  0\n",
+      "source_sha256": "60d01fb1bf0a4cf96e86ec18ecc1e19e51f88c54d7cf45dd507d058909a1d681",
+      "capture_sha256": "08a53f189588db550edead4b1076adef00be5ec0640acfab07d82838d5f15536",
+      "sha256": "4dc08e62077c4a794f14d8f422f5eb901da3c1bd23712613ee3c6c7d7ac596e0",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "deftype_double",
+      "source": "10 A=1.25:DEFDBL A\n20 A=2.5:PRINT A;A#;A!\n30 DEFINT A:A=3.5:PRINT A;A%;A#;A!\n40 END\n",
+      "stdin": "",
+      "output": " 2.5  2.5  1.25\n 4  4  2.5  1.25\n",
+      "source_sha256": "3e50509e901b18979174ea560ab574091e5b6c42fcc4e88c8ee51d65f07419e2",
+      "capture_sha256": "3bebb3cd494bfe3a7b92a941f34286f3d5229174d1bb79b003303bf58854c824",
+      "sha256": "3868cd09a0cc4596f7b7ac5afaf5b5e0050a2d39184a4f44c30bbe3e1fd3a95f",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "deftype_input",
+      "source": "10 A=1.5:DEFSTR A\n20 INPUT A\n30 PRINT A;A$;A!\n40 DEFINT B:INPUT B\n50 PRINT B;B%\n60 END\n",
+      "stdin": "HELLO\n2.5\n",
+      "output": "? HELLOHELLO 1.5\n?  3  3\n",
+      "source_sha256": "f3689b4e40e99d4d07b9f0b22b6e099d61d93ca3162c72e4a262bbe32436c274",
+      "capture_sha256": "1b4d94a4055f60d0e0e0289964e7b50bff68b4185b17962c9ebea047879224b3",
+      "sha256": "7de2557f3dddadbcde856b217a34953d18469709429c5adda3b12844442ac034",
+      "input_sha256": "95c8a62e3482501d4a1b9222973b6cabd1fab9e337df95c59baff462584cef19"
+    },
+    {
+      "id": "deftype_prefix",
+      "source": "10 REM DECLARATIONS\n20 DATA 5\n30 DEFINT A-C:DEFDBL D\n40 A=2.5:D=1.25:PRINT A;A%;D;D#\n50 END\n",
+      "stdin": "",
+      "output": " 3  3  1.25  1.25\n",
+      "source_sha256": "203751f50519300a7fd768075ca8cbec4fccac390bb51f9819bc9761dfeca209",
+      "capture_sha256": "ea21a4243f471c35a68a00c1e0def87470dbd6caed202a9fa2fbd54234ab06df",
+      "sha256": "bf1745629915de8d2cc7537240331bd9524fae18cbeaaea768fc1aed913d8bd8",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "deftype_loop",
+      "source": "10 FOR I=0 TO 1\n20 IF I=0 THEN DEFINT A ELSE DEFSTR A\n30 IF I=0 THEN A=2.5 ELSE A=\"TEXT\"\n40 PRINT A;A%;A$\n50 NEXT I\n60 END\n",
+      "stdin": "",
+      "output": " 3  3\nTEXT 3 TEXT\n",
+      "source_sha256": "d1acb52b86d9bc9f9c97e65d17582f4b4013fb961d2d6befc653faddfb1a0470",
+      "capture_sha256": "f96e764c56d51d0abeea9f5eb9c8af54503c79cd58f8d0e17326c176fda42956",
+      "sha256": "a1d19b40056f1b51e3ccfd40e59c4f704b6905302d3f34b16102bf309f05c0dc",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "for_integer_header_rounding",
+      "source": "10 I%=9:FOR I%=1.5 TO 3.5 STEP .5\n20 PRINT I%\n30 NEXT I%\n40 PRINT I%:END\n",
+      "stdin": "",
+      "output": " 2\n 3\n 4\n 5\n",
+      "source_sha256": "719bf6ec6c856cd75e4b6944ab36487072a8a6a36f25a17c9e3b5d8f807dcaf9",
+      "capture_sha256": "c54310df9e8cd3e9f039f902e7cc94e507ab91eef1cbbcab291e3d25f50cfd71",
+      "sha256": "ae720ab92e3faaacd73eca2d426220fec4f8c944439b27b8acd1c91d5dedbf50",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "next_array_syntax",
+      "source": "5 ON ERROR GOTO 100\n10 I=4:FOR I=7 TO 9\n20 NEXT I(1)\n30 END\n100 PRINT ERR;ERL;I:END\n",
+      "stdin": "",
+      "output": " 1  20  4\n",
+      "source_sha256": "1fd3633b20abbcc44fb55c8fff430bf72ddc25e3bf3fe95ab25355f3604b6847",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "8feca27191ee53a28289699a4190bb3fe69a2ac44bc32c230bbd947d2fb1449a",
+      "capture_sha256": "5d57365eda2ab04e337831afc98e2e74a3c519707889233b04a3657ca3bf98db"
+    },
+    {
+      "id": "next_plus_syntax",
+      "source": "5 ON ERROR GOTO 100\n10 I=4:FOR I=7 TO 9\n20 NEXT I+1\n30 END\n100 PRINT ERR;ERL;I:END\n",
+      "stdin": "",
+      "output": " 2  20  10\n",
+      "source_sha256": "67ac5fb4a438a44afe3eba4c59a3c3c2fb2352455d2d56516ea9cfc0ea7b9ada",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "464564f0a863a0327fee44595a30410c69fe3e14836c59f6e08b6e9aa484425a",
+      "capture_sha256": "eae68645aca6143d458cdf978d4893624a38cdd8706a84243cd1dc66bb3b747f"
+    },
+    {
+      "id": "next_assignment_syntax",
+      "source": "5 ON ERROR GOTO 100\n10 I=4:FOR I=7 TO 9\n20 NEXT I=1\n30 END\n100 PRINT ERR;ERL;I:END\n",
+      "stdin": "",
+      "output": " 2  20  10\n",
+      "source_sha256": "3dd042f3c1694a9e36a9e9f7d0402bdc7845feb04b661b360a1df17dd7daa04c",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "464564f0a863a0327fee44595a30410c69fe3e14836c59f6e08b6e9aa484425a",
+      "capture_sha256": "a237f7de1849e0904ca5411e53c483a945b0b4bb9e9e420247b72097da9b3d78"
+    },
+    {
+      "id": "resume_print",
+      "source": "10 A=0\n20 ON ERROR GOTO 100\n30 PRINT 1/A\n40 END\n100 A=1:RESUME\n110 DEFINT Z\n",
+      "stdin": "",
+      "output": " 1\n",
+      "source_sha256": "3a152666b739374c60e3360e49902c02a562329576004269ef1db9b1e93d758e",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "ed32f242203b8e7cf7822ab7ed18481d883e3e9d91f4f3b14fcb3e4c674c0037",
+      "capture_sha256": "623870f7ad63cf3199f8f68c6b9a73ca36979226877947b200163bb6f9fa66e9"
+    },
+    {
+      "id": "resume_assignment",
+      "source": "10 A=0\n20 ON ERROR GOTO 100\n30 B=1/A\n40 PRINT B:END\n100 A=1:RESUME\n110 DEFINT Z\n",
+      "stdin": "",
+      "output": " 1\n",
+      "source_sha256": "165a6801479dbffe16b95de5368d35dc2c58c18bff17713e89ecd739b549904b",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "ed32f242203b8e7cf7822ab7ed18481d883e3e9d91f4f3b14fcb3e4c674c0037",
+      "capture_sha256": "918694580f3b206ec9282ed31f13197c624bf1c444db402f856eb8646bcff3f3"
+    },
+    {
+      "id": "resume_for",
+      "source": "10 A=0\n20 ON ERROR GOTO 100\n30 FOR I=1/A TO 2\n40 PRINT I\n50 NEXT I\n60 END\n100 A=1:RESUME\n110 DEFINT Z\n",
+      "stdin": "",
+      "output": " 1\n 2\n",
+      "source_sha256": "df53ba5757a306671ba1d24fa4758095b7a446ea913cd9036b35520482edf951",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "0083d969bf9bbbff054cd18b5d5dd146ba4864d60d93903b491817177c4eb35e",
+      "capture_sha256": "6c54a69ae9c82f3991711adf92566f15040cdbbf981261efba26f0748655cc9c"
+    },
+    {
+      "id": "resume_next_tokens",
+      "source": "10 ON ERROR GOTO 100\n20 PRINT \"A:B\";1/0;256:PRINT \"NEXT\"\n30 END\n100 RESUME NEXT\n110 DEFINT Z\n",
+      "stdin": "",
+      "output": "A:BNEXT\n",
+      "source_sha256": "1ad3a72bea55f8530e0121f8fe7ee7aef916c492c511bb9b867807d27701cda1",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "a13eba17bdb7ea765d71393bf447a2d0276ee813a8cd40b9f9b83a5f60d731e6",
+      "capture_sha256": "8d95688c7ea6aa61fa24c4d04b0d6c8c1e27ad5b8a70bdb9e61df324212e80f0"
+    },
+    {
+      "id": "gosub_undefined_resume",
+      "source": "5 ON ERROR GOTO 100\n10 FOR I=1 TO 2\n20 GOSUB 999\n30 NEXT I\n40 PRINT \"DONE\";I:END\n100 PRINT ERR;ERL:RESUME NEXT\n",
+      "stdin": "",
+      "output": " 8  20\n 8  20\nDONE 3\n",
+      "sha256": "747a45395a2d5867b724ac89207a7702368a6c271451db8f0c0798d37b6467ae",
+      "source_sha256": "6524283b6a5ef53af5b823ae07f22cb22db7400c4836cb27e0f9aba84dcef144",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "capture_sha256": "81333772a0ed6db20ce1f38cb5309961dd86b6743cd5ef2adeca075bcde18bb6"
+    },
+    {
+      "id": "on_gosub_undefined_resume",
+      "source": "5 ON ERROR GOTO 100\n10 FOR I=1 TO 2\n20 ON I GOSUB 999,998\n30 NEXT I\n40 PRINT \"DONE\";I:END\n100 PRINT ERR;ERL:RESUME NEXT\n",
+      "stdin": "",
+      "output": " 8  20\n 8  20\nDONE 3\n",
+      "sha256": "747a45395a2d5867b724ac89207a7702368a6c271451db8f0c0798d37b6467ae",
+      "source_sha256": "95cfcd629ef983a4e6db45d244dfaa9660d3ade3beae2c7eda70b84ec936b100",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "capture_sha256": "1a1bdb83632d2e7c7d12b988ed6685d42be14b3037572a5b974e29c9fce955c0"
+    },
+    {
+      "id": "for_spaced_suffix",
+      "source": "5 ON ERROR GOTO 100\n10 FOR I %=1 TO 2\n20 PRINT I%\n30 NEXT I%\n40 END\n100 PRINT ERR;ERL:END\n",
+      "stdin": "",
+      "output": " 2  10\n",
+      "sha256": "5cf6d76275249a89f341504709866efac6d44ac16009eee86165e990b0f7958c",
+      "source_sha256": "2b708d8783fe940260f58e9383bc2f7b0a42e95ce86324cb249abaa7f0365f0f",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "capture_sha256": "9cb4a1df444c28455e92ea90fc420157483f9f19fc1cdcb82e9fb8651a251527"
+    },
+    {
+      "id": "next_spaced_suffix",
+      "source": "5 ON ERROR GOTO 100\n10 FOR I%=1 TO 2\n20 PRINT I%\n30 NEXT I %\n40 END\n100 PRINT ERR;ERL:END\n",
+      "stdin": "",
+      "output": " 1  30\n",
+      "sha256": "d4691714387f8017ce17ca80f2e2df8de875a58b0b1994caf119c36efe690ed4",
+      "source_sha256": "84ea1d205d294ffa9710c7c066b34090ceb0e13d86eeea3d3d009974ab45cdce",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "capture_sha256": "600c2146ed5434c127999c5c4459e84aa71931590de127ffcfd928bd9d37da11"
+    },
+    {
+      "id": "for_spaced_bare_next",
+      "source": "5 ON ERROR GOTO 100\n10 FOR I %=1 TO 2\n20 PRINT \"BODY\"\n30 NEXT\n40 END\n100 PRINT ERR;ERL:END\n",
+      "stdin": "",
+      "output": " 2  10\n",
+      "sha256": "5cf6d76275249a89f341504709866efac6d44ac16009eee86165e990b0f7958c",
+      "source_sha256": "ba56c1e2f10f6261be7558875ebbf295f11bea8d603d5fc03f5a18fc2e269b02",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "capture_sha256": "e385fca9244eca33005ea1c893295a72c6d9f5552ecdeb6b0cfc1ae5bcc8be9f"
+    },
+    {
+      "id": "for_spaced_name",
+      "source": "5 ON ERROR GOTO 100\n10 FOR A B %=1 TO 2\n20 PRINT AB%\n30 NEXT A B %\n40 END\n100 PRINT ERR;ERL:END\n",
+      "stdin": "",
+      "output": " 2  10\n",
+      "sha256": "5cf6d76275249a89f341504709866efac6d44ac16009eee86165e990b0f7958c",
+      "source_sha256": "e5b3c3780e437136fddb1fd943401ed228cb406cff0e91706d8f0e4875f612e4",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "capture_sha256": "1783fa0a63c180b4a27c3c02a45ece8f8b74ae42f0de8a9c6266f011c4f223ba"
+    }
+  ]
+}

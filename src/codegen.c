@@ -96,6 +96,13 @@ static uint8_t advance(void)
 }
 static void skip_spaces(void) { while (*tp == ' ') tp++; }
 
+static bool line_exists(uint16_t num)
+{
+    for (int i = 0; i < ana->line_count; i++)
+        if (ana->lines[i].line_num == num) return true;
+    return false;
+}
+
 /* ---- Token stream readers ---- */
 
 static uint16_t read_int(void)
@@ -235,20 +242,30 @@ static gw_valtype_t parse_var(char name_out[2])
 {
     name_out[0] = toupper(cur());
     name_out[1] = 0;
-    advance();
+    tp++;
     if (is_letter(cur()) || (cur() >= '0' && cur() <= '9')) {
         name_out[1] = toupper(cur());
-        advance();
+        tp++;
         while (is_letter(cur()) || (cur() >= '0' && cur() <= '9'))
-            advance();
+            tp++;
     }
     uint8_t suffix = cur();
     if (suffix == '$') { advance(); return VT_STR; }
     if (suffix == '%') { advance(); return VT_INT; }
     if (suffix == '!') { advance(); return VT_SNG; }
     if (suffix == '#') { advance(); return VT_DBL; }
+    skip_spaces();
     int idx = name_out[0] - 'A';
     return (idx >= 0 && idx < 26) ? ana->def_type[idx] : VT_SNG;
+}
+
+/* The last consumed nonspace byte records an explicit type suffix. */
+static bool parsed_explicit_type(const uint8_t *start)
+{
+    const uint8_t *end = tp;
+    while (end > start && end[-1] == ' ') end--;
+    return end > start && (end[-1] == '%' || end[-1] == '!' ||
+                           end[-1] == '#' || end[-1] == '$');
 }
 
 /* ---- Expression compilation ---- */
@@ -1703,7 +1720,7 @@ static void emit_delegate_stmt(uint8_t *stmt_start, bool read_back)
     emit_delegate_stmt_ex(stmt_start, read_back, false);
 }
 
-static void emit_delegate_stmt_ex(uint8_t *stmt_start, bool read_back, bool sync_all)
+static void skip_statement_tail(void)
 {
     /* Find end of statement, respecting strings and constants */
     program_line_t *cur_pl = NULL;
@@ -1725,6 +1742,11 @@ static void emit_delegate_stmt_ex(uint8_t *stmt_start, bool read_back, bool sync
         if (*tp == ':' || *tp == TOK_ELSE || *tp == 0) break;
         tp++;
     }
+}
+
+static void emit_delegate_stmt_ex(uint8_t *stmt_start, bool read_back, bool sync_all)
+{
+    skip_statement_tail();
     int slen = (int)(tp - stmt_start);
 
     EMIT("  {\n");
@@ -2043,7 +2065,9 @@ static void emit_stmt(void)
         skip_spaces();
         uint16_t target = read_int();
         int rl = ret_label_counter++;
-        if (safe_mode)
+        if (!line_exists(target))
+            EMIT("  gw_error(ERR_UL);\n");
+        else if (safe_mode)
             EMIT("  gwrt_gosub_push_safe(%d, %u); goto L_%u;\n", rl, emit_line, target);
         else
             EMIT("  gwrt_gosub_push(%d); goto L_%u;\n", rl, target);
@@ -2062,67 +2086,71 @@ static void emit_stmt(void)
     if (tok == TOK_FOR) {
         advance();
         char name[2];
-        uint8_t *for_suffix = tp;
-        while (is_letter(*for_suffix) || (*for_suffix >= '0' && *for_suffix <= '9')) for_suffix++;
-        bool for_explicit_type = *for_suffix == '%' || *for_suffix == '!' || *for_suffix == '#' || *for_suffix == '$';
+        uint8_t *for_name = tp;
         gw_valtype_t type = parse_var(name);
-        if (type == VT_STR) codegen_error("FOR requires a numeric variable");
-        skip_spaces();
-        if (cur() != TOK_EQ) codegen_error("expected '=' in FOR");
-        advance();
-        EMIT("  ");
-        emit_varname(name, type);
-        if (type == VT_INT) {
-            EMIT(" = gw_cint((double)(");
-            emit_num_expr();
-            EMIT("));\n");
-        } else {
-            EMIT(" = (%s)(", c_type(type));
-            emit_num_expr();
-            EMIT(");\n");
+        bool for_explicit_type = parsed_explicit_type(for_name);
+        if (cur() != TOK_EQ) {
+            EMIT("  gw_error(ERR_SN);\n");
+            skip_statement_tail();
+            return;
         }
-        skip_spaces();
-        if (cur() != TOK_TO) codegen_error("expected TO in FOR");
-        advance();
+        if (type == VT_STR) codegen_error("FOR requires a numeric variable");
+        program_line_t *line = gw.prog_head, *target = NULL;
+        uint8_t *after = NULL, *next_var;
+        while (line && line->num != emit_line) line = line->next;
+        bool matched = gw_for_exit(line, tp, &target, &after, &next_var);
         EMIT("  { int _entry_type = ");
         if (for_explicit_type) EMIT("%d", type);
         else EMIT("gw.def_type[%d]", name[0] - 'A');
-        EMIT(";\n    double _limit = (double)(");
+        EMIT(";\n");
+        skip_spaces();
+        if (cur() != TOK_EQ) codegen_error("expected '=' in FOR");
+        advance();
+        EMIT("    %s _initial = %s(", c_type(type), type == VT_INT ? "gw_cint" : type == VT_SNG ? "(float)" : "(double)");
         emit_num_expr();
-        EMIT(");\n    double _step = ");
+        EMIT(");\n");
+        skip_spaces();
+        if (cur() != TOK_TO) codegen_error("expected TO in FOR");
+        advance();
+        EMIT("    %s _limit = %s(", c_type(type), type == VT_INT ? "gw_cint" : type == VT_SNG ? "(float)" : "(double)");
+        emit_num_expr();
+        EMIT(");\n    %s _step = ", c_type(type));
         skip_spaces();
         if (cur() == TOK_STEP) {
             advance();
-            EMIT("(double)(");
+            EMIT("%s(", type == VT_INT ? "gw_cint" : type == VT_SNG ? "(float)" : "(double)");
             emit_num_expr();
             EMIT(")");
         } else {
             EMIT("1");
         }
-        int fc = for_label_counter++;
-        EMIT(";\n    if (!gwrt_for_push(&");
-        emit_varname(name, type);
-        EMIT(", %d, _limit, _step, %d)) ", type, fc);
-        program_line_t *line = gw.prog_head, *target;
-        uint8_t *after, *next_var;
-        while (line && line->num != emit_line) line = line->next;
-        if (gw_for_exit(line, tp, &target, &after, &next_var)) {
+        EMIT(";\n");
+        if (!matched) {
+            EMIT("    gw_error(ERR_FW);\n");
+        } else {
             uint8_t *save = tp;
             tp = next_var;
-            EMIT("{ ");
             if (is_letter(cur())) {
                 char next_name[2];
-                uint8_t *suffix = tp;
-                while (is_letter(*suffix) || (*suffix >= '0' && *suffix <= '9')) suffix++;
-                bool explicit_type = *suffix == '%' || *suffix == '!' || *suffix == '#' || *suffix == '$';
+                uint8_t *next_start = tp;
                 gw_valtype_t next_type = parse_var(next_name);
-                EMIT("if (%d || ", memcmp(name, next_name, 2) != 0);
+                bool explicit_type = parsed_explicit_type(next_start);
+                EMIT("    if (%d || ", memcmp(name, next_name, 2) != 0 || *after == '(');
                 if (explicit_type) EMIT("%d", next_type);
                 else EMIT("gw.def_type[%d]", next_name[0] - 'A');
-                EMIT(" != _entry_type) { gw.cur_line_num = %u; gw_error(ERR_NF); } ", target->num);
+                EMIT(" != _entry_type) { gw.cur_line_num = %u; gw_error(ERR_NF); }\n", target->num);
             }
             tp = save;
-            EMIT("gw.cur_line_num = %u; goto for_exit_%u_%d; }",
+        }
+        EMIT("    ");
+        emit_varname(name, type);
+        EMIT(" = _initial;\n");
+        int fc = for_label_counter++;
+        EMIT("    if (!gwrt_for_push(&");
+        emit_varname(name, type);
+        EMIT(", %d, _limit, _step, %d)) ", type, fc);
+        if (matched) {
+            EMIT("{ gw.cur_line_num = %u; goto for_exit_%u_%d; }",
                  target->num, target->num, (int)(after - target->tokens));
         } else {
             EMIT("gw_error(ERR_FW);");
@@ -2152,6 +2180,10 @@ static void emit_stmt(void)
             while (line && line->num != emit_line) line = line->next;
             EMIT("for_exit_%u_%d: ;\n", emit_line, (int)(tp - line->tokens));
         } while (cur() == ',' && (advance(), 1));
+        if (cur() && cur() != ':' && cur() != TOK_ELSE) {
+            EMIT("  gw_error(ERR_SN);\n");
+            skip_statement_tail();
+        }
         return;
     }
 
@@ -2220,7 +2252,9 @@ static void emit_stmt(void)
             EMIT("    switch(_on_val) {\n");
             while (is_const(cur())) {
                 uint16_t target = read_int();
-                if (safe_mode)
+                if (!line_exists(target))
+                    EMIT("      case %d: gw_error(ERR_UL); break;\n", n++);
+                else if (safe_mode)
                     EMIT("      case %d: gwrt_gosub_push_safe(%d, %u); goto L_%u;\n", n++, rl, emit_line, target);
                 else
                     EMIT("      case %d: gwrt_gosub_push(%d); goto L_%u;\n", n++, rl, target);
@@ -2925,6 +2959,34 @@ static void emit_stmt_guarded(void)
 
 /* ---- Main code generation ---- */
 
+/* A runtime DEFTYPE can select numeric or string storage at the same source
+ * location. Until native expressions support that union, embed the program and
+ * use the shared runtime instead of guessing a type from source order. */
+static void emit_runtime_typed_program(void)
+{
+    if (ana->extern_count)
+        codegen_error("runtime DEFTYPE changes cannot be combined with $EXTERN; move type declarations to the entry prefix");
+    fprintf(stderr, "gwbasic-compile: runtime DEFTYPE changes use interpreter execution in the compiled executable\n");
+    EMIT("/* Runtime default types require execution-order variable lookup. */\n");
+    EMIT("int %s(int argc, char **argv) {\n", main_name);
+    EMIT("  (void)argc; (void)argv;\n  gwrt_init();\n");
+    EMIT("  if (setjmp(gw_error_jmp)) {\n");
+    EMIT("    gw_file_close_all(); gw_vars_clear(); gw_free_program();\n");
+    EMIT("    gwrt_shutdown(); return 1;\n  }\n");
+    for (program_line_t *line = gw.prog_head; line; line = line->next) {
+        EMIT("  { static const uint8_t tokens[] = {");
+        for (int i = 0; i < line->len; i++)
+            EMIT("%s%u", i ? "," : "", line->tokens[i]);
+        EMIT("%s0}; gw_store_line(%u, (uint8_t *)tokens, %u); }\n",
+             line->len ? "," : "", line->num, line->len);
+    }
+    EMIT("  gw.cur_line = gw.prog_head;\n");
+    EMIT("  gw.cur_line_num = gw.cur_line->num;\n");
+    EMIT("  gw.text_ptr = gw.cur_line->tokens;\n  gw_run_loop();\n");
+    EMIT("  gw_file_close_all(); gw_vars_clear(); gw_free_program();\n");
+    EMIT("  gwrt_shutdown(); return 0;\n}\n");
+}
+
 void codegen_emit(FILE *f, analysis_t *a, const codegen_opts_t *opts)
 {
     out = f;
@@ -2951,6 +3013,11 @@ void codegen_emit(FILE *f, analysis_t *a, const codegen_opts_t *opts)
     EMIT("#include <stdlib.h>\n");
     EMIT("#include <string.h>\n");
     EMIT("#include <time.h>\n\n");
+
+    if (a->runtime_types) {
+        emit_runtime_typed_program();
+        return;
+    }
 
     /* Foreign-function prototypes from '$EXTERN pragmas (Level 2
      * cross-language linking).  The host project supplies these symbols at

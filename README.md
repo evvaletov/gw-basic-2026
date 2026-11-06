@@ -142,8 +142,8 @@ Output mismatches, execution failures, and timeouts fail the suites. See
 [Development](docs/development.md) for timeout settings and test coverage.
 
 The [compatibility corpus](tests/corpus/README.md) contains 98 original BASIC
-Computer Games listings. Its automated runtime suite checks 13 fixed-input cases
-from eight listings against Microsoft GW-BASIC transcripts and compares six
+Computer Games listings. Its automated runtime suite checks 23 fixed-input cases
+from twelve listings against Microsoft GW-BASIC transcripts and compares six
 compiler modes with the interpreter. The other listings have build-audit
 coverage only. Awari and Checkers compile; Super Star Trek is rejected for an
 unspaced `TO` expression that Microsoft GW-BASIC also rejects.

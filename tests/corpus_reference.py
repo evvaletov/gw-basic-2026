@@ -67,7 +67,11 @@ def adapt_statement(text):
                 prompt, separator, tail = literal.groups()
                 question = separator == ';'
             output = prompt + (';' if prompt and question else '') + ('"? "' if question else '')
-            result.append(f"PRINT #9,{output};:INPUT #8,{tail}")
+            # Console INPUT starts a fresh print column after Enter. INPUT#
+            # leaves the output file's column unchanged, which gives TAB after
+            # a prompt the wrong layout. Reopening in append mode resets that
+            # column without adding terminal echo to the captured transcript.
+            result.append(f'PRINT #9,{output};:INPUT #8,{tail}:CLOSE #9:OPEN "OUTPUT.TXT" FOR APPEND AS #9')
             return "".join(result)
         elif upper == "END":
             result.append(f'PRINT #9,"{MARKER}":CLOSE:SYSTEM')
@@ -101,10 +105,12 @@ def main():
     parser.add_argument('--output', type=Path, required=True,
                         help='fresh output directory; never overwrites checked-in expectations')
     parser.add_argument('--case', action='append')
+    parser.add_argument('--suite', choices=('corpus', 'semantics'), default='corpus')
     args = parser.parse_args()
     repo = Path(__file__).resolve().parents[1]
     corpus = repo / 'tests/corpus'
-    cases = json.loads((corpus / 'fixtures.json').read_text())['cases']
+    manifest = corpus / 'fixtures.json' if args.suite == 'corpus' else repo / 'tests/compatibility/semantics.json'
+    cases = json.loads(manifest.read_text())['cases']
     if args.case:
         unknown = set(args.case) - {case['id'] for case in cases}
         if unknown:
@@ -120,9 +126,11 @@ def main():
         with tempfile.TemporaryDirectory(prefix='gw-corpus-reference-') as temp:
             drive = Path(temp)
             shutil.copy2(args.reference_exe, drive / 'GWBASIC.EXE')
-            transformed = adapt((corpus / case['source']).read_text())
+            source = (corpus / case['source']).read_text() if args.suite == 'corpus' else case['source']
+            stdin = (corpus / case['input']).read_text() if args.suite == 'corpus' else case['stdin']
+            transformed = adapt(source)
             (drive / 'CASE.BAS').write_bytes(transformed.encode('ascii'))
-            (drive / 'INPUT.TXT').write_bytes((corpus / case['input']).read_bytes().replace(b'\n', b'\r\n'))
+            (drive / 'INPUT.TXT').write_bytes(stdin.replace('\n', '\r\n').encode('ascii'))
             command = ['flatpak', 'run', '--die-with-parent',
                        f'--filesystem={drive}', 'com.dosbox_x.DOSBox-X',
                        '-conf', str(repo / 'tests/dosbox-compat.conf'),
@@ -145,8 +153,8 @@ def main():
             text = normalize(text[:-len(MARKER + '\n')])
             (args.output / f"{case['id']}.txt").write_text(text)
             metadata['cases'].append({'id': case['id'], 'sha256': hashlib.sha256(text.encode()).hexdigest(),
-                                      'source_sha256': hashlib.sha256((corpus / case['source']).read_bytes()).hexdigest(),
-                                      'input_sha256': hashlib.sha256((corpus / case['input']).read_bytes()).hexdigest(),
+                                      'source_sha256': hashlib.sha256(source.encode('ascii')).hexdigest(),
+                                      'input_sha256': hashlib.sha256(stdin.encode('ascii')).hexdigest(),
                                       'capture_sha256': hashlib.sha256(transformed.encode('ascii')).hexdigest()})
             print('CAPTURED', case['id'], flush=True)
     (args.output / 'reference.json').write_text(json.dumps(metadata, indent=2) + '\n')

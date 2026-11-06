@@ -146,8 +146,8 @@ Options:
 transfers, and the fast expression emitter in the BASIC compiler. `-O1`
 enables constant folding and dead-code removal; `-O2` and `-O3` also enable
 the fast emitter. The selected level is passed to GCC when compiling C.
-Other transformations, such as the simplified `FOR ... STEP 1` loop, remain
-enabled at every tier.
+FOR/NEXT validation and runtime control-stack behavior are the same at every
+tier.
 
 `--inline-arrays` caches storage for numeric arrays whose `DIM` bounds are
 known at compile time, then indexes that storage directly. The runtime still
@@ -155,6 +155,19 @@ owns the array, so delegated statements use the same data. `CLEAR` and `ERASE`
 invalidate cached pointers. String arrays and arrays with dynamic bounds use
 the runtime access path. With `--safe`, array access uses the checked runtime
 path throughout.
+
+### Runtime Type Declarations
+
+Put `DEFINT`, `DEFSNG`, `DEFDBL`, and `DEFSTR` declarations at the start of the
+program to retain native compilation. Comments and DATA can precede them.
+If a declaration occurs after executable code, including inside an IF or loop,
+the compiler embeds the program and executes it through the interpreter runtime
+inside the resulting executable. It prints a diagnostic identifying this path.
+Variables and arrays then follow the executed declarations, including switches
+between numeric and string defaults. Native optimization and performance flags
+do not apply to this execution path; sanitizer instrumentation still applies.
+Runtime type changes cannot currently be combined with `$EXTERN` calls. Such a
+combination fails compilation; move declarations into the entry prefix to use FFI.
 
 ### Performance Flags (`--no-gc-check` / `--fast-math`)
 
@@ -415,3 +428,8 @@ The 16-bit build defaults to an 8 KiB string pool to leave room for program
 storage and garbage collection in its 64 KiB near-data segment. Other builds
 use 32 KiB. Increasing the pool with `CLEAR` reduces memory available for program
 lines and arrays.
+
+The 16-bit link disables OpenWatcom far-call rewriting (`OPTION NOFARCALLS`).
+With the same object files, the default rewrite produced layout-dependent
+FreeDOS/JemmEx faults; preserving far calls avoided them. The floating-point
+mode and 8 KiB stack remain unchanged. `build_dos.sh 16` and `Makefile.dos16` use this setting.

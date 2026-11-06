@@ -139,6 +139,7 @@ class CorpusTests(unittest.TestCase):
         self.assertIn('DEF FNA(X)=X+256:PRINT #9, FNA(41)', actual)
         self.assertIn('PRINT #9,"__CORPUS_DONE__":CLOSE:SYSTEM', actual)
         self.assertIn('ON ERROR GOTO 65500', actual)
+        self.assertIn('INPUT #8,A$:CLOSE #9:OPEN "OUTPUT.TXT" FOR APPEND AS #9', actual)
 
     def test_reference_adapter_rejects_unsupported_io(self):
         for source in ('10 OPEN "X" FOR OUTPUT AS #1', '10 INPUT #1,A', '10 LINE INPUT A$', '0 PRINT 1'):

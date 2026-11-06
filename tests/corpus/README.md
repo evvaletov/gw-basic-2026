@@ -16,7 +16,7 @@ bash tests/run_corpus.sh --case plot --mode O2
 python3 tests/test_corpus.py
 ```
 
-`fixtures.json` selects 13 cases from eight listings. Inputs are fixed; no case
+`fixtures.json` selects 23 cases from twelve listings. Inputs are fixed; no case
 uses random output or the current date. These paths finish naturally with `END`.
 The listings themselves are not shortened or patched.
 
@@ -30,6 +30,10 @@ The listings themselves are not shortened or patched.
 | Weekday | same date, Friday the 13th, pre-1582 date | Multiple INPUT fields, FN, branches |
 | Calendar | complete 1979 calendar | Arrays, ON GOTO, DATA |
 | Literature Quiz | four wrong answers | INPUT, zero-score branch |
+| Tic-Tac-Toe 2 | loss, draw, invalid moves | Board arrays, nested branches, complete games |
+| Towers | two/three disks, invalid-move recovery | FOR/GOSUB scope, complete solutions, TAB after INPUT |
+| Chomp | normal game, rules and invalid inputs | Nested arrays, player rotation, input validation |
+| One Check | jumps and rejection, replay | Board updates, replay state, input validation |
 
 Every case runs in the interpreter and in six compiled modes: `-O0`, `-O1`,
 `-O2`, `-O3`, `-O2 --inline-arrays`, and `-O2 --safe`. Each transcript must match
@@ -47,7 +51,7 @@ C compiler. Python 3 and a POSIX host are required.
 
 ## Reference capture
 
-`expected/` was captured on 2026-11-05 from a local Microsoft `GWBASIC.EXE` under
+`expected/` was recaptured on 2026-11-06 from a local Microsoft `GWBASIC.EXE` under
 DOSBox-X. `reference.json` records executable, adapter, source, input, transformed
 source, and transcript hashes. The Microsoft executable is not distributed here.
 
@@ -62,7 +66,9 @@ python3 tests/corpus_reference.py \
 This requires the `com.dosbox_x.DOSBox-X` Flatpak. Each capture gets an isolated
 DOS drive. `PRINT` writes to file #9, `INPUT` reads the scripted file #8 after
 writing its prompt, and `END` writes a completion marker, closes files, and
-exits. An error handler records unexpected GW-BASIC errors. The adapter preserves
+exits. After INPUT, the adapter reopens the capture file in append mode to reset
+its output column, matching the console's new column after Enter without
+capturing terminal echo. An error handler records unexpected GW-BASIC errors. The adapter preserves
 calculations and control flow and supports only these curated listings. It
 retains transformed source, raw output, logs, and normalized transcripts for
 review. The marker is required and removed; DOS Ctrl-Z sector padding is ignored.
@@ -75,7 +81,7 @@ correctness by themselves.
 
 File redirection does not reproduce terminal echo, screen width/wrapping,
 graphics, or sound. These cases do not establish complete gameplay coverage,
-identical floating-point arithmetic, or compatibility of the other 90 listings.
+identical floating-point arithmetic, or compatibility of the other 86 listings.
 
 ## Full build audit and remaining gaps
 
@@ -96,7 +102,8 @@ transpilation or native compilation errors, so the current audit exits 1.
 
 The FOR/NEXT native compilation failures (`ca3a8b8`) are resolved. Broader
 scripted gameplay, random-seed handling, and dialect triage remain under `51679f0`.
-Nonempty FOR entry validation and conditional DEFTYPE behavior still differ
-from Microsoft GW-BASIC in some cases. Successful builds
-are not counted as runtime passes. GitHub CI runs the curated suite and uploads
+FOR entry validation and GOSUB loop scope now have focused original-GW-BASIC
+references in `../compatibility/semantics.json`. That suite also checks DEFTYPE
+storage changes and integer rounding. Successful builds are not counted as
+runtime passes. GitHub CI runs the curated suite and uploads
 its JSON matrix; the full build audit is an explicit development command.

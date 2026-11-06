@@ -14,6 +14,11 @@ See [compiler usage](getting-started.md) and
 | DOUBLE | `#` | 64-bit float |
 | STRING | `$` | Up to 255 bytes |
 
+`DEFINT`, `DEFSNG`, `DEFDBL`, and `DEFSTR` change the default type when executed.
+Explicit suffixes override the default. Different types have separate storage:
+after `A=1.5:DEFSTR A:A="text"`, `A` and `A$` contain the string, while `A!`
+still contains 1.5. Arrays follow the same rule.
+
 ## Operators
 
 `+`, `-`, `*`, `/`, `^`, `\` (integer div), `MOD`, `AND`, `OR`, `XOR`, `EQV`,
@@ -23,6 +28,9 @@ See [compiler usage](getting-started.md) and
 
 `SGN`, `INT`, `ABS`, `SQR`, `SIN`, `COS`, `TAN`, `ATN`, `LOG`, `EXP`, `RND`,
 `FIX`, `CINT`, `CSNG`, `CDBL`
+
+`CINT` rounds halfway values away from zero and checks the rounded result against
+-32768 through 32767. For example, `CINT(2.5)` is 3 and `CINT(32767.4)` is 32767.
 
 `RND` can be called with or without parentheses: `RND` is equivalent to `RND(1)`.
 
@@ -44,6 +52,17 @@ See [compiler usage](getting-started.md) and
 ## Pseudo-variables
 
 `ERL`, `ERR`, `CSRLIN`, `INKEY$`, `DATE$`, `TIME$`, `TIMER`, `POS(0)`
+
+## FOR/NEXT and Subroutines
+
+A FOR statement evaluates and converts its initial value, limit and step using
+the counter's type, then validates the lexical NEXT before assigning the counter.
+A missing NEXT raises error 26 at FOR; a different name or type raises error 1
+at NEXT. A loop whose initial value exceeds its bound skips its body. DEFTYPE
+changes inside the body can affect a later unsuffixed NEXT when it executes.
+
+FOR reentry and NEXT lookup stay within the current GOSUB frame. RETURN removes
+unfinished loops in that subroutine and preserves the caller's loops.
 
 ## Literals
 

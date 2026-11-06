@@ -35,8 +35,10 @@ INTERP_OBJS = &
 
 all: gwbasic.exe
 
+
+# Preserve far calls: linker rewriting caused layout-dependent FreeDOS faults.
 gwbasic.exe: $(INTERP_OBJS)
-    $(LINKER) system dos option stack=8192 name $@ file { $< }
+    $(LINKER) system dos option stack=8192 option nofarcalls name $@ file { $< }
 
 clean: .SYMBOLIC
     del src\*.obj

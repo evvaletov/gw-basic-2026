@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+extern int print_col;
+
 /*
  * INPUT and LINE INPUT statements.
  * INPUT: prompt, read comma-separated values into variables.
@@ -48,7 +50,6 @@ void gw_stmt_input(void)
         gw_chrget();
         gw_skip_spaces();
     }
-    (void)no_cr;
 
     bool question_mark = true;
     /* Check for prompt string */
@@ -81,6 +82,7 @@ retry:;
 
     char *line = read_input_line();
     if (!line) return;
+    if (!no_cr) print_col = 0;
 
     const char *p = line;
 
@@ -184,7 +186,9 @@ void gw_stmt_line_input(void)
     gw_skip_spaces();
 
     /* LINE INPUT [;]["prompt";] string-variable */
+    bool no_cr = false;
     if (gw_chrgot() == ';') {
+        no_cr = true;
         gw_chrget();
         gw_skip_spaces();
     }
@@ -211,6 +215,7 @@ void gw_stmt_line_input(void)
 
     fflush(stdout);
     char *line = read_input_line();
+    if (line && !no_cr) print_col = 0;
     if (!line) line = "";
 
     gw_value_t val;

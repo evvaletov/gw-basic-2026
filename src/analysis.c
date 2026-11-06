@@ -324,7 +324,7 @@ static void scan_tokens(analysis_t *a, uint8_t *tokens, int len, uint16_t line_n
          * (range letters like A-Z are not variable references) */
         if (tok == TOK_DEFINT || tok == TOK_DEFSNG ||
             tok == TOK_DEFDBL || tok == TOK_DEFSTR) {
-            while (p < end && *p && *p != ':') p++;
+            while (p < end && *p && *p != ':' && *p != TOK_ELSE) p++;
             assign_ctx = false;
             continue;
         }
@@ -611,12 +611,30 @@ void analysis_run(analysis_t *a)
     for (int i = 0; i < 26; i++)
         a->def_type[i] = VT_SNG;
 
-    /* Pass 0: scan for DEFINT/DEFSNG/DEFDBL/DEFSTR to set type defaults */
+    /* Only declarations in the straight-line entry prefix establish static
+     * defaults. Later declarations can be skipped, repeated, or change storage
+     * identity, so those programs need runtime type resolution. Token payloads,
+     * strings, DATA and comments must not masquerade as declarations. */
+    bool entry_prefix = true;
     for (program_line_t *line = gw.prog_head; line; line = line->next) {
         uint8_t *p = line->tokens;
         while (*p) {
+            if (*p == ' ' || *p == ':') { p++; continue; }
+            if (*p == TOK_REM || *p == TOK_SQUOTE) break;
+            if (*p == TOK_DATA) {
+                p++;
+                while (*p && *p != ':') {
+                    if (*p == '"') {
+                        p++;
+                        while (*p && *p != '"') p++;
+                        if (*p) p++;
+                    } else p++;
+                }
+                continue;
+            }
             if (*p == TOK_DEFINT || *p == TOK_DEFSNG ||
                 *p == TOK_DEFDBL || *p == TOK_DEFSTR) {
+                if (!entry_prefix) a->runtime_types = true;
                 gw_valtype_t dt;
                 switch (*p) {
                 case TOK_DEFINT: dt = VT_INT; break;
@@ -650,7 +668,15 @@ void analysis_run(analysis_t *a)
                 }
                 continue;
             }
-            p++;
+            entry_prefix = false;
+            if (is_constant(*p)) skip_constant(&p);
+            else if (*p == '"') {
+                p++;
+                while (*p && *p != '"') p++;
+                if (*p) p++;
+            } else if (*p == TOK_PREFIX_FD || *p == TOK_PREFIX_FE || *p == TOK_PREFIX_FF)
+                p += 2;
+            else p++;
         }
     }
 
