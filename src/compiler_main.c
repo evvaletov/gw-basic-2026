@@ -13,6 +13,44 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+/* GCC must receive paths literally, including spaces and shell metacharacters. */
+static int run_gcc(char *const args[])
+{
+    pid_t pid = fork();
+    if (pid < 0) {
+        perror("Cannot start gcc");
+        return 1;
+    }
+    if (pid == 0) {
+        execvp(args[0], args);
+        perror("Cannot execute gcc");
+        _exit(127);
+    }
+    int status;
+    while (waitpid(pid, &status, 0) < 0) {
+        if (errno == EINTR) continue;
+        perror("Cannot wait for gcc");
+        return 1;
+    }
+    if (WIFEXITED(status)) return WEXITSTATUS(status);
+    return 1;
+}
+
+static char *path_suffix(const char *name, const char *suffix)
+{
+    size_t length = strlen(name) + strlen(suffix) + 1;
+    char *result = malloc(length);
+    if (!result) {
+        fprintf(stderr, "Out of memory building compiler path\n");
+        exit(1);
+    }
+    snprintf(result, length, "%s%s", name, suffix);
+    return result;
+}
 
 /* Global interpreter state (needed by tokenizer and analysis) */
 interp_state_t gw;
@@ -259,9 +297,9 @@ int main(int argc, char **argv)
 
     /* Code generation */
     const char *c_file = output;
-    char c_file_buf[512];
+    char *c_file_buf = NULL;
     if ((compile_exe || emit_obj) && !output) {
-        snprintf(c_file_buf, sizeof(c_file_buf), "%s.c", input);
+        c_file_buf = path_suffix(input, ".c");
         c_file = c_file_buf;
     }
 
@@ -296,44 +334,55 @@ int main(int argc, char **argv)
 
     /* Compile to executable or object file if requested */
     if (compile_exe || emit_obj) {
-        char cmd[2048];
         const char *rt = runtime_dir ? runtime_dir : ".";
         /* Derive output name from input (drop extension, pick .o or no
          * suffix for the executable). */
-        char out_name[512];
-        strncpy(out_name, input, sizeof(out_name) - 1);
-        out_name[sizeof(out_name) - 1] = '\0';
-        char *dot = strrchr(out_name, '.');
-        if (dot) *dot = '\0';
-        if (emit_obj) {
-            size_t len = strlen(out_name);
-            if (len + 3 < sizeof(out_name))
-                strcpy(out_name + len, ".o");
-        }
+        char *out_name = path_suffix(input, ".out");
+        out_name[strlen(input)] = '\0';
+        char *base = strrchr(out_name, '/');
+        base = base ? base + 1 : out_name;
+        char *dot = strrchr(base, '.');
+        if (dot && dot != base) *dot = '\0';
+        else if (!emit_obj) strcat(out_name, ".out");
+        if (emit_obj) strcat(out_name, ".o");
 
-        const char *san_flags = sanitize_mode
-            ? " -fsanitize=address,undefined -fno-sanitize-recover=all" : "";
-        if (emit_obj) {
-            /* Compile-only; the host project handles the link step.
-             * No -L / -l flags here -- those belong on the user's link
-             * command line. */
-            snprintf(cmd, sizeof(cmd),
-                "gcc -O%d%s -c -o %s %s -I%s/include 2>&1",
-                opt_level, san_flags, out_name, c_file, rt);
-        } else {
+        char optimization[4];
+        snprintf(optimization, sizeof(optimization), "-O%d", opt_level);
+        char *include_dir = path_suffix(rt, "/include");
+        char *library_dir = path_suffix(rt, "/build");
+        char *args[24];
+        int count = 0;
+        args[count++] = "gcc";
+        args[count++] = optimization;
+        if (sanitize_mode) {
+            args[count++] = "-fsanitize=address,undefined";
+            args[count++] = "-fno-sanitize-recover=all";
+        }
+        if (emit_obj) args[count++] = "-c";
+        args[count++] = "-o";
+        args[count++] = out_name;
+        args[count++] = (char *)c_file;
+        args[count++] = "-I";
+        args[count++] = include_dir;
+        if (!emit_obj) {
+            args[count++] = "-L";
+            args[count++] = library_dir;
+            args[count++] = "-lgwrt";
+            args[count++] = "-lm";
+            args[count++] = "-lpthread";
 #ifdef GWRT_HAS_PULSEAUDIO
-            const char *pulse_lib = " -lpulse-simple";
-#else
-            const char *pulse_lib = "";
+            args[count++] = "-lpulse-simple";
 #endif
-            snprintf(cmd, sizeof(cmd),
-                "gcc -O%d%s -o %s %s -I%s/include -L%s/build -lgwrt -lm -lpthread%s 2>&1",
-                opt_level, san_flags, out_name, c_file, rt, rt, pulse_lib);
         }
+        args[count] = NULL;
 
-        int rc = system(cmd);
+        int rc = run_gcc(args);
+        free(include_dir);
+        free(library_dir);
         if (rc != 0) {
             fprintf(stderr, "gcc failed (exit %d)\n", rc);
+            free(out_name);
+            free(c_file_buf);
             return 1;
         }
 
@@ -341,7 +390,9 @@ int main(int argc, char **argv)
             remove(c_file);
 
         fprintf(stderr, "Compiled: %s\n", out_name);
+        free(out_name);
     }
 
+    free(c_file_buf);
     return 0;
 }

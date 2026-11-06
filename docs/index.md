@@ -39,6 +39,7 @@ the [language reference](language-reference.md).
 :maxdepth: 2
 
 getting-started
+vscode
 language-reference
 architecture
 development

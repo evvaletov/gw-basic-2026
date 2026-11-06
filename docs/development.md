@@ -36,6 +36,7 @@ bash tests/run_tests.sh                 # interpreter programs
 bash tests/run_compiler_tests.sh        # native executables
 python3 tests/test_interactive.py        # terminal input and prompt behavior
 python3 tests/test_compiler_regressions.py  # compiler option combinations
+python3 tests/test_compiler_paths.py        # literal GCC paths and launch failures
 bash tests/run_corpus.sh --report corpus-matrix.json  # curated corpus
 python3 -m gwbasickernel.test_kernel     # Jupyter kernel
 ```
@@ -133,6 +134,13 @@ on pushes to `main` and pull requests. The corpus JSON matrix is uploaded as an
 artifact, including on failures. See [the workflow](https://github.com/evvaletov/gw-basic-2026/blob/main/.github/workflows/ci.yml)
 for the current commands.
 
+
+The `vscode-extension` job separately builds the runtime, tests the editor
+commands and TextMate grammar, packages a VSIX, then installs that package into
+an isolated VS Code profile for integration tests. The successful package is
+uploaded as the `vscode-extension-stable` artifact. See [extension development](vscode.md)
+for local commands. Native compiler launch tests cover literal filenames, custom
+runtime/C-output paths, object output, sanitizer arguments, and GCC failures.
 
 ## Release preparation
 

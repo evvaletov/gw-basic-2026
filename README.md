@@ -75,6 +75,13 @@ build/gwbasic-compile myprog.bas -o myprog.c
 build/gwbasic-compile myprog.bas -c --runtime .
 ```
 
+## VS Code extension
+
+The [VS Code extension](editors/vscode/README.md) adds highlighting, snippets,
+F5 Run, and native compilation in the integrated terminal. Install its VSIX
+from the `vscode-extension-stable` CI artifact, then configure the interpreter and
+compiler paths. The extension and runtime are packaged separately.
+
 ## Jupyter Kernel
 
 A Jupyter notebook kernel for GW-BASIC with inline Sixel graphics
