@@ -19,15 +19,15 @@ gw_valtype_t gw_parse_varname(char name_out[2])
 
     name_out[0] = toupper(ch);
     name_out[1] = '\0';
-    gw_chrget();
+    gw.text_ptr++;
 
     ch = gw_chrgot();
     if (gw_is_letter(ch) || gw_is_digit(ch)) {
         name_out[1] = toupper(ch);
-        gw_chrget();
+        gw.text_ptr++;
         /* Skip remaining alphanumeric chars (not significant) */
         while (gw_is_letter(gw_chrgot()) || gw_is_digit(gw_chrgot()))
-            gw_chrget();
+            gw.text_ptr++;
     }
 
     /* Check for type suffix */
@@ -36,6 +36,8 @@ gw_valtype_t gw_parse_varname(char name_out[2])
     if (ch == '!') { gw_chrget(); return VT_SNG; }
     if (ch == '#') { gw_chrget(); return VT_DBL; }
     if (ch == '$') { gw_chrget(); return VT_STR; }
+
+    gw_skip_spaces();
 
     /* Use DEFTBL */
     int idx = name_out[0] - 'A';

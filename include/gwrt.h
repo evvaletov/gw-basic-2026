@@ -6,8 +6,8 @@
  *
  * Provides initialization, DATA/READ support, GOSUB return-label stack,
  * and convenience wrappers. Compiled programs link against libgwrt.a
- * which contains all the existing interpreter modules except the
- * execution loop.
+ * which also contains the interpreter execution loop for programs with
+ * runtime default-type changes.
  */
 
 #include "gwbasic.h"

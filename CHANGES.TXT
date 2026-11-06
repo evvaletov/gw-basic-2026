@@ -1,6 +1,27 @@
 GW-BASIC 2026 -- Change History
 ================================
 
+Unreleased
+  - Validate FOR headers and lexical NEXT names/types before assigning the
+    counter; preserve header evaluation errors and BASIC error line numbers.
+  - Keep FOR loops inside their GOSUB frame, preserving caller loops and
+    discarding unfinished subroutine loops on RETURN.
+  - Execute conditional and later DEFTYPE declarations through the interpreter
+    runtime in compiled executables. Entry-prefix declarations still compile
+    natively; runtime DEFTYPE with $EXTERN produces an explicit diagnostic.
+  - Preserve caller loop scope after an undefined GOSUB; retry the failing
+    statement in the interpreter for RESUME and skip RESUME NEXT token payloads.
+  - Reject spaces inside variable names or before their type suffixes.
+  - Delegate compiled OUT, WAIT and MOTOR statements to the device runtime;
+    do not interpret encoded port operands as separate statements.
+  - Disable 16-bit linker far-call rewriting after reproducible FreeDOS faults.
+  - Match GW-BASIC integer rounding and range checks, including FOR bounds.
+  - Reset the print column after INPUT/LINE INPUT when Enter starts a new line.
+  - Expand independent gameplay references from 13 cases/eight listings to
+    23 cases/twelve listings, including Tic-Tac-Toe, Towers, Chomp and One Check.
+  - Add 54 Microsoft GW-BASIC semantic references; correct four earlier
+    permissive FOR expectations against the original executable.
+
 v0.18.1
   - Fix numbered-line Ok prompts, INPUT prompt boundaries, AUTO, and input editing.
   - Preserve ASCII LOAD command buffers; keep output and the cursor visible

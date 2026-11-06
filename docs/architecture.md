@@ -110,7 +110,17 @@ variables become `static int16_t var_A_int`, control flow uses `goto L_100`
 labels, and expressions are compiled inline using the same precedence-climbing
 structure as `eval.c`.  Optimizations include constant folding, dead code
 elimination and fast-path expression emission. Runtime stacks track active FOR
-loops and GOSUB return sites, including alternate and shared NEXT statements.
+loops and GOSUB return sites. FOR validates its lexical NEXT before entering the
+body; loop reentry and NEXT lookup stop at the current GOSUB frame, and RETURN
+discards that frame's unfinished loops.
+
+Default types are static only when declarations appear in the straight-line
+entry prefix. Conditional or later DEFTYPE statements can select separate
+numeric/string variables and arrays at the same source location. For these
+programs, code generation embeds the tokenized source in C and uses the shared
+interpreter runtime. The compiler announces this path; it does not apply native
+expression or array optimizations. `$EXTERN` calls with runtime DEFTYPE changes
+are rejected instead of silently losing foreign-function behavior.
 
 With `--inline-arrays`, eligible numeric arrays use cached pointers into the
 runtime's storage. The cache generation changes when arrays are cleared or

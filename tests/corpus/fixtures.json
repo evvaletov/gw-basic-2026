@@ -138,6 +138,106 @@
         "zero-score branch",
         "branches"
       ]
+    },
+    {
+      "id": "tictactoe-loss",
+      "source": "tictactoe2.bas",
+      "input": "inputs/tictactoe-loss.txt",
+      "expected": "expected/tictactoe-loss.txt",
+      "features": [
+        "scripted gameplay",
+        "game completion"
+      ]
+    },
+    {
+      "id": "tictactoe-draw",
+      "source": "tictactoe2.bas",
+      "input": "inputs/tictactoe-draw.txt",
+      "expected": "expected/tictactoe-draw.txt",
+      "features": [
+        "scripted gameplay",
+        "game completion"
+      ]
+    },
+    {
+      "id": "tictactoe-retry",
+      "source": "tictactoe2.bas",
+      "input": "inputs/tictactoe-retry.txt",
+      "expected": "expected/tictactoe-retry.txt",
+      "features": [
+        "scripted gameplay",
+        "input validation"
+      ]
+    },
+    {
+      "id": "tower-two",
+      "source": "tower.bas",
+      "input": "inputs/tower-two.txt",
+      "expected": "expected/tower-two.txt",
+      "features": [
+        "scripted gameplay",
+        "game completion"
+      ]
+    },
+    {
+      "id": "tower-three",
+      "source": "tower.bas",
+      "input": "inputs/tower-three.txt",
+      "expected": "expected/tower-three.txt",
+      "features": [
+        "scripted gameplay",
+        "game completion"
+      ]
+    },
+    {
+      "id": "tower-retry",
+      "source": "tower.bas",
+      "input": "inputs/tower-retry.txt",
+      "expected": "expected/tower-retry.txt",
+      "features": [
+        "scripted gameplay",
+        "input validation"
+      ]
+    },
+    {
+      "id": "chomp-game",
+      "source": "chomp.bas",
+      "input": "inputs/chomp-game.txt",
+      "expected": "expected/chomp-game.txt",
+      "features": [
+        "scripted gameplay",
+        "game completion"
+      ]
+    },
+    {
+      "id": "chomp-retry",
+      "source": "chomp.bas",
+      "input": "inputs/chomp-retry.txt",
+      "expected": "expected/chomp-retry.txt",
+      "features": [
+        "scripted gameplay",
+        "input validation"
+      ]
+    },
+    {
+      "id": "onecheck-moves",
+      "source": "onecheck.bas",
+      "input": "inputs/onecheck-moves.txt",
+      "expected": "expected/onecheck-moves.txt",
+      "features": [
+        "scripted gameplay",
+        "game completion"
+      ]
+    },
+    {
+      "id": "onecheck-replay",
+      "source": "onecheck.bas",
+      "input": "inputs/onecheck-replay.txt",
+      "expected": "expected/onecheck-replay.txt",
+      "features": [
+        "scripted gameplay",
+        "game completion"
+      ]
     }
   ]
 }

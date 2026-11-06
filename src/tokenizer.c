@@ -396,7 +396,7 @@ void gw_list_line(uint8_t *tokens, int len, char *out, int outsize)
     out[op] = '\0';
 }
 
-/* Locate the end of an initially empty FOR without evaluating skipped code.
+/* Locate a FOR's lexical NEXT without evaluating the header or loop body.
  * NEXT J,I closes two lexical levels; return just after the matching component
  * so the caller can still execute the remaining NEXT variables. */
 bool gw_for_exit(program_line_t *line, uint8_t *p,

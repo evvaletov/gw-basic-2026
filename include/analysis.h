@@ -79,6 +79,7 @@ typedef struct {
     int data_line_count;
 
     gw_valtype_t def_type[26];  /* from DEFINT/DEFSNG/DEFDBL/DEFSTR */
+    bool runtime_types;        /* defaults can change after executable code */
 
     extern_func_t externs[MAX_EXTERNS];  /* '$EXTERN FFI declarations */
     int extern_count;

@@ -91,11 +91,17 @@ void gw_promote(gw_value_t *a, gw_value_t *b)
 /* CINT: convert to integer with rounding */
 int16_t gw_cint(double x)
 {
-    if (x > 32767.0 || x < -32768.0)
+    /* Microsoft GW-BASIC rounds ties away from zero and checks the rounded
+     * result, so 32767.4 and -32768.4 still fit. */
+    if (!(x > -32768.5 && x < 32767.5))
         gw_error(ERR_OV);
-    /* Banker's rounding like the original */
-    double r = rint(x);
-    return (int16_t)r;
+    /* Bound the cast first (also rejecting NaN/infinity). Compare the fractional
+     * part separately so adding 0.5 cannot round a just-below-half input up. */
+    int16_t result = (int16_t)x;
+    double fraction = x - result;
+    if (fraction >= 0.5) result++;
+    else if (fraction <= -0.5) result--;
+    return result;
 }
 
 float gw_csng(double x)

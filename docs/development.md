@@ -83,14 +83,14 @@ interpreter, LOAD, and compiler. It builds a small ASan/UBSan test helper.
 
 ### Compatibility Testing
 
-The curated corpus has 13 deterministic cases from eight original *BASIC
+The curated corpus has 23 deterministic cases from twelve original *BASIC
 Computer Games* listings. Each interpreter run and each of six compiler modes
 must match a checked-in Microsoft GW-BASIC transcript. Compiled output must also
 match the interpreter. Normalization converts CRLF to LF and removes trailing
 spaces and tabs; leading spaces and blank lines remain significant.
 
 ```bash
-# Run one case, or leave off --case to run all 13.
+# Run one case, or leave off --case to run all 23.
 bash tests/run_corpus.sh --case plot --report corpus-matrix.json
 
 # Transpile and compile all 98 listings without executing them.

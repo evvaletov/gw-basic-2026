@@ -45,7 +45,9 @@ case "${1:-16}" in
         CC=wcc
         CFLAGS="-bt=dos -mm -ox -w4 -zq -za99 -Iinclude -D__MSDOS__"
         EXE=gwbasic16.exe
-        LINK_SYSTEM="dos option stack=8192"
+        # Far-call rewriting produced layout-dependent faults under FreeDOS/
+        # JemmEx with OpenWatcom V2. Keep the compiler's original far calls.
+        LINK_SYSTEM="dos option stack=8192 option nofarcalls"
         ;;
     32)
         CC=wcc386

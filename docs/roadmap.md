@@ -68,7 +68,7 @@ gwbasickernel-install --user
 The harness now fails on output mismatches and process errors, with separate
 limits for audio, timer, and compilation tests (git-bug `54f3aa6`).
 
-The curated compatibility suite checks 13 scripted cases from eight original
+The curated compatibility suite checks 23 scripted cases from twelve original
 listings against Microsoft GW-BASIC output and across six compiler modes.
 Awari and Checkers now compile (`ca3a8b8`). The 98-listing build audit has
 97 successes and one syntax rejection: Super Star Trek's unspaced `TO`, also
@@ -81,19 +81,26 @@ Release archives are prepared by CI with source metadata and checksums.
 Audio measurements validate the application stream; physical speaker fidelity
 remains unverified.
 
-After v0.18.1:
+Development since v0.18.1 adds FOR-entry validation, GOSUB-scoped loop
+stacks and execution-order DEFTYPE storage. Programs with conditional or later
+type declarations use interpreter execution inside the compiled executable;
+entry-prefix declarations retain native compilation. Gameplay fixtures now
+include complete Tic-Tac-Toe and Towers games, Chomp, and One Check sessions.
+
+Next priorities:
 
 1. Finish and package the VS Code extension, including installation instructions
    and tests of its editor integration (git-bug `32a637c`).
-2. Expand scripted gameplay and fix remaining GW-BASIC FOR-entry and conditional
-   DEFTYPE differences (git-bug `51679f0`).
-3. Prepare Show HN and Lobsters posts and a FreeDOS package submission after the
-   release is published (git-bug `dc24012`, `ab8188c`).
-4. Check Sphinx warnings and executable documentation examples on pull requests,
+2. Prepare Show HN and Lobsters posts and a FreeDOS package submission using the
+   published release and clearly identified development changes
+   (git-bug `dc24012`, `ab8188c`).
+3. Check Sphinx warnings and executable documentation examples on pull requests,
    before the existing documentation deployment on `main` (git-bug `f3a24bc`).
-5. Automate FreeDOS runtime smoke tests for both DOS builds in CI. The existing
+4. Automate FreeDOS runtime smoke tests for both DOS builds in CI. The existing
    CI cross-builds do not exercise keyboard, cursor, or saved-output behavior
    (git-bug `b3de88c`).
+5. Extend gameplay coverage to random games and triage Awari/Checkers runtime
+   paths against original GW-BASIC (git-bug `51679f0`).
 
 ## Longer-Term Plans
 
@@ -103,7 +110,9 @@ repository for design notes and current status.
 | Theme | Item | git-bug | Priority |
 |-------|------|---------|----------|
 | testing | Expand scripted gameplay and reference coverage beyond the curated corpus | `51679f0` | P2 |
+| compiler | Native runtime DEFTYPE storage and FFI support | `990569c` | P2 |
 | compiler | Export individual BASIC routines as C-callable functions | `1b7d59c` | P2 |
+| language | Accept ASCII interpreter line labels above 32767 | `58ea19c` | P2 |
 | language | FORTRAN-style `WRITE` formatted I/O | `a6e99af` | P2 |
 | language | C-style `PRINTF` / `FPRINTF` | `cd8750c` | P2 |
 | ide | JetBrains support after the VS Code extension | `32a637c` | P2 |
@@ -122,8 +131,16 @@ The corpus runtime checks cover only the cases listed in its fixture manifest.
   original implementation.
 - Compiled programs do not support timer or key event handlers; `TRON` and
   `TROFF` are ignored by the compiler.
-- Nonempty FOR-entry validation and conditional DEFTYPE changes retain known
-  differences from Microsoft GW-BASIC; most corpus games lack runtime fixtures.
+- Programs with runtime DEFTYPE changes use interpreter execution in the
+  compiled executable, so native expression/array optimizations do not apply.
+  Combining this path with `$EXTERN` calls is rejected with a diagnostic.
+- Native `RESUME NEXT` skips the rest of the failing line instead of resuming
+  at the next statement (`b693412`). The interpreter path handles that boundary.
+- Semicolon INPUT forms can leave TUI cursor and PRINT column state inconsistent;
+  original-console comparison and correction are tracked in `44ce26a`.
+- Most corpus games lack runtime fixtures; build success is separate evidence.
+- The interpreter rejects ASCII line labels above 32767; full GW-BASIC line
+  numbering through 65529 is tracked in `58ea19c`.
 - The compiler reads ASCII source. Save tokenized files with `SAVE "file.bas",A`
   before compiling them.
 - `DATE$` and `TIME$` assignments change a process-local clock offset and leave

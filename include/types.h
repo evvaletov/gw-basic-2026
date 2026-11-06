@@ -62,6 +62,7 @@ typedef struct {
     uint8_t *loop_text;
     struct program_line *loop_line;
     uint16_t line_num;
+    int gosub_depth;     /* NEXT and FOR reentry cannot cross a GOSUB frame */
 } for_entry_t;
 
 /* Event trap mode */

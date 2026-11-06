@@ -76,8 +76,8 @@ void gw_error(int errnum)
         program_line_t *target = gw_find_line(gw.on_error_line);
         if (target) {
             gw.in_error_handler = true;
-            gw.err_resume_text = gw.text_ptr;
-            gw.err_resume_line = gw.cur_line;
+            gw.err_resume_text = gw.stmt_text;
+            gw.err_resume_line = gw.stmt_line;
             gw.cur_line = target;
             gw.text_ptr = target->tokens;
             gw.cur_line_num = target->num;

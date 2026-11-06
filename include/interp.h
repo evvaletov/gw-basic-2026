@@ -81,6 +81,8 @@ typedef struct {
     /* Error trapping */
     uint16_t on_error_line;
     bool in_error_handler;
+    uint8_t *stmt_text;             /* start of the currently executing statement */
+    program_line_t *stmt_line;
     uint8_t *err_resume_text;
     program_line_t *err_resume_line;
     uint16_t err_line_num;

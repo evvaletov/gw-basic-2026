@@ -35,6 +35,7 @@ static void stmt_next(void)
         /* Find matching FOR */
         int found = -1;
         for (int i = gw.for_sp - 1; i >= 0; i--) {
+            if (gw.for_stack[i].gosub_depth != gw.gosub_sp) break;
             if (!var || gw.for_stack[i].var == var) {
                 found = i;
                 break;
@@ -960,6 +961,8 @@ static void stmt_gfx_put(void)
 void gw_exec_stmt(void)
 {
     gw_skip_spaces();
+    gw.stmt_text = gw.text_ptr;
+    gw.stmt_line = gw.cur_line;
     uint8_t tok = gw_chrgot();
 
     if (tok == 0 || tok == ':')
@@ -2093,6 +2096,8 @@ void gw_exec_stmt(void)
         if (gw.gosub_sp <= 0)
             gw_error(ERR_RG);
         gw.gosub_sp--;
+        while (gw.for_sp && gw.for_stack[gw.for_sp - 1].gosub_depth > gw.gosub_sp)
+            gw.for_sp--;
         gw.text_ptr = gw.gosub_stack[gw.gosub_sp].ret_text;
         gw.cur_line = gw.gosub_stack[gw.gosub_sp].ret_line;
         gw.cur_line_num = gw.gosub_stack[gw.gosub_sp].line_num;
@@ -2134,15 +2139,21 @@ void gw_exec_stmt(void)
         gw_skip_spaces();
         gw_expect(TOK_EQ);
 
-        /* Initial value */
+        /* Evaluate and convert the header without changing the counter. */
         gw_value_t init = gw_eval_num();
-        gw_var_assign(var, &init);
+        var_entry_t initial = {0};
+        initial.type = type;
+        gw_var_assign(&initial, &init);
 
         gw_skip_spaces();
         gw_expect(TOK_TO);
 
         /* Limit */
         gw_value_t limit = gw_eval_num();
+        var_entry_t bound_value = {0};
+        bound_value.type = type;
+        gw_var_assign(&bound_value, &limit);
+        limit = bound_value.val;
 
         /* Step (default 1) */
         gw_value_t step;
@@ -2153,9 +2164,43 @@ void gw_exec_stmt(void)
             gw_chrget();
             step = gw_eval_num();
         }
+        var_entry_t step_value = {0};
+        step_value.type = type;
+        gw_var_assign(&step_value, &step);
+        step = step_value.val;
+
+        /* GW-BASIC validates the lexical NEXT after evaluating the header, but
+         * before assigning the counter, even for a nonempty loop. The matching
+         * NEXT uses the current defaults; body DEFTYPEs have not executed. */
+        program_line_t direct = {0};
+        program_line_t *line = gw.cur_line;
+        if (!line) {
+            direct.tokens = gw.text_ptr;
+            line = &direct;
+        }
+        program_line_t *target;
+        uint8_t *after, *next_var, *header = gw.text_ptr;
+        if (!gw_for_exit(line, header, &target, &after, &next_var))
+            gw_error(ERR_FW);
+        gw.text_ptr = next_var;
+        if (gw_is_letter(gw_chrgot())) {
+            char next_name[2];
+            gw_valtype_t next_type = gw_parse_varname(next_name);
+            if (next_type != type || memcmp(next_name, name, 2) || *after == '(') {
+                if (target != &direct) {
+                    gw.cur_line = target;
+                    gw.cur_line_num = target->num;
+                }
+                gw_error(ERR_NF);
+            }
+        }
+        gw.text_ptr = header;
+
+        var->val = initial.val;
 
         /* Check if this variable already on stack, replace */
         for (int i = gw.for_sp - 1; i >= 0; i--) {
+            if (gw.for_stack[i].gosub_depth != gw.gosub_sp) break;
             if (gw.for_stack[i].var == var) {
                 gw.for_sp = i;
                 break;
@@ -2166,25 +2211,9 @@ void gw_exec_stmt(void)
         double current = gw_to_dbl(&var->val);
         double bound = gw_to_dbl(&limit), increment = gw_to_dbl(&step);
         if (increment >= 0 ? current > bound : current < bound) {
-            program_line_t direct = {0};
-            program_line_t *line = gw.cur_line;
-            if (!line) {
-                direct.tokens = gw.text_ptr;
-                direct.len = 0; /* Direct-mode tokens end with a token-aware NUL. */
-                line = &direct;
-            }
-            program_line_t *target;
-            uint8_t *after, *next_var;
-            if (!gw_for_exit(line, gw.text_ptr, &target, &after, &next_var)) gw_error(ERR_FW);
             if (target != &direct) {
                 gw.cur_line = target;
                 gw.cur_line_num = target->num;
-            }
-            gw.text_ptr = next_var;
-            if (gw_is_letter(gw_chrgot())) {
-                char next_name[2];
-                gw_valtype_t next_type = gw_parse_varname(next_name);
-                if (next_type != type || memcmp(next_name, name, 2)) gw_error(ERR_NF);
             }
             gw.text_ptr = after;
             if (gw_chrgot() == ',') {
@@ -2204,6 +2233,7 @@ void gw_exec_stmt(void)
         f->loop_text = gw.text_ptr;
         f->loop_line = gw.cur_line;
         f->line_num = gw.cur_line_num;
+        f->gosub_depth = gw.gosub_sp;
         return;
     }
 
@@ -2687,9 +2717,26 @@ void gw_exec_stmt(void)
                 gw.text_ptr = gw.err_resume_text;
                 gw.cur_line = gw.err_resume_line;
                 gw.cur_line_num = gw.err_resume_line->num;
-                /* Advance past current statement */
-                while (*gw.text_ptr && *gw.text_ptr != ':')
-                    gw.text_ptr++;
+                /* Token payloads and quoted colons are not delimiters. */
+                uint8_t *end = gw.cur_line->tokens + gw.cur_line->len;
+                while (gw.text_ptr < end && *gw.text_ptr &&
+                       *gw.text_ptr != ':' && *gw.text_ptr != TOK_ELSE) {
+                    uint8_t token = *gw.text_ptr++;
+                    if (token == TOK_REM || token == TOK_SQUOTE) {
+                        gw.text_ptr = end;
+                        break;
+                    }
+                    if (token == '"') {
+                        while (gw.text_ptr < end && *gw.text_ptr != '"') gw.text_ptr++;
+                        if (gw.text_ptr < end) gw.text_ptr++;
+                    } else {
+                        int payload = token == TOK_INT1 ? 1 : token == TOK_INT2 ? 2 :
+                            token == TOK_CONST_SNG ? 4 : token == TOK_CONST_DBL ? 8 :
+                            (token == TOK_PREFIX_FD || token == TOK_PREFIX_FE || token == TOK_PREFIX_FF) ? 1 : 0;
+                        if (end - gw.text_ptr < payload) gw_error(ERR_SN);
+                        gw.text_ptr += payload;
+                    }
+                }
             }
             return;
         }
