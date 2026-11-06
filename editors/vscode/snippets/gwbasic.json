@@ -1,0 +1,52 @@
+{
+  "For loop": {
+    "prefix": "for",
+    "body": ["${1:10} FOR ${2:I} = ${3:1} TO ${4:10}", "$0", "${5:20} NEXT ${2:I}"],
+    "description": "FOR ... NEXT loop"
+  },
+  "While loop": {
+    "prefix": "while",
+    "body": ["${1:10} WHILE ${2:condition}", "$0", "${3:20} WEND"],
+    "description": "WHILE ... WEND loop"
+  },
+  "If then else": {
+    "prefix": "if",
+    "body": ["${1:10} IF ${2:condition} THEN ${3:action} ELSE ${4:action}"],
+    "description": "IF ... THEN ... ELSE (single line)"
+  },
+  "Def fn": {
+    "prefix": "deffn",
+    "body": ["${1:10} DEF FN${2:name}(${3:X}) = ${4:X * X}"],
+    "description": "DEF FN user function"
+  },
+  "Gosub / Return": {
+    "prefix": "gosub",
+    "body": ["${1:10} GOSUB ${2:1000}"],
+    "description": "GOSUB call"
+  },
+  "Data / Read": {
+    "prefix": "data",
+    "body": ["${1:10} DATA ${2:1, 2, 3}", "${3:20} READ ${4:A, B, C}"],
+    "description": "DATA + READ"
+  },
+  "Print using": {
+    "prefix": "printusing",
+    "body": ["${1:10} PRINT USING \"${2:###.##}\"; ${3:X}"],
+    "description": "PRINT USING formatted output"
+  },
+  "Open file": {
+    "prefix": "open",
+    "body": ["${1:10} OPEN \"${2:file.dat}\" FOR ${3|INPUT,OUTPUT,APPEND,RANDOM|} AS #${4:1}", "$0", "${5:20} CLOSE #${4:1}"],
+    "description": "OPEN ... AS # / CLOSE"
+  },
+  "Input prompt": {
+    "prefix": "input",
+    "body": ["${1:10} INPUT \"${2:Prompt}\"; ${3:A$}"],
+    "description": "INPUT with prompt"
+  },
+  "On error goto": {
+    "prefix": "onerror",
+    "body": ["${1:10} ON ERROR GOTO ${2:9000}"],
+    "description": "ON ERROR GOTO handler"
+  }
+}

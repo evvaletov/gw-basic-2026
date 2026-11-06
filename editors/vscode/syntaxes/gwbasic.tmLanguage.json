@@ -1,0 +1,109 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "GW-BASIC",
+  "scopeName": "source.gwbasic",
+  "patterns": [
+    {
+      "include": "#lineNumber"
+    },
+    {
+      "include": "#comment"
+    },
+    {
+      "include": "#string"
+    },
+    {
+      "include": "#number"
+    },
+    {
+      "include": "#controlKeyword"
+    },
+    {
+      "include": "#wordOperator"
+    },
+    {
+      "include": "#function"
+    },
+    {
+      "include": "#statementKeyword"
+    },
+    {
+      "include": "#operator"
+    }
+  ],
+  "repository": {
+    "lineNumber": {
+      "match": "^\\s*(\\d+)",
+      "captures": {
+        "1": {
+          "name": "entity.name.label.gwbasic"
+        }
+      }
+    },
+    "comment": {
+      "patterns": [
+        {
+          "match": "(?i)\\bREM\\b.*$",
+          "name": "comment.line.rem.gwbasic"
+        },
+        {
+          "match": "'.*$",
+          "name": "comment.line.apostrophe.gwbasic"
+        }
+      ]
+    },
+    "string": {
+      "name": "string.quoted.double.gwbasic",
+      "begin": "\"",
+      "end": "\"|$"
+    },
+    "number": {
+      "patterns": [
+        {
+          "match": "&[hH][0-9A-Fa-f]+",
+          "name": "constant.numeric.hex.gwbasic"
+        },
+        {
+          "match": "&[oO]?[0-7]+",
+          "name": "constant.numeric.octal.gwbasic"
+        },
+        {
+          "match": "(?i)\\b\\d+\\.?\\d*([ed][+-]?\\d+)?[!#%]?(?![\\w.])",
+          "name": "constant.numeric.gwbasic"
+        },
+        {
+          "match": "(?i)\\.\\d+([ed][+-]?\\d+)?[!#]?",
+          "name": "constant.numeric.gwbasic"
+        }
+      ]
+    },
+    "controlKeyword": {
+      "match": "(?i)\\b(IF|THEN|ELSE|FOR|TO|STEP|NEXT|WHILE|WEND|GOTO|GOSUB|RETURN|ON|END|STOP|RUN|CONT|RESUME|ERROR)\\b",
+      "name": "keyword.control.gwbasic"
+    },
+    "wordOperator": {
+      "match": "(?i)\\b(AND|OR|NOT|XOR|EQV|IMP|MOD)\\b",
+      "name": "keyword.operator.word.gwbasic"
+    },
+    "function": {
+      "patterns": [
+        {
+          "match": "(?i)\\b(CHR|HEX|INKEY|LEFT|MID|MKD|MKI|MKS|OCT|RIGHT|SPACE|STR|STRING|DATE|TIME|ENVIRON|ERDEV|IOCTL|VARPTR|INPUT)\\$",
+          "name": "support.function.builtin.gwbasic"
+        },
+        {
+          "match": "(?i)\\b(ABS|ASC|ATN|CDBL|CINT|COS|CSNG|CSRLIN|CVD|CVI|CVS|EOF|ERDEV|ERL|ERR|EXP|FIX|FRE|INP|INSTR|INT|IOCTL|LEN|LOC|LOF|LOG|LPOS|PEEK|PMAP|POINT|POS|RND|SGN|SIN|SPC|SQR|STICK|STRIG|TAB|TAN|TIMER|USR|VAL|VARPTR)\\b",
+          "name": "support.function.builtin.gwbasic"
+        }
+      ]
+    },
+    "statementKeyword": {
+      "match": "(?i)\\b(ACCESS|APPEND|BASE|INPUT|OUTPUT|RANDOM|SEG|LOCK|UNLOCK|AS|AUTO|BEEP|BLOAD|BSAVE|CALL|CALLS|CHAIN|CHDIR|CIRCLE|CLEAR|CLOSE|CLS|COLOR|COM|COMMON|DATA|DEF|DEFDBL|DEFINT|DEFSNG|DEFSTR|DELETE|DIM|DRAW|EDIT|ENVIRON|ERASE|FIELD|FILES|FN|GET|KEY|KILL|LCOPY|LET|LINE|LIST|LLIST|LOAD|LOCATE|LPRINT|LSET|MERGE|MKDIR|MOTOR|NAME|NEW|OFF|OPEN|OPTION|OUT|PAINT|PALETTE|PEN|PLAY|POKE|PRESET|PRINT|PSET|PUT|RANDOMIZE|READ|RENUM|RESET|RESTORE|RMDIR|RSET|SAVE|SCREEN|SHELL|SOUND|SWAP|SYSTEM|TROFF|TRON|USING|VIEW|WAIT|WIDTH|WINDOW|WRITE)\\b",
+      "name": "keyword.other.gwbasic"
+    },
+    "operator": {
+      "match": "<=|>=|<>|[-+*/\\\\^=<>]",
+      "name": "keyword.operator.gwbasic"
+    }
+  }
+}

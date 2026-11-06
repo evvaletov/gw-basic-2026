@@ -41,7 +41,9 @@ jobs:
         run: bash tests/run_compiler_tests.sh
 
       - name: Compiler control flow, string and array regressions
-        run: python3 tests/test_compiler_regressions.py
+        run: |
+          python3 tests/test_compiler_regressions.py
+          python3 tests/test_compiler_paths.py
 
       - name: Curated compatibility corpus
         run: bash tests/run_corpus.sh --report corpus-matrix.json
@@ -64,6 +66,45 @@ jobs:
 
       - name: Cross-language (FFI) test
         run: bash tests/run_ffi_test.sh
+
+  vscode-extension:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        vscode: ['1.75.1', 'stable']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: editors/vscode/package-lock.json
+      - name: Build runtime for editor integration tests
+        run: |
+          cmake -S . -B build
+          cmake --build build -j2
+      - name: Install extension build tools
+        run: npm ci
+        working-directory: editors/vscode
+      - name: Command and language tests
+        run: npm test
+        working-directory: editors/vscode
+      - name: Package VSIX
+        run: npm run package
+        working-directory: editors/vscode
+      - name: Install and test packaged extension in VS Code
+        env:
+          VSCODE_TEST_VERSION: ${{ matrix.vscode }}
+        run: xvfb-run -a npm run test:integration
+        working-directory: editors/vscode
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vscode-extension-${{ matrix.vscode }}
+          path: editors/vscode/dist/*.vsix
+          if-no-files-found: error
 
   dos-cross-compile:
     runs-on: ubuntu-latest

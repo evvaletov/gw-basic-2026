@@ -1,0 +1,166 @@
+{
+  "name": "gwbasic-2026",
+  "displayName": "GW-BASIC 2026",
+  "description": "Syntax highlighting, snippets, and run/compile tasks for Microsoft GW-BASIC, backed by the gw-basic-2026 interpreter and AOT compiler.",
+  "version": "0.1.0",
+  "publisher": "evvaletov",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Snippets"
+  ],
+  "keywords": [
+    "gwbasic",
+    "basic",
+    "gw-basic",
+    "retro",
+    "microsoft basic"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/evvaletov/gw-basic-2026.git",
+    "directory": "editors/vscode"
+  },
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:gwbasic"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "gwbasic.run",
+        "title": "Run current file",
+        "category": "GW-BASIC",
+        "enablement": "isWorkspaceTrusted && (resourceScheme == file || resourceScheme == vscode-remote) && editorLangId == gwbasic"
+      },
+      {
+        "command": "gwbasic.compile",
+        "title": "Compile current file (AOT)",
+        "category": "GW-BASIC",
+        "enablement": "isWorkspaceTrusted && (resourceScheme == file || resourceScheme == vscode-remote) && editorLangId == gwbasic"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "gwbasic.run",
+        "key": "f5",
+        "when": "editorTextFocus && editorLangId == gwbasic && isWorkspaceTrusted && (resourceScheme == file || resourceScheme == vscode-remote) && !inDebugMode"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "gwbasic.run",
+          "when": "editorLangId == gwbasic",
+          "group": "gwbasic"
+        },
+        {
+          "command": "gwbasic.compile",
+          "when": "editorLangId == gwbasic",
+          "group": "gwbasic"
+        }
+      ]
+    },
+    "languages": [
+      {
+        "id": "gwbasic",
+        "aliases": [
+          "GW-BASIC",
+          "gwbasic",
+          "gw-basic"
+        ],
+        "extensions": [
+          ".bas",
+          ".gwb"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "gwbasic",
+        "scopeName": "source.gwbasic",
+        "path": "./syntaxes/gwbasic.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "gwbasic",
+        "path": "./snippets/gwbasic.json"
+      }
+    ],
+    "configuration": {
+      "title": "GW-BASIC 2026",
+      "properties": {
+        "gwbasic.interpreterPath": {
+          "type": "string",
+          "default": "gwbasic",
+          "description": "Executable name on PATH or path to gwbasic. Relative paths resolve from the file\u2019s workspace folder. Do not add shell quotes or arguments.",
+          "scope": "resource"
+        },
+        "gwbasic.compilerPath": {
+          "type": "string",
+          "default": "gwbasic-compile",
+          "description": "Executable name on PATH or path to gwbasic-compile. Relative paths resolve from the file\u2019s workspace folder. Do not add shell quotes or arguments.",
+          "scope": "resource"
+        },
+        "gwbasic.compileArgs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "-c"
+          ],
+          "description": "Compiler argument array, one entry per argument. Default -c creates an executable next to the source. An explicit --runtime argument overrides runtimePath. Relative argument paths use the source directory.",
+          "scope": "resource"
+        },
+        "gwbasic.runtimePath": {
+          "type": "string",
+          "default": "",
+          "scope": "resource",
+          "description": "Built repository or extracted Linux release containing include/gwrt.h and build/libgwrt.a. Empty: detect beside an explicit compiler path, then in the file\u2019s workspace folder. Relative paths resolve from that folder."
+        }
+      }
+    }
+  },
+  "extensionKind": [
+    "workspace"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "Highlighting and snippets work; running and compiling programs require Workspace Trust.",
+      "restrictedConfigurations": [
+        "gwbasic.interpreterPath",
+        "gwbasic.compilerPath",
+        "gwbasic.runtimePath",
+        "gwbasic.compileArgs"
+      ]
+    },
+    "virtualWorkspaces": {
+      "supported": false,
+      "description": "Run and Compile need files and executables on the extension host."
+    }
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "test:integration": "node tests/run-integration.js",
+    "package": "vsce package --no-dependencies --out dist/",
+    "prepackage": "node -e \"require('node:fs').mkdirSync('dist', {recursive: true})\""
+  },
+  "devDependencies": {
+    "@vscode/test-electron": "3.1.0",
+    "@vscode/vsce": "4.1.0",
+    "vscode-oniguruma": "2.0.1",
+    "vscode-textmate": "9.3.2"
+  },
+  "overrides": {
+    "@vscode/vsce": {
+      "minimatch": "11.0.1"
+    }
+  }
+}

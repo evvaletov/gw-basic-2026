@@ -63,6 +63,15 @@ pip install -e .
 gwbasickernel-install --user
 ```
 
+### VS Code extension
+
+The separately packaged VSIX provides syntax highlighting, ten snippets, F5 Run,
+and native Compile tasks. Commands await saves, use the source directory for
+file I/O, and resolve settings in the file's workspace folder. The compiler now
+launches GCC without a shell, preserving paths containing spaces and metacharacters.
+CI tests the installed VSIX with the real binaries and uploads the package.
+See [installation and settings](vscode.md). Debugging and JetBrains remain follow-ups.
+
 ## Near-Term Priorities
 
 The harness now fails on output mismatches and process errors, with separate
@@ -89,18 +98,18 @@ include complete Tic-Tac-Toe and Towers games, Chomp, and One Check sessions.
 
 Next priorities:
 
-1. Finish and package the VS Code extension, including installation instructions
-   and tests of its editor integration (git-bug `32a637c`).
-2. Prepare Show HN and Lobsters posts and a FreeDOS package submission using the
+1. Prepare Show HN and Lobsters posts and a FreeDOS package submission using the
    published release and clearly identified development changes
    (git-bug `dc24012`, `ab8188c`).
-3. Check Sphinx warnings and executable documentation examples on pull requests,
+2. Check Sphinx warnings and executable documentation examples on pull requests,
    before the existing documentation deployment on `main` (git-bug `f3a24bc`).
-4. Automate FreeDOS runtime smoke tests for both DOS builds in CI. The existing
+3. Automate FreeDOS runtime smoke tests for both DOS builds in CI. The existing
    CI cross-builds do not exercise keyboard, cursor, or saved-output behavior
    (git-bug `b3de88c`).
-5. Extend gameplay coverage to random games and triage Awari/Checkers runtime
+4. Extend gameplay coverage to random games and triage Awari/Checkers runtime
    paths against original GW-BASIC (git-bug `51679f0`).
+5. Fix native `RESUME NEXT` continuation within a source line, with original
+   GW-BASIC reference coverage (git-bug `b693412`).
 
 ## Longer-Term Plans
 
@@ -115,10 +124,11 @@ repository for design notes and current status.
 | language | Accept ASCII interpreter line labels above 32767 | `58ea19c` | P2 |
 | language | FORTRAN-style `WRITE` formatted I/O | `a6e99af` | P2 |
 | language | C-style `PRINTF` / `FPRINTF` | `cd8750c` | P2 |
-| ide | JetBrains support after the VS Code extension | `32a637c` | P2 |
+| ide | Debugger/completion and JetBrains support after the packaged VS Code milestone | `32a637c` | P2 |
 | stdlib | Numerical/data library with arrays, data frames, and plotting | `55a9d14` | P2 |
 
-The VS Code extension remains development work outside the supported build.
+The VS Code extension is distributed as a CI artifact; Marketplace publication
+is separate follow-up work. Runtime execution is tested on Linux.
 The corpus runtime checks cover only the cases listed in its fixture manifest.
 
 ## Known Limitations
