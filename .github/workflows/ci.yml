@@ -11,6 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Install dependencies
         run: |
@@ -24,11 +26,41 @@ jobs:
           cmake ..
           make -j$(nproc)
 
-      - name: Interpreter tests
+      - name: Harness regression tests
+        run: |
+          python3 tests/test_harnesses.py
+          python3 tests/test_corpus.py
+          python3 tests/test_tokenizer.py --sanitize
+
+      - name: Interpreter tests (audio disabled)
+        env:
+          PULSE_SERVER: unix:/tmp/gwbasic-ci-no-audio-server
         run: bash tests/run_tests.sh
 
       - name: Compiler tests
         run: bash tests/run_compiler_tests.sh
+
+      - name: Compiler control flow, string and array regressions
+        run: python3 tests/test_compiler_regressions.py
+
+      - name: Curated compatibility corpus
+        run: bash tests/run_corpus.sh --report corpus-matrix.json
+
+      - name: Upload compatibility matrix
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: corpus-matrix
+          path: corpus-matrix.json
+          if-no-files-found: warn
+
+      - name: Interactive terminal regressions
+        run: |
+          python3 -m pip install -r tests/requirements.txt
+          python3 tests/test_interactive.py
+
+      - name: Codegen safety (termination / bounded output)
+        run: bash tests/run_codegen_safety.sh
 
       - name: Cross-language (FFI) test
         run: bash tests/run_ffi_test.sh
@@ -37,6 +69,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Cache OpenWatcom V2
         id: cache-watcom
@@ -102,3 +136,36 @@ jobs:
         with:
           name: dos-binaries
           path: .ci-stash/*.exe
+          include-hidden-files: true
+          if-no-files-found: error
+
+  release-archives:
+    needs: [build-and-test, dos-cross-compile]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Install release build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake pkg-config libpulse-dev zip
+      - name: Build Linux binaries
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j2
+      - uses: actions/download-artifact@v4
+        with:
+          name: dos-binaries
+          path: build/dos
+      - name: Package and smoke-test archives
+        run: |
+          python3 pkg/build_release.py --dos16 build/dos/gwbasic16.exe \
+            --dos32 build/dos/gwbasic.exe --output dist/release
+          cd dist/release
+          sha256sum --check SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-archives
+          path: dist/release/*
+          if-no-files-found: error

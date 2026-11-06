@@ -1,148 +1,136 @@
 # Roadmap
 
-## Completed
+## Current Features
 
-### Ahead-of-Time Compiler (v0.16.0)
+### Interpreter and Platform Support
 
-`gwbasic-compile` translates tokenized .bas programs to C source, then
-invokes GCC to produce native executables linked against `libgwrt.a`.
+The interpreter includes a full-screen editor, binary and ASCII SAVE/LOAD,
+sequential and random-access file I/O, graphics, and sound. Hardware access is
+emulated: speaker and CGA ports have implementations, while joystick and serial
+interfaces return fixed values. The [language reference](language-reference.md)
+describes those behaviors and the remaining device stubs.
 
-Pipeline: `.bas` → `gw_crunch()` → analysis pass → C codegen → `gcc` → native binary.
+The POSIX build uses an ANSI terminal and optional PulseAudio output. OpenWatcom
+builds are available for 16-bit real-mode DOS and 32-bit DOS/4GW. The real-mode
+build uses the MEDIUM memory model and a far-heap screen buffer; the 32-bit build
+requires `DOS4GW.EXE`. See [DOS setup](getting-started.md).
 
-**63 of 63 eligible tests pass (100%)** via `tests/run_compiler_tests.sh`.
-The harness only skips hardware-dependent tests (graphics/sound/timer)
-and CHAIN/RUN target files that aren't standalone.  The compiler now
-accepts unnumbered direct-mode programs by auto-numbering them.
+### Ahead-of-Time Compiler
 
-Language coverage:
+`gwbasic-compile` reads ASCII BASIC, tokenizes it, and emits C source. With `-c`,
+GCC builds an executable linked against `libgwrt.a`. Numbered and unnumbered
+source files are accepted. Complex statements can delegate to the interpreter
+runtime, sharing its file I/O, graphics, and string handling.
 
-- All statements: PRINT, LET, IF/THEN/ELSE, GOTO, GOSUB/RETURN, FOR/NEXT,
-  WHILE/WEND, ON GOTO/GOSUB, ON ERROR GOTO, RESUME/RESUME NEXT, DIM, DEF FN,
-  SWAP, READ/DATA/RESTORE, INPUT/LINE INPUT, OPEN/CLOSE/PRINT#/INPUT#/WRITE#,
-  FIELD/LSET/RSET/GET/PUT, BSAVE/BLOAD, SAVE/LOAD, CHAIN/COMMON, SCREEN,
-  PSET/PRESET, COLOR/LOCATE/CLS, CIRCLE/DRAW/PAINT/PLAY, VIEW/WINDOW/PALETTE,
-  POKE/OUT/WAIT, DEF SEG, RANDOMIZE, CLEAR, MID$ assignment, ERROR,
-  KILL/NAME/FILES/SHELL/MKDIR/CHDIR/RMDIR, ENVIRON, LPRINT/LLIST, WIDTH, KEY
-- All operators: `+` `-` `*` `/` `\` `MOD` `^` `AND` `OR` `XOR` `NOT` `EQV` `IMP`
-  `>` `<` `=` `<=` `>=` `<>` (including string comparison via strcmp)
-- All functions: math, string, file, conversion (CVI/CVS/CVD/MKI$/MKS$/MKD$),
-  graphics (POINT/PMAP), system (FRE/ERR/ERL/TIMER/DATE$/TIME$/ENVIRON$/INKEY$)
-- Token embedding for complex statements (PRINT USING, DEF FN, graphics,
-  file I/O, MID$ assignment) with selective variable sync
-- Division-by-zero detection, RNG matching (gw_rnd), ON ERROR GOTO via
-  setjmp/longjmp
+Compiler options include:
 
-Optimizations:
+- `-O0` through `-O3` to select code-generation transformations and GCC optimization
+- `--warn` for static diagnostics
+- `--safe` for checked integer operations and detailed array/GOSUB diagnostics
+- `--safe=sanitize` to instrument generated C with GCC's address and undefined
+  behavior sanitizers
+- `--inline-arrays` to cache shared runtime storage for eligible numeric arrays
+- `--no-gc-check` and `--fast-math` to remove specific checks, changing error and
+  runtime behavior
+- `--max-output-size` to cap generated C output
 
-- Constant folding (compile-time arithmetic on literals)
-- Dead code elimination (skip statements after GOTO/END/STOP)
-- FOR step=1 elision (var++ instead of step variable, simple comparison)
-- Fast-path expression emitter (skip buffering for common case)
-- Selective variable sync in delegated statements
-- REM-line skip (no runtime check for comment-only lines)
+Parenthesized string expressions are supported in output, concatenation,
+comparison, and `INSTR`. Regression tests cover compiler option combinations;
+the test suite is not a claim of complete GW-BASIC compatibility.
 
-### Hardware I/O Simulator (v0.15.0)
+### Cross-Language Linking
 
-Implemented in `portio.c` / `portio.h` following the `virmem.c` dispatch
-pattern.  Emulates 8253 PIT channel 2 (speaker frequency), PPI port B
-(speaker on/off with continuous tone via PulseAudio), CGA mode/color
-registers, game port (joystick stub), and COM1 serial (transmitter-ready
-stub).  Default: reads return 0xFF (floating bus), writes discarded.
+`--emit-obj` produces an object file, and `--main-name` gives its entry point a
+name that a C or Fortran host can call. BASIC calls to C use the `'$EXTERN`
+pragma, with INTEGER/SINGLE/DOUBLE/STRING type declarations and optional C-symbol
+aliases. String-returning functions can be used in string expressions. The
+[linking examples](getting-started.md)
+show the declarations and link commands.
 
-Also in v0.15.0: 100% token coverage (all 144 GW-BASIC tokens handled),
-string space pool with compacting garbage collector, RESET, ENVIRON/ENVIRON$,
-ERDEV/ERDEV$, IOCTL/IOCTL$, LCOPY, DATE$/TIME$ assignment, CALL, COM.
+Exporting individual BASIC routines as C-callable functions remains deferred.
 
-### Jupyter Kernel (v0.15.0)
+### Jupyter Kernel
 
-`gwbasickernel/` -- Jupyter notebook kernel using the persistent subprocess
-model with sentinel protocol.
+The Python kernel keeps an interpreter subprocess alive between cells. It
+supports `INPUT` through Jupyter's stdin protocol, Sixel-to-PNG conversion for
+inline graphics, keyword completion, Pygments highlighting, and the `%reset`,
+`%timeout`, and `%new` commands.
 
-- **Inline Sixel graphics** -- pure-Python Sixel decoder renders SCREEN
-  commands as inline PNG images in the notebook
-- **INPUT statement support** via Jupyter stdin protocol
-- **Pygments syntax highlighting** for code cells
-- **Tab completion** for all GW-BASIC keywords
-- **Magic commands**: `%reset`, `%timeout`, `%new`
+Install it from the repository root:
 
-Install: `pip install -e . && gwbasickernel-install --user`
+```bash
+pip install -e .
+gwbasickernel-install --user
+```
 
-### Compiler Memory Safety (v0.17.0)
+## Near-Term Priorities
 
-`--warn`, `--safe`, and `--safe=sanitize` flags for the ahead-of-time compiler.
+The harness now fails on output mismatches and process errors, with separate
+limits for audio, timer, and compilation tests (git-bug `54f3aa6`).
 
-- **`--warn`** -- static analysis: uninitialized variables, GOTO to nonexistent
-  line, unreachable code detection.  Zero runtime cost.
-- **`--safe`** (implies `--warn`) -- checked integer arithmetic via
-  `gw_int_add/sub/mul/neg` (raises Overflow instead of wrapping), enhanced
-  array bounds diagnostics with variable names and line numbers, GOSUB stack
-  overflow diagnostics, ABS/SGN type-preserving codegen, string pool GC pinning
-  infrastructure
-- **`--safe=sanitize`** -- above plus `-fsanitize=address,undefined` passed to gcc
+The curated compatibility suite checks 13 scripted cases from eight original
+listings against Microsoft GW-BASIC output and across six compiler modes.
+Awari and Checkers now compile (`ca3a8b8`). The 98-listing build audit has
+97 successes and one syntax rejection: Super Star Trek's unspaced `TO`, also
+rejected by Microsoft GW-BASIC. Broader gameplay coverage stays open (`51679f0`).
 
-### DOS / FreeDOS Target (v0.17.0)
+The v0.18.1 fixes cover terminal resize visibility, the 16-bit DOS string pool,
+and compiler control flow. Numeric and nested IF/ELSE regressions include
+missing-line errors and have Microsoft GW-BASIC reference checks (`b2bb5ca`).
+Release archives are prepared by CI with source metadata and checksums.
+Audio measurements validate the application stream; physical speaker fidelity
+remains unverified.
 
-Cross-compiles to DOS using OpenWatcom V2.  Two targets:
+After v0.18.1:
 
-- **16-bit real-mode** (`Makefile.dos16`): 128KB standalone MZ executable,
-  MEDIUM memory model, far-heap TUI screen buffer, no DOS extender required
-- **32-bit DOS/4GW** (`Makefile.dos`): 175KB LE executable, flat memory model,
-  requires DOS4GW.EXE extender
+1. Finish and package the VS Code extension, including installation instructions
+   and tests of its editor integration (git-bug `32a637c`).
+2. Expand scripted gameplay and fix remaining GW-BASIC FOR-entry and conditional
+   DEFTYPE differences (git-bug `51679f0`).
+3. Prepare Show HN and Lobsters posts and a FreeDOS package submission after the
+   release is published (git-bug `dc24012`, `ab8188c`).
+4. Check Sphinx warnings and executable documentation examples on pull requests,
+   before the existing documentation deployment on `main` (git-bug `f3a24bc`).
+5. Automate FreeDOS runtime smoke tests for both DOS builds in CI. The existing
+   CI cross-builds do not exercise keyboard, cursor, or saved-output behavior
+   (git-bug `b3de88c`).
 
-Tested on FreeDOS 1.4 via QEMU.
+## Longer-Term Plans
 
-### Cross-Language Linking (Levels 1 & 2)
-
-- **Level 1 (v0.17.0)** -- `gwbasic-compile prog.bas --emit-obj
-  --main-name=run_basic` produces `prog.o` with a renamed entry point, so a
-  host C/Fortran project can link BASIC objects alongside its own against
-  `libgwrt`.  From Fortran, declare the entry with `bind(c)`.
-- **Level 2 -- `'$EXTERN` FFI pragma** -- `'$EXTERN NAME(ARGTYPES) AS RET`
-  declares a C function callable from compiled BASIC, with INTEGER/SINGLE/
-  DOUBLE/STRING ⇄ C type coercion at the boundary.  Case-preserving C symbol,
-  BASIC-legal call name.  See *Foreign Functions from BASIC* in
-  getting-started.md; test at `tests/run_ffi_test.sh`.  Arbitrary-C-symbol
-  aliasing and string-result comparison are follow-ups (git-bug).
-
-Level 3 (export BASIC routines as C-callable) remains deferred -- see git-bug.
-
-## Planned
-
-Actionable planned work is tracked in **git-bug** (`git-bug bug`), grouped
-by priority/theme labels rather than duplicated here.  Release and outreach
-items (FreeDOS package, Show HN writeup, etc.) live in git-bug only; this
-file keeps the shipped-feature history and the known limitations.  Current
-dev highlights:
+Development proposals are tracked in git-bug. Run `git-bug bug show <id>` in the
+repository for design notes and current status.
 
 | Theme | Item | git-bug | Priority |
 |-------|------|---------|----------|
-| compiler | `--inline-arrays` direct array indexing | `e6d977c` | P2 |
-| compiler | `-O0..-O3` codegen optimization tiers | `fecc17f` | P2 |
-| compiler | Level 3 -- export BASIC SUBs/FUNCs as C-callable (deferred) | `1b7d59c` | P2 |
+| testing | Expand scripted gameplay and reference coverage beyond the curated corpus | `51679f0` | P2 |
+| compiler | Export individual BASIC routines as C-callable functions | `1b7d59c` | P2 |
 | language | FORTRAN-style `WRITE` formatted I/O | `a6e99af` | P2 |
 | language | C-style `PRINTF` / `FPRINTF` | `cd8750c` | P2 |
-| ide | VS Code extension (+ JetBrains follow-up) | `32a637c` | P2 |
-| stdlib | Numerical/Data stdlib -- NDArray + DataFrame + Plotting (sub-project) | `55a9d14` | P2 |
-| testing | 101 BASIC Computer Games compatibility corpus | `51679f0` | P2 |
+| ide | JetBrains support after the VS Code extension | `32a637c` | P2 |
+| stdlib | Numerical/data library with arrays, data frames, and plotting | `55a9d14` | P2 |
 
-Recently shipped: Level 2 `'$EXTERN` FFI pragma (`56b96e0`) and its follow-ups
-(`8329647`) -- C-symbol aliasing + string-extern dispatch in PRINT/WRITE/INSTR.
-
-Run `git-bug bug show <id>` for the full design notes on any item.  The
-numerical/data stdlib (`55a9d14`) is the main enabler for the
-Jupyter-kernel data-analysis use case.
+The VS Code extension remains development work outside the supported build.
+The corpus runtime checks cover only the cases listed in its fixture manifest.
 
 ## Known Limitations
 
-- Static caps -- 32-bit / Linux builds: 1024 variables, 256 arrays,
-  64 FOR nesting, 128 GOSUB nesting, 64 WHILE nesting.  16-bit real-mode
-  DOS keeps the original modest caps (256 / 64 / 16 / 24 / 16) because
-  the MEDIUM model has a single 64KB DGROUP for all static data.
-- `CALL`/`CALLS` (machine code execution) raises Illegal function call
-- `DATE$`/`TIME$` assignment shifts the program's view of the clock via
-  a process-local offset; the OS time is unaffected (setting the OS
-  clock would require root)
-- Device stubs (`ERDEV`, `IOCTL`, `COM`, `LCOPY`) return defaults
-- Compiler: a parenthesized string expression (`PRINT (A$)`, the haystack of
-  `INSTR((A$), ...)`) is classified as numeric, because the codegen string-atom
-  emitter does not parse a leading `(`.  Drop the parentheses as a workaround
+- Token handling includes device stubs. `CALL`/`CALLS` machine-code execution
+  raises "Illegal function call"; `MOTOR`, `COM`, `IOCTL`, and `LCOPY` do not
+  control physical devices.
+- Floating-point arithmetic uses IEEE 754. MBF conversion supports binary program
+  and file formats, but does not make intermediate arithmetic identical to the
+  original implementation.
+- Compiled programs do not support timer or key event handlers; `TRON` and
+  `TROFF` are ignored by the compiler.
+- Nonempty FOR-entry validation and conditional DEFTYPE changes retain known
+  differences from Microsoft GW-BASIC; most corpus games lack runtime fixtures.
+- The compiler reads ASCII source. Save tokenized files with `SAVE "file.bas",A`
+  before compiling them.
+- `DATE$` and `TIME$` assignments change a process-local clock offset and leave
+  the operating system clock unchanged.
+- The runtime has one global interpreter state. Generated entry points cannot
+  run concurrently or recursively in a host process.
+- POSIX and 32-bit DOS builds cap interpreter storage at 1024 variables and 256
+  arrays, with FOR/GOSUB/WHILE nesting limits of 64/128/64. The 16-bit DOS limits
+  are 256 variables, 64 arrays, and nesting depths of 16/24/16 to fit its 64KB
+  data segment.

@@ -14,12 +14,11 @@ Source text → Tokenizer (CRUNCH) → Token stream
                               HAL (platform I/O)
 ```
 
-The interpreter mirrors the original GW-BASIC's internal pipeline, which -- like
-most Microsoft interpreters of the era -- is a tight loop around three core
-routines.  CRUNCH tokenizes source lines into a compact byte stream.  NEWSTT
-dispatches each statement.  FRMEVL evaluates expressions.  All platform I/O
-goes through a HAL vtable (`hal_ops_t`), so the core interpreter has no idea
-whether it's talking to an ANSI terminal or a teletype from 1975.
+The interpreter follows the original GW-BASIC pipeline. CRUNCH tokenizes source
+lines into a compact byte stream, NEWSTT dispatches statements, and FRMEVL
+evaluates expressions. Terminal operations use the hardware abstraction layer
+(HAL) through `hal_ops_t`. File operations and optional PulseAudio output also
+call their host libraries directly.
 
 In interactive mode, the TUI layer swaps in its own HAL function pointers and
 redirects all output through a dynamically allocated screen buffer.  Rendering
@@ -62,11 +61,11 @@ out of the way and the HAL writes straight to stdout.
 ## Source Layout
 
 ```
-src/         -- core interpreter + compiler (27 files)
-include/     -- headers (18 files)
-platform/    -- HAL backends (2 files)
-gwbasickernel/ -- Jupyter notebook kernel (Python, 6 files)
-tests/       -- 72 automated test programs, 4 classic interactive programs, compat harness
+src/         -- core interpreter and compiler
+include/     -- headers
+platform/    -- POSIX and DOS HAL backends
+gwbasickernel/ -- Jupyter notebook kernel (Python)
+tests/       -- regression programs, classic interactive programs, compatibility harness
 docs/        -- Sphinx documentation
 ```
 
@@ -74,72 +73,82 @@ docs/        -- Sphinx documentation
 
 The TUI (`tui.c`) implements the classic GW-BASIC full-screen editor:
 
-- **Screen buffer** -- `tui_cell_t *screen` is dynamically allocated at
+- Screen buffer: `tui_cell_t *screen` is dynamically allocated at
   `rows × cols` (default 25×80, or full terminal size with `--full`).
   Each cell stores a character and color attribute, accessed via `TUI_CELL(r, c)`.
-- **HAL interception** -- `tui_init()` swaps HAL function pointers so all
+- HAL interception: `tui_init()` swaps HAL function pointers so
   existing PRINT/LIST/error output automatically goes through the screen buffer.
-  No changes needed to `print.c`, `error.c`, or most of `interp.c`.
-- **Line editor** -- `tui_read_line()` implements the defining GW-BASIC UX:
+  The output routines use the same HAL interface in both modes.
+- Line editor: `tui_read_line()` supports
   free cursor movement with arrow keys, and pressing Enter on any screen line
   re-enters that line's content as BASIC input.
-- **Function keys** -- F1-F10 with default GW-BASIC bindings, configurable via
+- Function keys: F1-F10 with default GW-BASIC bindings, configurable via
   the `KEY n, "string"` statement. `KEY ON` shows the bar on the bottom row.
-- **Break handling** -- SIGINT sets a flag checked each statement in the run loop.
+- Break handling: on POSIX, SIGINT sets a flag checked during execution.
+
+Program entry and prompted input use separate editing paths. Program entry
+can read an existing screen row; prompted input keeps an answer buffer so
+`INPUT` and `LINE INPUT` exclude the displayed prompt, including when the
+answer wraps or scrolls.
 
 ## Ahead-of-Time Compiler
 
-`gwbasic-compile` translates tokenized `.bas` programs to C source linked
+`gwbasic-compile` reads ASCII `.bas` programs, tokenizes them, and emits C linked
 against `libgwrt.a`:
 
 ```
 .bas → gw_crunch() → analysis pass → C codegen → gcc → native binary
 ```
 
-The **analysis pass** (`analysis.c`) collects variables, GOTO/GOSUB targets,
+The analysis pass (`analysis.c`) collects variables, GOTO/GOSUB targets,
 DATA literals, and DEFINT/DEFSNG/DEFDBL/DEFSTR type defaults.  When `--warn`
 is active, it also tracks variable assignment vs. use context to detect
 uninitialized variables, GOTO to nonexistent lines, and unreachable code.
 
-The **codegen** (`codegen.c`) walks the token stream and emits C source:
+Code generation (`codegen.c`) walks the token stream and emits C source:
 variables become `static int16_t var_A_int`, control flow uses `goto L_100`
 labels, and expressions are compiled inline using the same precedence-climbing
 structure as `eval.c`.  Optimizations include constant folding, dead code
-elimination, FOR step=1 elision, and fast-path expression emission.
+elimination and fast-path expression emission. Runtime stacks track active FOR
+loops and GOSUB return sites, including alternate and shared NEXT statements.
 
-The **`--safe` mode** modifies generated C to use overflow-checked integer
+With `--inline-arrays`, eligible numeric arrays use cached pointers into the
+runtime's storage. The cache generation changes when arrays are cleared or
+erased. Access falls back to runtime lookup when a cache is absent or stale;
+`--safe` always uses checked runtime access. The `DIM` statement still executes
+at runtime and allocates the shared array storage.
+
+The `--safe` mode modifies generated C to use overflow-checked integer
 arithmetic (`gw_int_add/sub/mul` from `math_int.c`) instead of bare C
 operators, and enhanced-diagnostic array/GOSUB runtime functions that report
 variable names, subscript values, and BASIC line numbers on error.
 
-The **runtime library** (`gwrt.c` / `libgwrt.a`) provides initialization,
+The runtime library (`gwrt.c` / `libgwrt.a`) provides initialization,
 DATA/READ support, GOSUB return-label stack, and wrappers around the existing
-interpreter modules. It includes all interpreter code except the execution
-loop, so compiled programs share the same string pool, GC, file I/O, and
-graphics implementation.
+interpreter modules, including the execution loop used for delegated program
+operations such as `CHAIN`. Compiled programs share the string pool, garbage
+collector, file I/O, and graphics implementation. Native code does not compile
+the interpreter's timer or key event handlers.
 
 ## Design Decisions
 
 ### Relation to Original Assembly
 
 Microsoft [released the original GW-BASIC source](https://github.com/microsoft/GW-BASIC)
-in 2020 -- 43,771 lines of 8088 assembly spread across 43 `.ASM` files, complete
-with Greg Whitten's comments and Neil Konzen's transcendental math routines
-(which are, frankly, impressive for 16-bit fixed-point).  This reimplementation
-uses that assembly as a reference, not as input to a transliterator -- the
-algorithms are reimplemented in idiomatic C with modern data structures.
+in 2020. The C implementation uses that assembly as a reference for parsing,
+evaluation, and program behavior.
 
 ### Key Differences from the Original
 
-- **IEEE 754 floating point** -- MBF (Microsoft Binary Format) conversion is used
+- IEEE 754 floating point: MBF (Microsoft Binary Format) conversion is used
   at the binary save/load boundary and for file I/O (CVI/CVS/CVD, MKI$/MKS$/MKD$),
   matching the original's on-disk format
-- **Dynamic memory allocation** -- `malloc`/`free` instead of a 64KB segment layout
-- **String space pool** -- 32KB contiguous pool with compacting GC at statement
-  boundaries, matching the original's GETSPA/GARBAG approach
-- **`setjmp`/`longjmp`** -- for error recovery, matching the original's stack reset
+- Dynamic memory allocation: variables, arrays, and program storage use the heap
+- String space pool: compacting garbage collection, with an 8 KiB default for
+  16-bit DOS and 32 KiB for other builds
+- `setjmp`/`longjmp`: error recovery follows the original's stack reset
   behavior
-- **ANSI terminal** -- TUI uses ANSI escape sequences and alternate screen buffer
-  instead of direct CGA memory access
-- **Dynamic screen buffer** -- allocated at runtime based on terminal size, rather
-  than hardcoded to 25×80
+- Terminal backends: the POSIX TUI uses ANSI escape sequences and the alternate
+  screen buffer; the DOS TUI uses BIOS display services
+- Dynamic screen buffer: allocated at startup as 25×80, or from the terminal
+  dimensions with `--full`

@@ -7,6 +7,7 @@
 
 #define MAX_LINES     8192
 #define MAX_VARS      1024
+#define MAX_ARRAYS    256
 #define MAX_GOTOS     1024
 #define MAX_DATA      4096
 #define MAX_GOSUB_RET 1024
@@ -42,12 +43,31 @@ typedef struct {
     uint16_t first_use_line;     /* 0 = never used */
 } var_info_t;
 
+#define MAX_ARR_DIMS 8
+
+/* Array census for --inline-arrays: an array is `inlinable` when it is DIMmed
+ * exactly once with constant integer bounds and never disqualified (variable
+ * DIM, redefinition, or ERASE). Codegen caches the runtime storage pointer
+ * for direct indexing, with a lookup fallback after storage invalidation. */
+typedef struct {
+    char name[2];
+    gw_valtype_t type;
+    int ndims;
+    int dims[MAX_ARR_DIMS];   /* upper bound per dimension, as written in DIM */
+    bool dimmed;              /* an explicit DIM was seen */
+    bool inlinable;           /* eligible for cached storage and direct indexing */
+} array_info_t;
+
 typedef struct {
     line_info_t lines[MAX_LINES];
     int line_count;
 
     var_info_t vars[MAX_VARS];
     int var_count;
+
+    array_info_t arrays[MAX_ARRAYS];
+    int array_count;
+    int option_base;             /* 0 (default) or 1, from OPTION BASE */
 
     uint16_t goto_targets[MAX_GOTOS];
     int goto_count;
@@ -78,6 +98,9 @@ bool analysis_is_target(analysis_t *a, uint16_t line_num);
 
 /* Find a declared extern function by name (case-insensitive), or NULL */
 const extern_func_t *analysis_find_extern(analysis_t *a, const char *name);
+
+/* Find an inlinable array by name+type; returns NULL if none or not inlinable */
+array_info_t *analysis_inlinable_array(analysis_t *a, const char name[2], gw_valtype_t type);
 
 /* Emit static analysis warnings to stderr */
 void analysis_warnings(analysis_t *a);

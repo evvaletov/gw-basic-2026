@@ -1,5 +1,10 @@
 # Language Reference
 
+This page describes the interpreter. The ahead-of-time compiler shares many
+runtime operations, but it does not compile timer or key event handlers.
+See [compiler usage](getting-started.md) and
+[known limitations](roadmap.md).
+
 ## Data Types
 
 | Type | Suffix | Description |
@@ -61,7 +66,7 @@ type suffixes (`%`, `!`, `#`)
 | Error handling | `ON ERROR GOTO`, `RESUME`, `RESUME NEXT`, `RESUME n`, `ERROR`, `ERR`, `ERL` |
 | User functions | `DEF FN`, `RANDOMIZE` |
 | File management | `KILL`, `NAME`, `FILES`, `MKDIR`, `RMDIR`, `CHDIR`, `SHELL`, `RESET` |
-| Date/time | `DATE$`, `TIME$`, `TIMER` (read/write; `DATE$`/`TIME$` assignment accepted) |
+| Date/time | `DATE$`, `TIME$` (read/write), `TIMER` (read) |
 | Environment | `ENVIRON`, `ENVIRON$` |
 | Screen | `LOCATE`, `COLOR`, `WIDTH`, `SCREEN`, `KEY ON`/`OFF`/`LIST`, `KEY n,"string"` |
 | Graphics | `PSET`, `PRESET`, `LINE`, `CIRCLE`, `DRAW`, `PAINT`, `GET`, `PUT`, `VIEW`, `WINDOW`, `PALETTE`, `PMAP` |
@@ -90,7 +95,7 @@ LOAD "myprog.bas",R     ' load and run immediately
 ```
 
 Binary files use the standard GW-BASIC 0xFF header format. Command-line
-loading (`./gwbasic file.bas`) also auto-detects format.
+loading (`build/gwbasic file.bas`) also auto-detects format.
 
 `MERGE` loads an ASCII file without clearing the current program, overlaying
 lines by number. `CHAIN` loads and runs a new program, optionally preserving
@@ -122,21 +127,21 @@ as the second. Common scan codes:
 
 `LPRINT` works identically to `PRINT` but sends output to the printer:
 
-- **Default:** output is appended to `LPT1.TXT` in the current directory
-- **`--lpt /dev/lp0`** (Linux) or **`--lpt LPT1`** (FreeDOS): send to real hardware
-- **`--lpt report.txt`**: redirect to a custom file
+- Default: output is appended to `LPT1.TXT` in the current directory
+- `--lpt /dev/lp0` (Linux) or `--lpt LPT1` (FreeDOS): send to real hardware
+- `--lpt report.txt`: redirect to a custom file
 
 `LLIST` lists the program to the printer, with optional line number ranges
 (`LLIST`, `LLIST 10-50`, `LLIST -100`).
 
-Both support `PRINT USING`, semicolons, commas, `TAB()`, and `SPC()`.
+`LPRINT` supports `USING`, semicolons, commas, `TAB()`, and `SPC()`.
 
 ## Graphics
 
 Graphics mode is activated with `SCREEN 1` (320x200, 4 colors) or
 `SCREEN 2` (640x200, monochrome). Drawing commands render to an internal
-framebuffer and output via [Sixel graphics](https://en.wikipedia.org/wiki/Sixel),
-which works in terminals like xterm, mlterm, foot, and WezTerm.
+framebuffer and output through Sixel graphics. Use a terminal with Sixel support
+enabled to see the rendered image.
 
 ### Drawing Commands
 
@@ -233,7 +238,8 @@ followed by the raw data bytes.
 
 ## String Space and Garbage Collection
 
-All string data lives in a contiguous pool (default 32,768 bytes), matching
+All string data lives in a contiguous pool (8,192 bytes by default on 16-bit DOS,
+32,768 bytes on other builds), matching
 the original GW-BASIC's string space architecture.  Allocation is a bump
 pointer; dead strings are reclaimed by a compacting garbage collector that
 runs automatically at statement boundaries when the pool is running low.
@@ -303,9 +309,9 @@ DATE$ = "01-15-2026"
 TIME$ = "14:30:00"
 ```
 
-These assignments are accepted for compatibility but do not modify the
-system clock.  Reading `DATE$` and `TIME$` always returns the current
-system date and time.
+These assignments change a process-local clock offset. Subsequent `DATE$` and
+`TIME$` reads use that offset, and the clock continues to advance. The operating
+system clock is unchanged.
 
 ## Device Stubs
 
@@ -328,11 +334,12 @@ since there is no real device hardware:
 - `BEEP` -- play the default beep
 - `PLAY string` -- Music Macro Language (MML) string for melodies
 
-Sound output uses PulseAudio when available; commands are silently ignored otherwise.
+Sound output uses PulseAudio when available. Without that backend, commands
+produce no audio; their arguments are still parsed.
 
 ## Full-Screen Editor (TUI)
 
-When running interactively, GW-BASIC 2026 presents the authentic full-screen
+When running interactively, GW-BASIC 2026 presents a GW-BASIC-style full-screen
 editor:
 
 - 25×80 screen buffer by default, or full terminal size with `--full`
@@ -340,7 +347,7 @@ editor:
 - Insert/Overwrite toggle (Insert key)
 - Home/End/Delete/Backspace/Escape for line editing
 - Ctrl+C interrupts running programs
-- Uses the ANSI alternate screen buffer for clean terminal restore on exit
+- Uses the ANSI alternate screen buffer on POSIX and BIOS display services on DOS
 
 ### Function Keys
 
@@ -354,7 +361,7 @@ Default F1-F10 bindings match the original GW-BASIC:
 | F4 | `SAVE"` | F9 | `KEY ` |
 | F5 | `CONT` + Enter | F10 | `SCREEN 0,0,0` + Enter |
 
-- `KEY ON` -- show the function key bar on line 25
+- `KEY ON` -- show the function key bar on the bottom row
 - `KEY OFF` -- hide the bar
 - `KEY LIST` -- display all definitions
 - `KEY n, "string"` -- redefine a function key
@@ -371,6 +378,10 @@ suitable for scripting and test harnesses.
 - `AUTO [start][,increment]` -- automatic line numbering mode
 - `RENUM [new][,[old][,increment]]` -- renumber program lines (patches all GOTO/GOSUB references)
 - `DELETE range` -- delete program lines (`DELETE 10-50`, `DELETE -100`, `DELETE 200-`)
+
+Numbered line edits and deletions do not print `Ok`. Direct commands and errors
+return to the `Ok` prompt. During `INPUT` and `LINE INPUT`, only the answer is
+returned to the program; prompt text is excluded even if the answer wraps.
 
 ## Event Trapping
 

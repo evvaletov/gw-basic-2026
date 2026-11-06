@@ -1,0 +1,143 @@
+{
+  "schema": 1,
+  "normalization": "CRLF to LF; strip trailing spaces/tabs per line; preserve leading spaces and blank lines",
+  "cases": [
+    {
+      "id": "name-yes",
+      "source": "name.bas",
+      "input": "inputs/name-yes.txt",
+      "expected": "expected/name-yes.txt",
+      "features": [
+        "string arrays",
+        "insertion sort",
+        "negative FOR step"
+      ]
+    },
+    {
+      "id": "name-no",
+      "source": "name.bas",
+      "input": "inputs/name-no.txt",
+      "expected": "expected/name-no.txt",
+      "features": [
+        "alternate branch"
+      ]
+    },
+    {
+      "id": "love-short",
+      "source": "love.bas",
+      "input": "inputs/love-short.txt",
+      "expected": "expected/love-short.txt",
+      "features": [
+        "string arrays",
+        "READ/DATA",
+        "layout"
+      ]
+    },
+    {
+      "id": "love-long",
+      "source": "love.bas",
+      "input": "inputs/love-long.txt",
+      "expected": "expected/love-long.txt",
+      "features": [
+        "string input with spaces",
+        "layout"
+      ]
+    },
+    {
+      "id": "bunny",
+      "source": "bunny.bas",
+      "input": "inputs/bunny.txt",
+      "expected": "expected/bunny.txt",
+      "features": [
+        "auto-DIM",
+        "GOSUB",
+        "CHR$",
+        "layout"
+      ]
+    },
+    {
+      "id": "diamond-small",
+      "source": "diamond.bas",
+      "input": "inputs/diamond-small.txt",
+      "expected": "expected/diamond-small.txt",
+      "features": [
+        "nested FOR",
+        "MID$",
+        "TAB"
+      ]
+    },
+    {
+      "id": "diamond-large",
+      "source": "diamond.bas",
+      "input": "inputs/diamond-large.txt",
+      "expected": "expected/diamond-large.txt",
+      "features": [
+        "negative FOR step",
+        "nested FOR"
+      ]
+    },
+    {
+      "id": "plot",
+      "source": "3dplot.bas",
+      "input": "inputs/plot.txt",
+      "expected": "expected/plot.txt",
+      "features": [
+        "compact DEF FN",
+        "SQR",
+        "EXP",
+        "TAB"
+      ]
+    },
+    {
+      "id": "weekday-same",
+      "source": "weekday.bas",
+      "input": "inputs/weekday-same.txt",
+      "expected": "expected/weekday-same.txt",
+      "features": [
+        "multiple INPUT fields",
+        "DEF FN",
+        "calendar arithmetic"
+      ]
+    },
+    {
+      "id": "weekday-friday",
+      "source": "weekday.bas",
+      "input": "inputs/weekday-friday.txt",
+      "expected": "expected/weekday-friday.txt",
+      "features": [
+        "conditional branches",
+        "DEF FN"
+      ]
+    },
+    {
+      "id": "weekday-old",
+      "source": "weekday.bas",
+      "input": "inputs/weekday-old.txt",
+      "expected": "expected/weekday-old.txt",
+      "features": [
+        "early exit"
+      ]
+    },
+    {
+      "id": "calendar",
+      "source": "calendar.bas",
+      "input": "inputs/calendar.txt",
+      "expected": "expected/calendar.txt",
+      "features": [
+        "numeric arrays",
+        "ON GOTO",
+        "READ/DATA"
+      ]
+    },
+    {
+      "id": "litquiz-wrong",
+      "source": "litquiz.bas",
+      "input": "inputs/litquiz-wrong.txt",
+      "expected": "expected/litquiz-wrong.txt",
+      "features": [
+        "zero-score branch",
+        "branches"
+      ]
+    }
+  ]
+}

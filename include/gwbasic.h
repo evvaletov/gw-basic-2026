@@ -10,12 +10,16 @@
 #include "gw_math.h"
 #include "strings.h"
 
-#define GW_VERSION "0.18.0"
+#define GW_VERSION "0.18.1"
 #define GW_BANNER "GW-BASIC " GW_VERSION
 
 /* Tokenizer */
+/* Returns token length, or -1 if the complete line and terminator do not fit. */
 int  gw_crunch(const char *text, uint8_t *out, int outsize);
 void gw_list_line(uint8_t *tokens, int len, char *out, int outsize);
+
+bool gw_for_exit(program_line_t *line, uint8_t *p,
+                 program_line_t **exit_line, uint8_t **exit_text, uint8_t **next_var);
 
 /* PRINT statement */
 void gw_stmt_print(void);
@@ -45,6 +49,8 @@ gw_value_t *gw_array_element(const char name[2], gw_valtype_t type);
 void gw_stmt_erase(void);
 void gw_stmt_option(void);
 void gw_arrays_clear(void);
+/* Changes whenever array storage can be freed or replaced. */
+extern unsigned long gw_array_generation;
 
 /* Input (input.c) */
 void gw_stmt_input(void);

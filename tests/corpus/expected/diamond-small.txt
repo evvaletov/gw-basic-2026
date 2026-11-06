@@ -1,0 +1,79 @@
+                                DIAMOND
+              CREATIVE COMPUTING  MORRISTOWN, NEW JERSEY
+
+
+
+FOR A PRETTY DIAMOND PATTERN,
+TYPE IN AN ODD NUMBER BETWEEN 5 AND 21?
+ C    C    C    C    C    C    C    C    C    C    C    C
+CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!
+CC!!!
+    CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!
+CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!
+ C    C    C    C    C    C    C    C    C    C    C    C
+ C    C    C    C    C    C    C    C    C    C    C    C
+CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!
+CC!!!
+    CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!
+CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!
+ C    C    C    C    C    C    C    C    C    C    C    C
+ C    C    C    C    C    C    C    C    C    C    C    C
+CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!
+CC!!!
+    CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!
+CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!
+ C    C    C    C    C    C    C    C    C    C    C    C
+ C    C    C    C    C    C    C    C    C    C    C    C
+CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!
+CC!!!
+    CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!
+CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!
+ C    C    C    C    C    C    C    C    C    C    C    C
+ C    C    C    C    C    C    C    C    C    C    C    C
+CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!
+CC!!!
+    CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!
+CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!
+ C    C    C    C    C    C    C    C    C    C    C    C
+ C    C    C    C    C    C    C    C    C    C    C    C
+CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!
+CC!!!
+    CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!
+CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!
+ C    C    C    C    C    C    C    C    C    C    C    C
+ C    C    C    C    C    C    C    C    C    C    C    C
+CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!
+CC!!!
+    CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!
+CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!
+ C    C    C    C    C    C    C    C    C    C    C    C
+ C    C    C    C    C    C    C    C    C    C    C    C
+CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!
+CC!!!
+    CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!
+CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!
+ C    C    C    C    C    C    C    C    C    C    C    C
+ C    C    C    C    C    C    C    C    C    C    C    C
+CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!
+CC!!!
+    CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!
+CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!
+ C    C    C    C    C    C    C    C    C    C    C    C
+ C    C    C    C    C    C    C    C    C    C    C    C
+CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!
+CC!!!
+    CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!
+CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!
+ C    C    C    C    C    C    C    C    C    C    C    C
+ C    C    C    C    C    C    C    C    C    C    C    C
+CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!
+CC!!!
+    CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!
+CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!
+ C    C    C    C    C    C    C    C    C    C    C    C
+ C    C    C    C    C    C    C    C    C    C    C    C
+CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!
+CC!!!
+    CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!CC!!!
+CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!  CC!
+ C    C    C    C    C    C    C    C    C    C    C    C

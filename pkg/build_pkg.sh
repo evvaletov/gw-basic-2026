@@ -21,11 +21,13 @@ VERSION=$(grep -oE '"[0-9]+\.[0-9]+\.[0-9]+"' include/gwbasic.h | tr -d '"')
 
 echo "==> Packaging GW-BASIC 2026 v$VERSION"
 
-if [ ! -f gwbasic16.exe ] || [ src/main.c -nt gwbasic16.exe ]; then
-    echo "==> Building gwbasic16.exe"
-    ./build_dos.sh clean
+# Without an explicit prebuilt binary, let the DOS builder check every source
+# and header. Version-only header changes must also rebuild the executable.
+EXE="${GW_DOS16_EXE:-$PROJECT_DIR/gwbasic16.exe}"
+if [ -z "${GW_DOS16_EXE:-}" ]; then
     ./build_dos.sh 16
 fi
+[ -f "$EXE" ] || { echo "Missing DOS binary: $EXE" >&2; exit 1; }
 
 STAGE=$(mktemp -d --tmpdir="$HOME" gw_pkg.XXXXXX)
 trap 'rm -rf "$STAGE"' EXIT
@@ -39,7 +41,7 @@ unix2dos -q "$STAGE/APPINFO/GWBASIC.LSM" 2>/dev/null \
     || sed -i 's/$/\r/' "$STAGE/APPINFO/GWBASIC.LSM"
 
 # Binary
-cp gwbasic16.exe "$STAGE/BIN/GWBASIC.EXE"
+cp "$EXE" "$STAGE/BIN/GWBASIC.EXE"
 
 # Documentation (DOS line endings, 8.3-friendly names)
 cp README.md "$STAGE/DOC/GWBASIC/README"

@@ -21,6 +21,79 @@
 #include <errno.h>
 #include <time.h>
 
+static void stmt_next(void)
+{
+    /* Parse optional variable name(s) */
+    for (;;) {
+        var_entry_t *var = NULL;
+        if (gw_is_letter(gw_chrgot())) {
+            char name[2];
+            gw_valtype_t type = gw_parse_varname(name);
+            var = gw_var_find_or_create(name, type);
+        }
+
+        /* Find matching FOR */
+        int found = -1;
+        for (int i = gw.for_sp - 1; i >= 0; i--) {
+            if (!var || gw.for_stack[i].var == var) {
+                found = i;
+                break;
+            }
+        }
+        if (found < 0)
+            gw_error(ERR_NF);
+
+        /* Discard any nested FORs above */
+        gw.for_sp = found + 1;
+        for_entry_t *f = &gw.for_stack[found];
+
+        /* Increment */
+        double cur, lim, stp;
+        switch (f->var->type) {
+        case VT_INT:
+            f->var->val.ival = gw_int_add(f->var->val.ival,
+                gw_to_int(&f->step));
+            cur = f->var->val.ival;
+            break;
+        case VT_SNG:
+            f->var->val.fval += gw_to_sng(&f->step);
+            cur = f->var->val.fval;
+            break;
+        case VT_DBL:
+            f->var->val.dval += gw_to_dbl(&f->step);
+            cur = f->var->val.dval;
+            break;
+        default: cur = 0; break;
+        }
+        lim = gw_to_dbl(&f->limit);
+        stp = gw_to_dbl(&f->step);
+
+        /* Check termination */
+        bool done;
+        if (stp >= 0)
+            done = cur > lim;
+        else
+            done = cur < lim;
+
+        if (!done) {
+            /* Loop back */
+            gw.text_ptr = f->loop_text;
+            gw.cur_line = f->loop_line;
+            gw.cur_line_num = f->line_num;
+            return;
+        }
+
+        /* Loop done, pop stack */
+        gw.for_sp = found;
+
+        /* Check for more variables after comma */
+        gw_skip_spaces();
+        if (gw_chrgot() != ',')
+            break;
+        gw_chrget();
+    }
+}
+
 /* Portable monotonic time (seconds as double) */
 static double monotonic_time(void)
 {
@@ -480,8 +553,20 @@ static void stmt_def_fn(void)
 
     /* Skip past the expression (don't evaluate now) */
     /* We need to skip to end of statement */
-    while (*gw.text_ptr && *gw.text_ptr != ':' && *gw.text_ptr != TOK_ELSE)
-        gw.text_ptr++;
+    while (*gw.text_ptr && *gw.text_ptr != ':' && *gw.text_ptr != TOK_ELSE) {
+        uint8_t token = *gw.text_ptr;
+        if (token == TOK_INT1) gw.text_ptr += 2;
+        else if (token == TOK_INT2) gw.text_ptr += 3;
+        else if (token == TOK_CONST_SNG) gw.text_ptr += 5;
+        else if (token == TOK_CONST_DBL) gw.text_ptr += 9;
+        else if (token == TOK_PREFIX_FD || token == TOK_PREFIX_FE || token == TOK_PREFIX_FF)
+            gw.text_ptr += 2;
+        else if (token == '"') {
+            gw.text_ptr++;
+            while (*gw.text_ptr && *gw.text_ptr != '"') gw.text_ptr++;
+            if (*gw.text_ptr) gw.text_ptr++;
+        } else gw.text_ptr++;
+    }
 }
 
 /* Evaluate FN call - called from eval.c */
@@ -1558,9 +1643,9 @@ void gw_exec_stmt(void)
         if (gw_chrgot() == ',') {
             gw_chrget();  /* skip comma */
             gw_skip_spaces();
-            if (gw_chrgot() && gw_chrgot() != ',' && gw_chrgot() != ':' && gw_chrgot() != 0)
+            if (gw_chrgot() && gw_chrgot() != ',' && gw_chrgot() != ':' && gw_chrgot() != TOK_ELSE)
                 new_pool = (size_t)gw_eval_int();
-        } else if (gw_chrgot() && gw_chrgot() != ':' && gw_chrgot() != 0) {
+        } else if (gw_chrgot() && gw_chrgot() != ':' && gw_chrgot() != TOK_ELSE) {
             new_pool = (size_t)gw_eval_int();
         }
         portio_reset();
@@ -1577,8 +1662,27 @@ void gw_exec_stmt(void)
         gw.in_error_handler = false;
         strpool_reset(new_pool);
         /* Skip remaining optional args (stack size) */
-        while (gw_chrgot() && gw_chrgot() != ':')
-            gw.text_ptr++;
+        uint8_t *arg_end = NULL;
+        if (gw.cur_line) {
+            uintptr_t start = (uintptr_t)gw.cur_line->tokens;
+            uintptr_t pos = (uintptr_t)gw.text_ptr;
+            /* Compiled delegates can use a separate, validated token buffer. */
+            if (pos >= start && pos - start <= (uintptr_t)gw.cur_line->len)
+                arg_end = gw.cur_line->tokens + gw.cur_line->len;
+        }
+        while (gw_chrgot() && gw_chrgot() != ':' && gw_chrgot() != TOK_ELSE) {
+            uint8_t arg = gw_chrgot();
+            int width = 1;
+            if (arg == TOK_INT1) width = 2;
+            else if (arg == TOK_INT2) width = 3;
+            else if (arg == TOK_CONST_SNG) width = 5;
+            else if (arg == TOK_CONST_DBL) width = 9;
+            else if (arg == TOK_PREFIX_FD || arg == TOK_PREFIX_FE || arg == TOK_PREFIX_FF)
+                width = 2;
+            if (arg_end && width > arg_end - gw.text_ptr)
+                gw_error(ERR_SN);
+            gw.text_ptr += width;
+        }
         return;
     }
 
@@ -2058,6 +2162,38 @@ void gw_exec_stmt(void)
             }
         }
 
+        /* GW-BASIC skips a loop whose initial value is past its limit. */
+        double current = gw_to_dbl(&var->val);
+        double bound = gw_to_dbl(&limit), increment = gw_to_dbl(&step);
+        if (increment >= 0 ? current > bound : current < bound) {
+            program_line_t direct = {0};
+            program_line_t *line = gw.cur_line;
+            if (!line) {
+                direct.tokens = gw.text_ptr;
+                direct.len = 0; /* Direct-mode tokens end with a token-aware NUL. */
+                line = &direct;
+            }
+            program_line_t *target;
+            uint8_t *after, *next_var;
+            if (!gw_for_exit(line, gw.text_ptr, &target, &after, &next_var)) gw_error(ERR_FW);
+            if (target != &direct) {
+                gw.cur_line = target;
+                gw.cur_line_num = target->num;
+            }
+            gw.text_ptr = next_var;
+            if (gw_is_letter(gw_chrgot())) {
+                char next_name[2];
+                gw_valtype_t next_type = gw_parse_varname(next_name);
+                if (next_type != type || memcmp(next_name, name, 2)) gw_error(ERR_NF);
+            }
+            gw.text_ptr = after;
+            if (gw_chrgot() == ',') {
+                gw_chrget();
+                stmt_next();
+            }
+            return;
+        }
+
         if (gw.for_sp >= MAX_FOR_DEPTH)
             gw_error(ERR_OM);
 
@@ -2076,75 +2212,7 @@ void gw_exec_stmt(void)
         gw_chrget();
         gw_skip_spaces();
 
-        /* Parse optional variable name(s) */
-        for (;;) {
-            var_entry_t *var = NULL;
-            if (gw_is_letter(gw_chrgot())) {
-                char name[2];
-                gw_valtype_t type = gw_parse_varname(name);
-                var = gw_var_find_or_create(name, type);
-            }
-
-            /* Find matching FOR */
-            int found = -1;
-            for (int i = gw.for_sp - 1; i >= 0; i--) {
-                if (!var || gw.for_stack[i].var == var) {
-                    found = i;
-                    break;
-                }
-            }
-            if (found < 0)
-                gw_error(ERR_NF);
-
-            /* Discard any nested FORs above */
-            gw.for_sp = found + 1;
-            for_entry_t *f = &gw.for_stack[found];
-
-            /* Increment */
-            double cur, lim, stp;
-            switch (f->var->type) {
-            case VT_INT:
-                f->var->val.ival = gw_int_add(f->var->val.ival,
-                    gw_to_int(&f->step));
-                cur = f->var->val.ival;
-                break;
-            case VT_SNG:
-                f->var->val.fval += gw_to_sng(&f->step);
-                cur = f->var->val.fval;
-                break;
-            case VT_DBL:
-                f->var->val.dval += gw_to_dbl(&f->step);
-                cur = f->var->val.dval;
-                break;
-            default: cur = 0; break;
-            }
-            lim = gw_to_dbl(&f->limit);
-            stp = gw_to_dbl(&f->step);
-
-            /* Check termination */
-            bool done;
-            if (stp >= 0)
-                done = cur > lim;
-            else
-                done = cur < lim;
-
-            if (!done) {
-                /* Loop back */
-                gw.text_ptr = f->loop_text;
-                gw.cur_line = f->loop_line;
-                gw.cur_line_num = f->line_num;
-                return;
-            }
-
-            /* Loop done, pop stack */
-            gw.for_sp = found;
-
-            /* Check for more variables after comma */
-            gw_skip_spaces();
-            if (gw_chrgot() != ',')
-                break;
-            gw_chrget();
-        }
+        stmt_next();
         return;
     }
 
@@ -2720,7 +2788,7 @@ void gw_exec_stmt(void)
             gw_chrget();
             col = gw_eval_int();
         }
-        if (gw_hal) gw_hal->locate(row - 1, col - 1);
+        if (gw_hal) gw_hal->locate(row, col);
         /* Skip additional optional params */
         while (gw_chrgot() == ',') {
             gw_chrget();

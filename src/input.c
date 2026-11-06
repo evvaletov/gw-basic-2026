@@ -14,8 +14,14 @@
 static char *read_input_line(void)
 {
     /* Use TUI line editor when TUI is active */
-    if (tui.active)
-        return tui_read_line();
+    if (tui.active) {
+        char *line = tui_read_input();
+        if (!line) {
+            tui.break_flag = true;
+            tui_check_break();
+        }
+        return line;
+    }
 
     static char buf[256];
     if (gw_hal) gw_hal->disable_raw();
@@ -44,6 +50,7 @@ void gw_stmt_input(void)
     }
     (void)no_cr;
 
+    bool question_mark = true;
     /* Check for prompt string */
     if (gw_chrgot() == '"') {
         gw.text_ptr++;
@@ -59,14 +66,17 @@ void gw_stmt_input(void)
         if (gw_chrgot() == ';') {
             gw_chrget();
         } else if (gw_chrgot() == ',') {
+            question_mark = false;
             gw_chrget();
         }
     }
 
 retry:;
     /* Print "? " */
-    if (gw_hal) gw_hal->puts("? ");
-    else fputs("? ", stdout);
+    if (question_mark) {
+        if (gw_hal) gw_hal->puts("? ");
+        else fputs("? ", stdout);
+    }
     fflush(stdout);
 
     char *line = read_input_line();

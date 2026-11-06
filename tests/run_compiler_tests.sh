@@ -8,13 +8,16 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 COMPILE="${PROJECT_DIR}/build/gwbasic-compile"
 EXPECTED_DIR="${SCRIPT_DIR}/expected"
-WORK_DIR=$(mktemp -d)
+source "$SCRIPT_DIR/harness_common.sh"
+WORK_DIR=$(mktemp -d) || exit 1
 trap 'rm -rf "$WORK_DIR"' EXIT
 
 if [ ! -x "$COMPILE" ]; then
     echo "ERROR: gwbasic-compile not found at $COMPILE (run cmake/make first)" >&2
     exit 1
 fi
+cd "$PROJECT_DIR" || exit 1
+shopt -s nullglob
 if [ ! -f "$PROJECT_DIR/build/libgwrt.a" ]; then
     echo "ERROR: libgwrt.a not built yet (run cmake/make first)" >&2
     exit 1
@@ -55,54 +58,62 @@ for bas in "$SCRIPT_DIR"/programs/*.bas; do
         continue
     fi
 
-    cp "$bas" "$WORK_DIR/$name"
-    pushd "$WORK_DIR" > /dev/null
-    if ! "$COMPILE" -c --runtime "$PROJECT_DIR" "$name" >/dev/null 2>&1; then
-        printf "  COMPILE-FAIL  %s\n" "$name"
+    if ! cp "$bas" "$WORK_DIR/$name"; then
+        printf "  COPY-FAIL  %s\n" "$name"
         fail=$((fail + 1))
-        popd > /dev/null
+        continue
+    fi
+    compile_log="$WORK_DIR/$stem.compile.log"
+    ( cd "$WORK_DIR" && timeout --kill-after=2 "$GW_TEST_COMPILE_TIMEOUT" \
+        "$COMPILE" -c --runtime "$PROJECT_DIR" "$name" ) </dev/null > "$compile_log" 2>&1
+    status=$?
+    if [ "$status" -ne 0 ]; then
+        report_process_failure COMPILE "$name" "$status" "$GW_TEST_COMPILE_TIMEOUT" "$compile_log"
+        fail=$((fail + 1))
         continue
     fi
     if [ ! -x "$WORK_DIR/$stem" ]; then
         printf "  NO-EXE  %s\n" "$name"
         fail=$((fail + 1))
-        popd > /dev/null
         continue
     fi
-    popd > /dev/null
 
-    # Run from project root so test programs that reference tests/programs/
-    # (chain_test, common_test, run_file, misc_stmts) resolve relative paths.
-    actual=$(mktemp)
-    if ! ( cd "$PROJECT_DIR" && timeout 5 "$WORK_DIR/$stem" > "$actual" 2>&1 ); then
-        printf "  RUN-FAIL  %s\n" "$name"
+    actual="$WORK_DIR/$stem.out"
+    limit=$(runtime_timeout "$name")
+    timeout --kill-after=2 "$limit" "$WORK_DIR/$stem" </dev/null > "$actual" 2>&1
+    status=$?
+    if [ "$status" -ne 0 ]; then
+        report_process_failure RUN "$name" "$status" "$limit" "$actual"
         fail=$((fail + 1))
-        rm -f "$actual"
         continue
     fi
 
     expected="$EXPECTED_DIR/${stem}.expected"
     if [ -f "$expected" ]; then
-        normalized=$(mktemp)
-        normalized_expected=$(mktemp)
-        sed 's/\r//g; s/[[:space:]]*$//' "$actual" | sed '/^$/d' > "$normalized"
-        sed 's/\r//g; s/[[:space:]]*$//' "$expected" | sed '/^$/d' > "$normalized_expected"
-        if diff -q "$normalized_expected" "$normalized" >/dev/null 2>&1; then
-            printf "  PASS  %s\n" "$name"
-            pass=$((pass + 1))
-        else
-            printf "  DIFF  %s\n" "$name"
+        compare_output "$expected" "$actual" "$WORK_DIR" > "$WORK_DIR/diff" 2>&1
+        status=$?
+        if [ "$status" -ne 0 ]; then
+            if [ "$status" -eq 1 ]; then
+                printf "  DIFF  %s\n" "$name"
+            else
+                printf "  COMPARE-FAIL  %s\n" "$name"
+            fi
+            cat "$WORK_DIR/diff"
             fail=$((fail + 1))
+            continue
         fi
-        rm -f "$normalized" "$normalized_expected"
+        printf "  PASS  %s\n" "$name"
     else
         # No golden file: just confirm it ran without crashing.
         printf "  PASS  %s  [no expected]\n" "$name"
-        pass=$((pass + 1))
     fi
-    rm -f "$actual"
+    pass=$((pass + 1))
 done
 
 echo ""
 echo "$((pass + fail)) compiled tests: $pass passed, $fail failed ($skip skipped)"
+if [ "$((pass + fail))" -eq 0 ]; then
+    echo "ERROR: no runnable compiler tests found" >&2
+    exit 1
+fi
 [ "$fail" -eq 0 ] || exit 1

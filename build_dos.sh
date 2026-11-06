@@ -75,7 +75,14 @@ OBJS=()
 for c in "${INTERP_C[@]}"; do
     obj="${c%.c}.obj"
     OBJS+=("$obj")
-    if [ "$c" -nt "$obj" ] || [ ! -f "$obj" ]; then
+    rebuild=false
+    for dep in "$c" include/*.h; do
+        if [ ! -f "$obj" ] || [ "$dep" -nt "$obj" ]; then
+            rebuild=true
+            break
+        fi
+    done
+    if "$rebuild"; then
         printf "  CC  %s\n" "$c"
         $CC $CFLAGS -fo="$obj" "$c"
     fi

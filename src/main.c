@@ -91,12 +91,13 @@ static int parse_line_number(uint8_t *tokens, uint16_t *num)
     return 0;
 }
 
-/* Execute a direct mode line: detect line numbers -> store; otherwise execute */
-void gw_exec_direct(const char *line)
+/* Return true only when a direct command ran (and needs an Ok prompt). */
+static bool exec_direct_line(const char *line)
 {
     gw.cur_line_num = LINE_DIRECT;
     gw.cur_line = NULL;
     int len = gw_crunch(line, gw.kbuf, sizeof(gw.kbuf));
+    if (len < 0) gw_error(ERR_BO);
 
     /* Check for line number -> program storage */
     uint16_t num;
@@ -116,7 +117,7 @@ void gw_exec_direct(const char *line)
         } else {
             gw_store_line(num, data, data_len);
         }
-        return;
+        return false;
     }
 
     /* Direct mode execution with multi-statement support */
@@ -138,6 +139,12 @@ void gw_exec_direct(const char *line)
         if (gw.running)
             break;  /* RUN/CONT started, loop handles it */
     }
+    return true;
+}
+
+void gw_exec_direct(const char *line)
+{
+    (void)exec_direct_line(line);
 }
 
 static char *read_line(void)
@@ -272,13 +279,16 @@ int main(int argc, char **argv)
 
     print_banner(interactive);
 
+    bool show_ok = true;
     for (;;) {
-        if (interactive && !gw.auto_mode) {
+        if (interactive && !gw.auto_mode && show_ok) {
             gw_hal->puts("Ok\n");
         }
+        show_ok = false;
 
         if (setjmp(gw_error_jmp) != 0) {
             gw.auto_mode = false;
+            show_ok = true;
             continue;
         }
 
@@ -290,15 +300,17 @@ int main(int argc, char **argv)
                      exists ? "*" : " ");
             gw_hal->puts(prompt);
 
-            char *line = tui.active ? tui_read_line() : read_line();
+            char *line = tui.active ? tui_read_input() : read_line();
             if (!line || tui.break_flag) {
                 gw.auto_mode = false;
                 tui.break_flag = false;
+                show_ok = true;
                 continue;
             }
             /* Empty input exits AUTO mode */
             if (line[0] == '\0') {
                 gw.auto_mode = false;
+                show_ok = true;
                 continue;
             }
 
@@ -309,6 +321,7 @@ int main(int argc, char **argv)
             uint32_t next = (uint32_t)gw.auto_line + gw.auto_inc;
             if (next > 65529) {
                 gw.auto_mode = false;
+                show_ok = true;
             } else {
                 gw.auto_line = (uint16_t)next;
             }
@@ -322,7 +335,7 @@ int main(int argc, char **argv)
         if (line[0] == '\0')
             continue;
 
-        gw_exec_direct(line);
+        show_ok = exec_direct_line(line);
     }
 
     if (interactive)

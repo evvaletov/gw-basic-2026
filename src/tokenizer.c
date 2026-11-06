@@ -33,8 +33,10 @@ static int try_keyword(const char *text, int pos, const keyword_entry_t **match)
         }
 
         if (j == klen && klen > best_len) {
-            /* For alphabetic keywords, next char must not be alphanumeric */
-            if (isalpha((unsigned char)kw[0]) && kw[klen - 1] != '(' && kw[klen - 1] != '$') {
+            /* FN is immediately followed by its name (FNA). */
+            bool prefix_word = gw_keywords[i].prefix == 0 &&
+                gw_keywords[i].token == TOK_FN;
+            if (!prefix_word && isalpha((unsigned char)kw[0]) && kw[klen - 1] != '(' && kw[klen - 1] != '$') {
                 char next = text[pos + klen];
                 if (isalnum((unsigned char)next) || next == '.')
                     continue;
@@ -56,7 +58,12 @@ int gw_crunch(const char *text, uint8_t *out, int outsize)
     int in_data = 0;
     int in_string = 0;
 
-    while (text[ip] && op < outsize - 2) {
+    if (outsize <= 0) return -1;
+
+    /* Every token, including its payload, must leave room for the terminator. */
+#define NEED_BYTES(n) do { if ((n) > outsize - op - 1) goto overflow; } while (0)
+    while (text[ip]) {
+        NEED_BYTES(1);
         char ch = text[ip];
 
         /* Inside a string literal */
@@ -124,6 +131,7 @@ int gw_crunch(const char *text, uint8_t *out, int outsize)
             const keyword_entry_t *kw;
             int klen = try_keyword(text, ip, &kw);
             if (kw) {
+                NEED_BYTES(kw->prefix ? 2 : 1);
                 if (kw->prefix) {
                     out[op++] = kw->prefix;
                 }
@@ -140,13 +148,15 @@ int gw_crunch(const char *text, uint8_t *out, int outsize)
 
             /* Not a keyword: copy entire variable name (letters + digits) */
             while (isalnum((unsigned char)text[ip]) || text[ip] == '.') {
+                NEED_BYTES(1);
                 out[op++] = text[ip++];
-                if (op >= outsize - 2) break;
             }
             /* Copy type suffix if present */
             if (text[ip] == '%' || text[ip] == '!' ||
-                text[ip] == '#' || text[ip] == '$')
+                text[ip] == '#' || text[ip] == '$') {
+                NEED_BYTES(1);
                 out[op++] = text[ip++];
+            }
             continue;
         }
 
@@ -154,6 +164,7 @@ int gw_crunch(const char *text, uint8_t *out, int outsize)
         if (ch == '&') {
             char next = toupper((unsigned char)text[ip + 1]);
             if (next == 'H') {
+                NEED_BYTES(3);
                 ip += 2;
                 int16_t val = (int16_t)strtol(&text[ip], NULL, 16);
                 while (isxdigit((unsigned char)text[ip])) ip++;
@@ -163,6 +174,7 @@ int gw_crunch(const char *text, uint8_t *out, int outsize)
                 continue;
             }
             if (next == 'O' || isdigit((unsigned char)next)) {
+                NEED_BYTES(3);
                 if (next == 'O') ip += 2; else ip += 1;
                 int16_t val = (int16_t)strtol(&text[ip], NULL, 8);
                 while (text[ip] >= '0' && text[ip] <= '7') ip++;
@@ -210,6 +222,11 @@ int gw_crunch(const char *text, uint8_t *out, int outsize)
 
             double val = strtod(nbuf, &end);
             int nlen = end - nbuf;
+            if (nlen == 0) {
+                out[op++] = ch;
+                ip++;
+                continue;
+            }
 
             for (int k = 0; k < nlen; k++) {
                 if (nbuf[k] == '.')
@@ -226,15 +243,16 @@ int gw_crunch(const char *text, uint8_t *out, int outsize)
 
             if (!is_float && !is_double && suffix != '!' && suffix != '#') {
                 /* Try integer */
-                long lval = (long)val;
-                if (lval >= -32768 && lval <= 32767) {
-                    int16_t ival = (int16_t)lval;
+                if (val >= -32768 && val <= 32767) {
+                    int16_t ival = (int16_t)val;
                     if (ival >= 0 && ival <= 9) {
                         out[op++] = 0x11 + ival;
                     } else if (ival >= 10 && ival <= 255) {
+                        NEED_BYTES(2);
                         out[op++] = TOK_INT1;
                         out[op++] = (uint8_t)ival;
                     } else {
+                        NEED_BYTES(3);
                         out[op++] = TOK_INT2;
                         out[op++] = ival & 0xFF;
                         out[op++] = (ival >> 8) & 0xFF;
@@ -246,10 +264,12 @@ int gw_crunch(const char *text, uint8_t *out, int outsize)
 
             /* Double: D exponent or # suffix */
             if (is_double || suffix == '#') {
+                NEED_BYTES(9);
                 out[op++] = TOK_CONST_DBL;
                 memcpy(&out[op], &val, 8);
                 op += 8;
             } else {
+                NEED_BYTES(5);
                 /* Single: default for decimal/E numbers */
                 float fval = (float)val;
                 out[op++] = TOK_CONST_SNG;
@@ -274,6 +294,10 @@ int gw_crunch(const char *text, uint8_t *out, int outsize)
 
     out[op] = 0;  /* null terminate */
     return op;
+overflow:
+    out[0] = 0;  /* Never let callers execute a truncated line. */
+    return -1;
+#undef NEED_BYTES
 }
 
 /*
@@ -370,4 +394,56 @@ void gw_list_line(uint8_t *tokens, int len, char *out, int outsize)
     }
 
     out[op] = '\0';
+}
+
+/* Locate the end of an initially empty FOR without evaluating skipped code.
+ * NEXT J,I closes two lexical levels; return just after the matching component
+ * so the caller can still execute the remaining NEXT variables. */
+bool gw_for_exit(program_line_t *line, uint8_t *p,
+                 program_line_t **exit_line, uint8_t **exit_text, uint8_t **next_var)
+{
+    int depth = 0;
+    bool at_start = false;
+    for (; line; line = line->next, p = line ? line->tokens : NULL) {
+        uint8_t *end = line->len ? line->tokens + line->len : NULL;
+        while ((!end || p < end) && *p) {
+            uint8_t tok = *p++;
+            if (tok == ' ') continue;
+            if (tok == ':' || tok == TOK_THEN || tok == TOK_ELSE) {
+                at_start = true;
+                continue;
+            }
+            bool statement = at_start;
+            at_start = false;
+            if (tok == TOK_REM || tok == TOK_SQUOTE) break;
+            if (tok == '"') {
+                while ((!end || p < end) && *p && *p != '"') p++;
+                if ((!end || p < end) && *p) p++;
+            } else if (tok == TOK_INT1) p++;
+            else if (tok == TOK_INT2) p += 2;
+            else if (tok == TOK_CONST_SNG) p += 4;
+            else if (tok == TOK_CONST_DBL) p += 8;
+            else if (tok == TOK_PREFIX_FD || tok == TOK_PREFIX_FE || tok == TOK_PREFIX_FF) p++;
+            else if (statement && tok == TOK_FOR) depth++;
+            else if (statement && tok == TOK_NEXT) {
+                for (;;) {
+                    while ((!end || p < end) && *p == ' ') p++;
+                    uint8_t *component = p;
+                    while ((!end || p < end) && (isalnum((unsigned char)*p) || *p == '.')) p++;
+                    if ((!end || p < end) && (*p == '%' || *p == '!' || *p == '#' || *p == '$')) p++;
+                    while ((!end || p < end) && *p == ' ') p++;
+                    if (depth-- == 0) {
+                        *exit_line = line;
+                        *exit_text = p;
+                        *next_var = component;
+                        return true;
+                    }
+                    if ((end && p >= end) || *p != ',') break;
+                    p++;
+                }
+            }
+        }
+        at_start = true;
+    }
+    return false;
 }

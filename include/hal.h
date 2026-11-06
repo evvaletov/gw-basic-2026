@@ -11,7 +11,7 @@ typedef struct hal_ops {
     void (*puts)(const char *s);
     int  (*getch)(void);           /* blocking read */
     bool (*kbhit)(void);           /* key available? */
-    void (*locate)(int row, int col);
+    void (*locate)(int row, int col); /* one-based coordinates */
     int  (*get_cursor_row)(void);
     int  (*get_cursor_col)(void);
     void (*cls)(void);
@@ -41,6 +41,10 @@ typedef struct hal_ops {
     /* Lifecycle */
     void (*init)(void);
     void (*shutdown)(void);
+
+    /* Optional asynchronous keyboard break poll.  Consume only break keys;
+     * preserve other queued input for INKEY$, INPUT and ON KEY. */
+    bool (*check_break)(void);
 } hal_ops_t;
 
 extern hal_ops_t *gw_hal;

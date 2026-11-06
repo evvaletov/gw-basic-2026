@@ -133,6 +133,11 @@ static int load_file(const char *filename)
         last_num = num;
 
         int tok_len = gw_crunch(content, kbuf, sizeof(kbuf));
+        if (tok_len < 0) {
+            fprintf(stderr, "Line buffer overflow in %s at %u\n", filename, (unsigned)num);
+            fclose(f);
+            return 1;
+        }
         store_line(num, kbuf, tok_len);
     }
 
@@ -147,7 +152,9 @@ static void usage(void)
         "Options:\n"
         "  -o FILE          Output C source file (default: stdout)\n"
         "  -c               Compile to executable (invoke gcc)\n"
-        "  -O LEVEL         GCC optimization level (default: 2)\n"
+        "  -O LEVEL         Optimization tier 0..3 (default 2). Drives both the\n"
+        "                   codegen tier (O0 literal C; O1 +const-fold +dead-code;\n"
+        "                   O2 +fast-path emitter) and the gcc -O level.\n"
         "  --keep-c         Keep generated C file (with -c)\n"
         "  --runtime DIR    Path to runtime headers/library\n"
         "  --warn           Static analysis warnings\n"
@@ -155,6 +162,8 @@ static void usage(void)
         "  --safe=sanitize  Above + address/UB sanitizers (with -c)\n"
         "  --no-gc-check    Skip per-line gwrt_check_line() (no GC, no Break)\n"
         "  --fast-math      Skip division-by-zero checks\n"
+        "  --inline-arrays  Cache runtime storage of eligible numeric arrays for\n"
+        "                   direct indexing (--safe uses runtime lookups)\n"
         "  --emit-obj       Compile to object file (.o) instead of executable\n"
         "  --main-name N    Rename emitted entry point from main to N (for\n"
         "                   linking BASIC into a larger C/Fortran project)\n"
@@ -176,6 +185,7 @@ int main(int argc, char **argv)
     bool sanitize_mode = false;
     bool no_gc_check = false;
     bool fast_math = false;
+    bool inline_arrays = false;
     bool emit_obj = false;
     const char *main_name = NULL;
     unsigned long max_output_mb = 256;  /* abort runaway codegen; 0 = unlimited */
@@ -187,6 +197,9 @@ int main(int argc, char **argv)
             compile_exe = true;
         else if (strcmp(argv[i], "-O") == 0 && i + 1 < argc)
             opt_level = atoi(argv[++i]);
+        else if (argv[i][0] == '-' && argv[i][1] == 'O'
+                 && argv[i][2] >= '0' && argv[i][2] <= '9' && argv[i][3] == '\0')
+            opt_level = argv[i][2] - '0';   /* glued form: -O0..-O3 */
         else if (strcmp(argv[i], "--keep-c") == 0)
             keep_c = true;
         else if (strcmp(argv[i], "--runtime") == 0 && i + 1 < argc)
@@ -201,6 +214,8 @@ int main(int argc, char **argv)
             no_gc_check = true;
         else if (strcmp(argv[i], "--fast-math") == 0)
             fast_math = true;
+        else if (strcmp(argv[i], "--inline-arrays") == 0)
+            inline_arrays = true;
         else if (strcmp(argv[i], "--emit-obj") == 0)
             emit_obj = true;
         else if (strcmp(argv[i], "--main-name") == 0 && i + 1 < argc)
@@ -253,12 +268,19 @@ int main(int argc, char **argv)
     FILE *f = c_file ? fopen(c_file, "w") : stdout;
     if (!f) {
         fprintf(stderr, "Cannot write: %s\n", c_file);
+        for (int i = 0; i < analysis.data_count; i++)
+            free(analysis.data_pool[i]);
         return 1;
     }
+
+    if (opt_level < 0) opt_level = 0;
+    if (opt_level > 3) opt_level = 3;
 
     codegen_opts_t opts = {
         .safe_mode = safe_mode,
         .warn_mode = warn_mode,
+        .opt_level = opt_level,
+        .inline_arrays = inline_arrays,
         .no_gc_check = no_gc_check,
         .fast_math = fast_math,
         .main_name = main_name,
@@ -266,6 +288,8 @@ int main(int argc, char **argv)
         .out_path = (f == stdout) ? NULL : c_file,
     };
     codegen_emit(f, &analysis, &opts);
+    for (int i = 0; i < analysis.data_count; i++)
+        free(analysis.data_pool[i]);
 
     if (f != stdout)
         fclose(f);

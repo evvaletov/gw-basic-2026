@@ -4,8 +4,14 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-#define STRPOOL_DEFAULT_SIZE  (32 * 1024)  /* 32KB — generous vs original's ~3KB */
-#define STRPOOL_GC_THRESHOLD  4096         /* GC when less than 4KB free */
+#ifdef _M_I86
+/* Program lines, variables, and the GC scratch buffer share 64KB of near data. */
+#define STRPOOL_DEFAULT_SIZE  (8 * 1024)
+#define STRPOOL_GC_THRESHOLD  1024
+#else
+#define STRPOOL_DEFAULT_SIZE  (32 * 1024)
+#define STRPOOL_GC_THRESHOLD  4096
+#endif
 
 void strpool_init(size_t size);
 void strpool_shutdown(void);
