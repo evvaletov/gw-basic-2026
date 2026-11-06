@@ -2507,6 +2507,15 @@ static void emit_stmt(void)
         return;
     }
 
+    /* Port statements must consume whole expressions, including encoded
+     * constants, and share the interpreter's simulated device state. */
+    if (tok == TOK_OUT || tok == TOK_WAIT || tok == TOK_MOTOR) {
+        uint8_t *start = tp;
+        advance();
+        emit_delegate_stmt(start, false);
+        return;
+    }
+
     /* PSET / PRESET — delegate to runtime */
     if (tok == TOK_PSET || tok == TOK_PRESET) {
         uint8_t *start = tp;

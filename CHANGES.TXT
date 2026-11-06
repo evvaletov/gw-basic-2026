@@ -12,6 +12,8 @@ Unreleased
   - Preserve caller loop scope after an undefined GOSUB; retry the failing
     statement in the interpreter for RESUME and skip RESUME NEXT token payloads.
   - Reject spaces inside variable names or before their type suffixes.
+  - Delegate compiled OUT, WAIT and MOTOR statements to the device runtime;
+    do not interpret encoded port operands as separate statements.
   - Disable 16-bit linker far-call rewriting after reproducible FreeDOS faults.
   - Match GW-BASIC integer rounding and range checks, including FOR bounds.
   - Reset the print column after INPUT/LINE INPUT when Enter starts a new line.

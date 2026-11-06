@@ -9,6 +9,17 @@ import tempfile
 
 
 CASES = {
+    # Project port emulation, not an original-hardware reference transcript.
+    "compiled_port_statements": ('''10 P=&H61:V=4
+20 OUT P,V
+30 PRINT INP(P)
+40 WAIT P,4
+50 WAIT P,1,1
+60 MOTOR V
+70 OUT &H61,0
+80 PRINT INP(P)
+90 END
+''', "", ["4", "0"]),
     "if_nested_goto_boundary": ('''10 IF 0 THEN IF 0 THEN END ELSE GOTO 20 ELSE PRINT "OUTER"
 20 END
 ''', "", ["OUTER"]),
