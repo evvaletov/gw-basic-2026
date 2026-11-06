@@ -72,6 +72,13 @@ launches GCC without a shell, preserving paths containing spaces and metacharact
 CI tests the installed VSIX with the real binaries and uploads the package.
 See [installation and settings](vscode.md). Debugging and JetBrains remain follow-ups.
 
+### Documentation validation
+
+Pull requests now build Sphinx with warnings as errors and run ten documented
+interpreter/compiler/FFI workflows from the Markdown itself. Failure checks
+cover paths, missing RUN, ABI mismatches, markers, and timeouts. Pages deployment
+remains limited to successful `main` builds. See [local checks](development.md).
+
 ## Near-Term Priorities
 
 The harness now fails on output mismatches and process errors, with separate
@@ -101,15 +108,15 @@ Next priorities:
 1. Prepare Show HN and Lobsters posts and a FreeDOS package submission using the
    published release and clearly identified development changes
    (git-bug `dc24012`, `ab8188c`).
-2. Check Sphinx warnings and executable documentation examples on pull requests,
-   before the existing documentation deployment on `main` (git-bug `f3a24bc`).
-3. Automate FreeDOS runtime smoke tests for both DOS builds in CI. The existing
+2. Automate FreeDOS runtime smoke tests for both DOS builds in CI. The existing
    CI cross-builds do not exercise keyboard, cursor, or saved-output behavior
    (git-bug `b3de88c`).
-4. Extend gameplay coverage to random games and triage Awari/Checkers runtime
+3. Extend gameplay coverage to random games and triage Awari/Checkers runtime
    paths against original GW-BASIC (git-bug `51679f0`).
-5. Fix native `RESUME NEXT` continuation within a source line, with original
+4. Fix native `RESUME NEXT` continuation within a source line, with original
    GW-BASIC reference coverage (git-bug `b693412`).
+5. Compare semicolon INPUT cursor behavior with original GW-BASIC and synchronize
+   terminal/PRINT column state with regression coverage (git-bug `44ce26a`).
 
 ## Longer-Term Plans
 

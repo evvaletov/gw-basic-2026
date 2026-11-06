@@ -44,12 +44,14 @@ Ok
 
 Run a program file (ASCII or binary tokenized):
 
+<!-- docs-test: readme-run -->
 ```bash
 build/gwbasic tests/programs/prime_sieve.bas
 ```
 
 Compile to a native executable:
 
+<!-- docs-test: readme-compile -->
 ```bash
 build/gwbasic-compile tests/programs/fibonacci.bas -c --runtime .
 ```
@@ -67,6 +69,15 @@ files. It skips interactive, timing-dependent, and audio tests, plus helper
 programs loaded by other tests. Passing that suite does not establish full
 GW-BASIC compatibility; compiled timer and key event handlers are unsupported.
 
+Save this example as `myprog.bas`:
+
+<!-- docs-test: readme-program -->
+```basic
+10 PRINT "HELLO FROM BASIC"
+20 END
+```
+
+<!-- docs-test: readme-compiler -->
 ```bash
 # Generate C source
 build/gwbasic-compile myprog.bas -o myprog.c
