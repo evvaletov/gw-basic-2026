@@ -523,6 +523,28 @@
       "source_sha256": "e5b3c3780e437136fddb1fd943401ed228cb406cff0e91706d8f0e4875f612e4",
       "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "capture_sha256": "1783fa0a63c180b4a27c3c02a45ece8f8b74ae42f0de8a9c6266f011c4f223ba"
+    },
+    {
+      "id": "assignment_spaced_name",
+      "source": "5 ON ERROR GOTO 100\n10 A B=1:PRINT \"BAD\"\n20 END\n100 PRINT ERR;ERL:END\n",
+      "stdin": "",
+      "output": " 2  10\n",
+      "sha256": "5cf6d76275249a89f341504709866efac6d44ac16009eee86165e990b0f7958c",
+      "source_sha256": "1cb536341022850c76bd852859e97b24a3e1f0165c2f49eae9c309e6acfdadc8",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "capture_sha256": "a2ee03b2c1b591df3c2e8e23eaca491b1385398283f9b96d02e0761a9dabb6f6",
+      "adapter_sha256": "6d6bee6320f05cee44b5c81b3e16b9d13025657e5591d9605ff5cd44b90e653f"
+    },
+    {
+      "id": "assignment_spaced_suffix",
+      "source": "5 ON ERROR GOTO 100\n10 A %=1:PRINT \"BAD\"\n20 END\n100 PRINT ERR;ERL:END\n",
+      "stdin": "",
+      "output": " 2  10\n",
+      "sha256": "5cf6d76275249a89f341504709866efac6d44ac16009eee86165e990b0f7958c",
+      "source_sha256": "028c1295a2810459e18ed83a9cb061d0568988aa3fa288bbb0c994bdead268b0",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "capture_sha256": "51654a1fe60d9e00bc25bae37f04026909a3bc8ee7a060d815b1cc6ea636610b",
+      "adapter_sha256": "6d6bee6320f05cee44b5c81b3e16b9d13025657e5591d9605ff5cd44b90e653f"
     }
   ]
 }

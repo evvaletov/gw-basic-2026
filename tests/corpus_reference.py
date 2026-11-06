@@ -153,8 +153,8 @@ def main():
             text = normalize(text[:-len(MARKER + '\n')])
             (args.output / f"{case['id']}.txt").write_text(text)
             metadata['cases'].append({'id': case['id'], 'sha256': hashlib.sha256(text.encode()).hexdigest(),
-                                      'source_sha256': hashlib.sha256(source.encode('ascii')).hexdigest(),
-                                      'input_sha256': hashlib.sha256(stdin.encode('ascii')).hexdigest(),
+                                      'source_sha256': hashlib.sha256((corpus / case['source']).read_bytes() if args.suite == 'corpus' else source.encode('ascii')).hexdigest(),
+                                      'input_sha256': hashlib.sha256((corpus / case['input']).read_bytes() if args.suite == 'corpus' else stdin.encode('ascii')).hexdigest(),
                                       'capture_sha256': hashlib.sha256(transformed.encode('ascii')).hexdigest()})
             print('CAPTURED', case['id'], flush=True)
     (args.output / 'reference.json').write_text(json.dumps(metadata, indent=2) + '\n')

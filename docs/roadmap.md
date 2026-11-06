@@ -134,6 +134,10 @@ The corpus runtime checks cover only the cases listed in its fixture manifest.
 - Programs with runtime DEFTYPE changes use interpreter execution in the
   compiled executable, so native expression/array optimizations do not apply.
   Combining this path with `$EXTERN` calls is rejected with a diagnostic.
+- Native `RESUME NEXT` skips the rest of the failing line instead of resuming
+  at the next statement (`b693412`). The interpreter path handles that boundary.
+- Semicolon INPUT forms can leave TUI cursor and PRINT column state inconsistent;
+  original-console comparison and correction are tracked in `44ce26a`.
 - Most corpus games lack runtime fixtures; build success is separate evidence.
 - The interpreter rejects ASCII line labels above 32767; full GW-BASIC line
   numbering through 65529 is tracked in `58ea19c`.

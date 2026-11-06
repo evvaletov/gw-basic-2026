@@ -10,14 +10,14 @@ Unreleased
     runtime in compiled executables. Entry-prefix declarations still compile
     natively; runtime DEFTYPE with $EXTERN produces an explicit diagnostic.
   - Preserve caller loop scope after an undefined GOSUB; retry the failing
-    statement for RESUME and skip token payloads correctly for RESUME NEXT.
+    statement in the interpreter for RESUME and skip RESUME NEXT token payloads.
   - Reject spaces inside variable names or before their type suffixes.
   - Disable 16-bit linker far-call rewriting after reproducible FreeDOS faults.
   - Match GW-BASIC integer rounding and range checks, including FOR bounds.
   - Reset the print column after INPUT/LINE INPUT when Enter starts a new line.
   - Expand independent gameplay references from 13 cases/eight listings to
     23 cases/twelve listings, including Tic-Tac-Toe, Towers, Chomp and One Check.
-  - Add 52 Microsoft GW-BASIC semantic references; correct five earlier
+  - Add 54 Microsoft GW-BASIC semantic references; correct four earlier
     permissive FOR expectations against the original executable.
 
 v0.18.1

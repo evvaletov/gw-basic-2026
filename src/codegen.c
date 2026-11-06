@@ -1918,7 +1918,8 @@ static void emit_assignment(void)
     }
 
     if (cur() != TOK_EQ) {
-        EMIT("  /* expected = */\n");
+        EMIT("  gw_error(ERR_SN);\n");
+        skip_statement_tail();
         return;
     }
     advance();

@@ -132,14 +132,34 @@ class CorpusTests(unittest.TestCase):
         self.assertLess(time.monotonic() - start, 5)
 
     def test_reference_adapter_preserves_strings_and_comments(self):
-        source = '10 PRINT "INPUT:END";:INPUT "NAME";A$\n20 REM PRINT:END\n30 DEF FNA(X)=X+256:PRINT FNA(41)\n40 END\n'
+        source = '10 PRINT "INPUT:END";:INPUT "NAME";A$:PRINT TAB(10);"X"\n20 REM PRINT:END\n30 DEF FNA(X)=X+256:PRINT FNA(41)\n40 END\n'
         actual = corpus_reference.adapt(source)
         self.assertIn('PRINT #9, "INPUT:END";:PRINT #9,"NAME";"? ";:INPUT #8,A$', actual)
         self.assertIn('20 REM PRINT:END\r\n', actual)
         self.assertIn('DEF FNA(X)=X+256:PRINT #9, FNA(41)', actual)
         self.assertIn('PRINT #9,"__CORPUS_DONE__":CLOSE:SYSTEM', actual)
         self.assertIn('ON ERROR GOTO 65500', actual)
-        self.assertIn('INPUT #8,A$:CLOSE #9:OPEN "OUTPUT.TXT" FOR APPEND AS #9', actual)
+        self.assertIn('10 PRINT #9, "INPUT:END";:PRINT #9,"NAME";"? ";:INPUT #8,A$:CLOSE #9:OPEN "OUTPUT.TXT" FOR APPEND AS #9:PRINT #9, TAB(10);"X"\r\n', actual)
+
+    def test_reference_capture_crlf_hashes_load_in_runner(self):
+        shutil.copy2(Path(__file__).with_name('corpus_reference.py'), self.tests)
+        (self.corpus / 'case.bas').write_bytes(b'10 INPUT A$\r\n20 PRINT A$\r\n30 END\r\n')
+        (self.corpus / 'input.txt').write_bytes(b'OK\r\n')
+        reference = self.root / 'reference.exe'
+        reference.write_bytes(b'capture test fixture')
+        self.executable(self.root / 'flatpak',
+                        "import sys\nfrom pathlib import Path\n"
+                        "drive=Path(next(a.split('=',1)[1] for a in sys.argv if a.startswith('--filesystem=')))\n"
+                        "(drive/'OUTPUT.TXT').write_bytes(b'OK\\r\\n__CORPUS_DONE__\\r\\n')\n")
+        output = self.root / 'capture'
+        result = subprocess.run([sys.executable, str(self.tests / 'corpus_reference.py'),
+                                 '--reference-exe', str(reference), '--output', str(output)],
+                                capture_output=True, text=True, timeout=10,
+                                env=dict(os.environ, PATH=str(self.root) + os.pathsep + os.environ['PATH']))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        shutil.copy2(output / 'reference.json', self.corpus / 'reference.json')
+        shutil.copy2(output / 'case.txt', self.corpus / 'expected.txt')
+        self.assertEqual([c['id'] for c in run_corpus.load_cases(self.corpus)], ['case'])
 
     def test_reference_adapter_rejects_unsupported_io(self):
         for source in ('10 OPEN "X" FOR OUTPUT AS #1', '10 INPUT #1,A', '10 LINE INPUT A$', '0 PRINT 1'):
