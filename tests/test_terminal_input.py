@@ -21,7 +21,7 @@ before=termios.tcgetattr(0)
 r=subprocess.run(sys.argv[1:])
 after=termios.tcgetattr(0)
 print("\\nTERMINAL_RESTORED="+str(before==after),flush=True)
-sys.exit(0 if before==after else 99)
+sys.exit(r.returncode if before==after else 99)
 '''
 KEYS = {"left": "\x1b[D", "right": "\x1b[C", "home": "\x1b[H",
         "end": "\x1b[F", "backspace": "\x7f", "delete": "\x1b[3~",
@@ -60,11 +60,11 @@ class TerminalInputTests(unittest.TestCase):
         stream = pyte.Stream(screen)
         return child, screen, stream
 
-    def finish(self, child, stream):
+    def finish(self, child, stream, expected_exit=0):
         child.expect(pexpect.EOF)
         stream.feed(child.before)
         child.close()
-        self.assertEqual(child.exitstatus, 0)
+        self.assertEqual(child.exitstatus, expected_exit)
         self.assertIn("TERMINAL_RESTORED=True", child.before)
 
     def test_original_console_references(self):
@@ -129,9 +129,16 @@ class TerminalInputTests(unittest.TestCase):
                         self.assertIn("Break", child.before)
                         stream.feed(child.before + child.after)
                         child.send("SYSTEM\r")
-                    self.finish(child, stream)
+                    # Native programs report an interrupted run as exit 1.
+                    self.finish(child, stream, expected_exit=1 if marker == "Break" and mode != "interpreter" else 0)
                     if marker != "Break" or mode != "interpreter":
                         self.assertTrue(any(marker in line for line in screen.display))
+
+        # Restored termios must not hide a failing child process.
+        child, _, _ = self.spawn([sys.executable, "-c", "raise SystemExit(7)"])
+        child.expect(pexpect.EOF)
+        child.close()
+        self.assertEqual(child.exitstatus, 7)
 
     def test_pipe_and_file_input_keep_stdio_behavior(self):
         source = ('10 INPUT ;"Q";S$:PRINT "[";S$;"]"\n'
