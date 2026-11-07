@@ -2,6 +2,8 @@ GW-BASIC 2026 -- Change History
 ================================
 
 Unreleased
+  - Reuse the statement dispatcher frame for inline IF branches to avoid
+    exhausting the 16-bit DOS stack during nested error recovery.
   - Resume native error handling at source statement boundaries, including
     same-line continuations, retries, RESUME 0, and IF/ELSE entry points.
     Clear ERR on RESUME and preserve handler protection for invalid targets.

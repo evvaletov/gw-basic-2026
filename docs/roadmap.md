@@ -123,8 +123,8 @@ Next priorities:
    paths against original GW-BASIC (git-bug `51679f0`).
 4. Accept ASCII line labels through 65529 in the editor, loader, and CLI while
    preserving expression integer limits (git-bug `58ea19c`).
-5. Match original WHILE stack recovery after a trapped error and retry, using
-   the new bounded reference capture (git-bug `7611b45`).
+5. Preserve semicolon-input cursor behavior in native and file-launched runs
+   that use an echoing terminal outside the editor (git-bug `eb475bb`).
 
 ## Longer-Term Plans
 
@@ -135,6 +135,7 @@ repository for design notes and current status.
 |-------|------|---------|----------|
 | testing | Expand scripted gameplay and reference coverage beyond the curated corpus | `51679f0` | P2 |
 | compiler | Native runtime DEFTYPE storage and FFI support | `990569c` | P2 |
+| input | Track canonical terminal echo outside the full-screen editor | `eb475bb` | P2 |
 | language | Match WHILE frame recovery after a trapped error and retry | `7611b45` | P2 |
 | compiler | Export individual BASIC routines as C-callable functions | `1b7d59c` | P2 |
 | language | Accept ASCII interpreter line labels above 32767 | `58ea19c` | P2 |
@@ -165,6 +166,9 @@ The corpus runtime checks cover only the cases listed in its fixture manifest.
 - WHILE stack recovery after a trapped error and retry still differs from
   original GW-BASIC; statement continuation does not resolve this separate
   loop-frame behavior (git-bug `7611b45`).
+- Outside the full-screen editor, the operating system still echoes an input
+  newline even with `INPUT ;` or `LINE INPUT ;`. Native and file-launched
+  terminal runs need separate echo/cursor handling (git-bug `eb475bb`).
 - Most corpus games lack runtime fixtures; build success is separate evidence.
 - The interpreter rejects ASCII line labels above 32767; full GW-BASIC line
   numbering through 65529 is tracked in `58ea19c`.

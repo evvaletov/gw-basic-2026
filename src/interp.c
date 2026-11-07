@@ -958,22 +958,17 @@ static void stmt_gfx_put(void)
  * Statement Dispatcher
  * ================================================================ */
 
-static void exec_stmt(bool inline_statement);
-
 void gw_exec_stmt(void)
 {
-    exec_stmt(false);
-}
-
-static void exec_stmt(bool inline_statement)
-{
     gw_skip_spaces();
+    gw.stmt_text = gw.text_ptr;
+    gw.stmt_line = gw.cur_line;
+
+inline_statement:
     /* THEN/ELSE enter their first statement without passing NEWSTT in the
-     * original runtime. An error there retries the enclosing IF. */
-    if (!inline_statement) {
-        gw.stmt_text = gw.text_ptr;
-        gw.stmt_line = gw.cur_line;
-    }
+     * original runtime. Keep its retry point and reuse this dispatcher frame:
+     * recursive inline IF calls can exhaust the 16-bit DOS stack. */
+    gw_skip_spaces();
     uint8_t tok = gw_chrgot();
 
     if (tok == 0 || tok == ':')
@@ -2286,8 +2281,7 @@ static void exec_stmt(bool inline_statement)
                 return;
             }
             /* Execute statement(s) after THEN */
-            exec_stmt(true);
-            return;
+            goto inline_statement;
         }
 
         /* False: skip to ELSE or end of line */
@@ -2307,8 +2301,7 @@ static void exec_stmt(bool inline_statement)
             gw.cur_line_num = target->num;
             return;
         }
-        exec_stmt(true);
-        return;
+        goto inline_statement;
     }
 
     /* WHILE */

@@ -290,10 +290,11 @@ array_info_t *analysis_inlinable_array(analysis_t *a, const char name[2], gw_val
     return (ai && ai->inlinable && ai->dimmed) ? ai : NULL;
 }
 
-static void scan_tokens(analysis_t *a, uint8_t *tokens, int len, uint16_t line_num)
+static void scan_tokens(analysis_t *a, program_line_t *line)
 {
-    uint8_t *p = tokens;
-    uint8_t *end = tokens + len;
+    uint8_t *p = line->tokens;
+    uint8_t *end = line->tokens + line->len;
+    uint16_t line_num = line->num;
     /* Tracks whether the next variable seen is being assigned to.
      * Set at statement start, after FOR, READ, INPUT, LET, SWAP.
      * multi_assign: stays true across commas (for READ A,B,C / INPUT A,B). */
@@ -432,7 +433,8 @@ static void scan_tokens(analysis_t *a, uint8_t *tokens, int len, uint16_t line_n
         /* OPEN — skip the mode/filename tokens to avoid misidentifying
          * OUTPUT/INPUT/APPEND/RANDOM as variable names */
         if (tok == TOK_OPEN) {
-            while (p < end && *p && *p != ':') p++;
+            uint8_t *next = gw_statement_end(line, p);
+            p = next ? next : end;
             assign_ctx = false;
             continue;
         }
@@ -731,7 +733,7 @@ void analysis_run(analysis_t *a)
             a->data_line_map[a->data_line_count][1] = a->data_count;
         }
 
-        scan_tokens(a, line->tokens, line->len, line->num);
+        scan_tokens(a, line);
 
         /* Finalize data line mapping */
         if (a->lines[li].has_data && a->data_line_count < MAX_LINES) {
