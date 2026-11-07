@@ -54,6 +54,7 @@ void gw_init(void)
     gw_free_program();
     gw_vars_clear();
     gw_arrays_clear();
+    gw_file_close_all();
     memset(&gw, 0, sizeof(gw));
     gw.cur_line_num = LINE_DIRECT;
     for (int i = 0; i < 26; i++)
@@ -197,6 +198,9 @@ void gwrt_init(void)
     gw_hal = hal_posix_create();
 #endif
     gw_hal->init();
+    gw_vars_clear();
+    gw_arrays_clear();
+    gw_file_close_all();
     memset(&gw, 0, sizeof(gw));
     for (int i = 0; i < 26; i++)
         gw.def_type[i] = VT_SNG;
@@ -218,7 +222,9 @@ void gwrt_shutdown(void)
 {
     gw_lpt_close();
     snd_shutdown();
+    gw_vars_clear();
     gw_arrays_clear();
+    gw_file_close_all();
     strpool_shutdown();
     if (gw_hal) gw_hal->shutdown();
 }
@@ -281,34 +287,23 @@ int gwrt_gosub_pop(void)
 /* Find or auto-create an array, then index into it */
 gw_value_t *gwrt_array_elem(const char *name, int type, int ndims, int *subs)
 {
-    char n[2] = {name[0], name[1]};
+    const char *n = name;
 
     /* Find or auto-create the array */
     array_entry_t *arr = NULL;
     for (int i = 0; i < gw.array_count; i++) {
-        if (gw.arrays[i].name[0] == n[0] && gw.arrays[i].name[1] == n[1]
+        if (strcmp(gw.arrays[i].name, n) == 0
             && (int)gw.arrays[i].type == type) {
             arr = &gw.arrays[i];
             break;
         }
     }
     if (!arr) {
-        /* Auto-DIM with default size 10 per dimension */
-        if (gw.array_count >= 64) gw_error(ERR_OM);
-        arr = &gw.arrays[gw.array_count++];
-        arr->name[0] = n[0];
-        arr->name[1] = n[1];
-        arr->type = type;
-        arr->ndims = ndims;
-        arr->total_elements = 1;
-        for (int d = 0; d < ndims; d++) {
-            arr->dims[d] = 10;
-            arr->total_elements *= (11 - gw.option_base);
-        }
-        arr->data = calloc(arr->total_elements, sizeof(gw_value_t));
-        if (!arr->data) gw_error(ERR_OM);
-        for (int j = 0; j < arr->total_elements; j++)
-            arr->data[j].type = type;
+        int dims[8];
+        if (ndims < 1 || ndims > 8) gw_error(ERR_BS);
+        for (int d = 0; d < ndims; d++) dims[d] = 10;
+        gwrt_dim(n, type, ndims, dims);
+        arr = &gw.arrays[gw.array_count - 1];
     }
 
     if (ndims != arr->ndims) gw_error(ERR_BS);
@@ -329,33 +324,23 @@ gw_value_t *gwrt_array_elem(const char *name, int type, int ndims, int *subs)
 gw_value_t *gwrt_array_elem_safe(const char *name, int type, int ndims,
                                   int *subs, uint16_t line_num)
 {
-    char n[2] = {name[0], name[1]};
+    const char *n = name;
 
     /* Find or auto-create the array (same as gwrt_array_elem) */
     array_entry_t *arr = NULL;
     for (int i = 0; i < gw.array_count; i++) {
-        if (gw.arrays[i].name[0] == n[0] && gw.arrays[i].name[1] == n[1]
+        if (strcmp(gw.arrays[i].name, n) == 0
             && (int)gw.arrays[i].type == type) {
             arr = &gw.arrays[i];
             break;
         }
     }
     if (!arr) {
-        if (gw.array_count >= 64) gw_error(ERR_OM);
-        arr = &gw.arrays[gw.array_count++];
-        arr->name[0] = n[0];
-        arr->name[1] = n[1];
-        arr->type = type;
-        arr->ndims = ndims;
-        arr->total_elements = 1;
-        for (int d = 0; d < ndims; d++) {
-            arr->dims[d] = 10;
-            arr->total_elements *= (11 - gw.option_base);
-        }
-        arr->data = calloc(arr->total_elements, sizeof(gw_value_t));
-        if (!arr->data) gw_error(ERR_OM);
-        for (int j = 0; j < arr->total_elements; j++)
-            arr->data[j].type = type;
+        int dims[8];
+        if (ndims < 1 || ndims > 8) gw_error(ERR_BS);
+        for (int d = 0; d < ndims; d++) dims[d] = 10;
+        gwrt_dim(n, type, ndims, dims);
+        arr = &gw.arrays[gw.array_count - 1];
     }
 
     if (ndims != arr->ndims) gw_error(ERR_BS);
@@ -368,14 +353,9 @@ gw_value_t *gwrt_array_elem_safe(const char *name, int type, int ndims,
         if (sub < 0 || sub >= dim_size) {
             const char *suf = type == VT_INT ? "%" : type == VT_STR ? "$"
                             : type == VT_DBL ? "#" : "";
-            if (n[1])
-                fprintf(stderr, "Subscript out of range: %c%c%s(%d) at line %u"
-                        " (dimension %d, max %d)\n",
-                        n[0], n[1], suf, subs[d], line_num, d + 1, arr->dims[d]);
-            else
-                fprintf(stderr, "Subscript out of range: %c%s(%d) at line %u"
-                        " (dimension %d, max %d)\n",
-                        n[0], suf, subs[d], line_num, d + 1, arr->dims[d]);
+            fprintf(stderr, "Subscript out of range: %s%s(%d) at line %u"
+                    " (dimension %d, max %d)\n",
+                    n, suf, subs[d], line_num, d + 1, arr->dims[d]);
             gw_error(ERR_BS);
         }
         index += sub * stride;
@@ -388,7 +368,7 @@ gw_value_t *gwrt_array_elem_safe(const char *name, int type, int ndims,
 gw_value_t *gwrt_dim(const char *name, int type, int ndims, int *dims)
 {
     for (int i = 0; i < gw.array_count; i++) {
-        if (gw.arrays[i].name[0] == name[0] && gw.arrays[i].name[1] == name[1]
+        if (strcmp(gw.arrays[i].name, name) == 0
             && (int)gw.arrays[i].type == type)
             gw_error(ERR_DD);
     }
@@ -401,10 +381,9 @@ gw_value_t *gwrt_dim(const char *name, int type, int ndims, int *dims)
         total *= size;
     }
     if ((size_t)total > SIZE_MAX / sizeof(gw_value_t)) gw_error(ERR_OM);
-    if (gw.array_count >= 64) gw_error(ERR_OM);
+    if (gw.array_count >= MAX_ARRAY_TABLE) gw_error(ERR_OM);
     array_entry_t *arr = &gw.arrays[gw.array_count];
-    arr->name[0] = name[0];
-    arr->name[1] = name[1];
+    arr->name = gw_name_dup(name);
     arr->type = type;
     arr->ndims = ndims;
     arr->total_elements = total;
@@ -412,7 +391,7 @@ gw_value_t *gwrt_dim(const char *name, int type, int ndims, int *dims)
         arr->dims[d] = dims[d];
     }
     arr->data = calloc(arr->total_elements, sizeof(gw_value_t));
-    if (!arr->data) gw_error(ERR_OM);
+    if (!arr->data) { free(arr->name); gw_error(ERR_OM); }
     gw.array_count++;
     for (int j = 0; j < arr->total_elements; j++)
         arr->data[j].type = type;

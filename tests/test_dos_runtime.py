@@ -67,7 +67,7 @@ class RuntimeHarnessTests(unittest.TestCase):
                 self.assertNotIn("32", report["targets"])
                 self.assertEqual((Path(tmp) / "dos16/HIGH.TXT").read_text(), "partial guest output\n")
                 self.assertEqual(report["targets"]["16"]["captured_files"],
-                                 ["OUT.TXT", "HIGH.TXT", "O11.TXT"])
+                                 ["OUT.TXT", "HIGH.TXT", "O11.TXT", "I0.TXT", "I1.TXT", "I2.TXT", "R2.TXT"])
 
 
 if __name__ == "__main__":

@@ -2,6 +2,17 @@ GW-BASIC 2026 -- Change History
 ================================
 
 Unreleased
+  - Preserve case-insensitive variable names through 40 characters, including
+    periods, across scalar/array storage, native code, delegates and FIELD.
+    Correct the previous two-character aliasing and FOR/NEXT name comparison.
+  - Compile INPUT$ with terminal and file reads, count/file error ordering,
+    CR/LF and Ctrl-Z handling, random GET records and read-past-end error 62.
+    Preserve read order in concatenation, comparisons and nested functions.
+  - Prompt for a numeric seed when RANDOMIZE has no argument; retry invalid
+    text and match original literal parsing, integer conversion and state.
+  - Expand gameplay to 39 cases from twenty unchanged listings, adding Dice,
+    Rock–Scissors–Paper, Nim and O-player Tic-Tac-Toe sessions. Add 24 semantic
+    and 20 real-console references from the pinned Microsoft source build.
   - Preserve INPUT ; and LINE INPUT ; editing positions in file-launched and
     native POSIX terminal runs. Restore terminal settings after input, Ctrl-C
     and EOF; keep piped and file input on their stdio path. Compile POS arguments

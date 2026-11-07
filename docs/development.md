@@ -134,14 +134,14 @@ the larger local semantic matrices remain useful release checks.
 
 ### Compatibility Testing
 
-The curated corpus has 32 scripted cases from seventeen original *BASIC
+The curated corpus has 39 scripted cases from twenty original *BASIC
 Computer Games* listings. Each interpreter run and each of six compiler modes
 must match a checked-in Microsoft GW-BASIC transcript. Compiled output must also
 match the interpreter. Normalization converts CRLF to LF and removes trailing
 spaces and tabs; leading spaces and blank lines remain significant.
 
 ```bash
-# Run one case, or leave off --case to run all 32.
+# Run one case, or leave off --case to run all 39.
 bash tests/run_corpus.sh --case plot --report corpus-matrix.json
 
 # Transpile and compile all 98 listings without executing them.

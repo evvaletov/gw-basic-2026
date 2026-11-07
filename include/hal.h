@@ -50,6 +50,10 @@ typedef struct hal_ops {
      * -2 keyboard break, or -3 to use the stdio fallback. Restores terminal
      * settings before returning. The caller owns the buffer. */
     int (*read_input)(char *buf, int capacity, bool suppress_newline);
+
+    /* Optional un-echoed byte input: count read, -2 break, -3 stdio fallback.
+     * Restores the entry terminal state before returning, including on EOF. */
+    int (*read_chars)(char *buf, int count);
 } hal_ops_t;
 
 extern hal_ops_t *gw_hal;

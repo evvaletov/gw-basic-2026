@@ -178,14 +178,71 @@ class TerminalInputTests(unittest.TestCase):
                 self.finish(child, stream)
                 self.assertTrue(screen.display[0].startswith('A       Q:ABXVALUE=[ABX]'))
 
-        # INPUT$ is currently an interpreter function; native lowering remains
-        # separate work. Its stdio read must not hide queued bytes from INPUT.
         source = 'PRINT "READ:";:A$=INPUT$(1)\nLINE INPUT ;S$\nPRINT "VALUE=[";A$;":";S$;"]":SYSTEM\n'
-        child, screen, stream = self.spawn(self.command(source, "interpreter"))
-        child.expect('READ:'); stream.feed(child.before + child.after)
-        child.send('ABC\r')
-        self.finish(child, stream)
-        self.assertTrue(any('VALUE=[A:BC]' in line for line in screen.display))
+        for mode in ("interpreter", "O0", "safe"):
+            with self.subTest(mode=mode):
+                child, screen, stream = self.spawn(self.command(source, mode))
+                child.expect('READ:'); stream.feed(child.before + child.after)
+                self.assertTrue(child.waitnoecho(timeout=5))
+                child.send('ABC\r')
+                self.finish(child, stream)
+                self.assertTrue(any('VALUE=[A:BC]' in line for line in screen.display))
+
+    def test_input_chars_console_references(self):
+        cases = json.loads((ROOT / "tests/compatibility/input-functions.json").read_text())["input_chars"]
+        keys = {"a": "a", "b": "b", "shift-y": "Y", "ret": "\r", "ctrl-z": "\x1a", "left": "\x1b[D", "shift-z": "Z"}
+        for case in cases:
+            for mode in ("interpreter", "O0", "safe"):
+                with self.subTest(case=case["id"], mode=mode):
+                    child, screen, stream = self.spawn(self.command(case["source"], mode))
+                    child.expect(r"READ[0-9]:"); stream.feed(child.before + child.after)
+                    self.assertTrue(child.waitnoecho(timeout=5))
+                    child.send("".join(keys[key] for key in case["keys"]))
+                    # No final Enter: the function must finish at the requested count.
+                    self.finish(child, stream)
+                    output = next(self.root.glob("I*.TXT"))
+                    self.assertEqual([int(x) for x in output.read_text().split()], case["values"])
+                    output.unlink()
+                    self.assertRegex(screen.display[0], r"^READ[0-9]:DONE[0-9]")
+
+    def test_input_chars_break_and_pipe_bytes(self):
+        source = '10 PRINT "READ:";:A$=INPUT$(3)\n20 PRINT LEN(A$):SYSTEM\n'
+        for mode in ("interpreter", "O0", "safe"):
+            with self.subTest(mode=mode):
+                child, _, stream = self.spawn(self.command(source, mode))
+                child.expect('READ:'); stream.feed(child.before + child.after)
+                self.assertTrue(child.waitnoecho(timeout=5))
+                child.send('A\x03')
+                if mode == "interpreter":
+                    child.expect('Ok')
+                    self.assertIn('Break', child.before)
+                    child.send('SYSTEM\r')
+                self.finish(child, stream, expected_exit=0 if mode == "interpreter" else 1)
+            pipe = ('10 ON ERROR GOTO 100\n20 A$=INPUT$(3)\n'
+                    '30 FOR I=1 TO LEN(A$):PRINT ASC(MID$(A$,I,1));:NEXT I:SYSTEM\n'
+                    '100 PRINT ERR;ERL:SYSTEM\n')
+            command = self.command(pipe, mode)
+            for data, expected in ((b'A\x00B', [65, 0, 66]), (b'A', [62, 20])):
+                result = subprocess.run(command, cwd=self.root, input=data, capture_output=True, timeout=5)
+                self.assertEqual(result.returncode, 0)
+                self.assertEqual([int(x) for x in result.stdout.split()], expected)
+                self.assertEqual(result.stderr, b'')
+
+    def test_randomize_console_references(self):
+        cases = json.loads((ROOT / "tests/compatibility/input-functions.json").read_text())["randomize"]
+        for case in cases:
+            for mode in ("interpreter", "O0", "safe"):
+                with self.subTest(case=case["id"], mode=mode):
+                    child, _, stream = self.spawn(self.command(case["source"], mode))
+                    for answer in case["answers"]:
+                        child.expect_exact('Random number seed (-32768 to 32767)? ')
+                        self.assertTrue(child.waitnoecho(timeout=5))
+                        child.send(answer + '\r')
+                    self.finish(child, stream)
+                    output = next(self.root.glob('R*.TXT'))
+                    self.assertEqual([int(x) for x in output.read_text().split()], case["values"])
+                    output.unlink()
+
 
 
 if __name__ == "__main__":

@@ -164,50 +164,52 @@ static const char *c_ffi_type(gw_valtype_t t)
  * suffix excluded) WITHOUT advancing tp.  Returns the cursor position just
  * past the identifier and any trailing type-suffix character — assign it to
  * tp to consume.  Used to recognise multi-char '$EXTERN function names that
- * parse_var() would otherwise truncate to two significant characters. */
+ * parse_var() applies BASIC name-length and type rules. */
 static uint8_t *peek_full_ident(char *buf, int max)
 {
     uint8_t *p = tp;
     int i = 0;
     if (is_letter(*p)) {
-        while ((is_letter(*p) || (*p >= '0' && *p <= '9')) && i < max - 1)
+        while (gw_name_char(*p) && i < max - 1)
             buf[i++] = (char)toupper(*p++);
-        while (is_letter(*p) || (*p >= '0' && *p <= '9')) p++;
+        while (gw_name_char(*p)) p++;
     }
     buf[i] = 0;
     if (*p == '$' || *p == '%' || *p == '!' || *p == '#') p++;
     return p;
 }
 
-/* Emit a 2-char name as a C string literal: "AB" or "A" */
-static void emit_name_str(const char name[2])
+/* BASIC names are quoted literally for runtime lookup; dots need a distinct
+ * spelling in C symbols. Underscores cannot occur in a BASIC identifier. */
+static void emit_name_str(const char *name)
 {
-    if (name[1])
-        EMIT("\"%c%c\"", name[0], name[1]);
-    else
-        EMIT("\"%c\"", name[0]);
+    EMIT("\"%s\"", name);
 }
 
-/* Emit C variable name: var_AB_int */
-static void emit_varname(const char name[2], gw_valtype_t type)
+static void emit_ident(const char *name)
 {
-    if (name[1])
-        EMIT("var_%c%c_%s", toupper(name[0]), toupper(name[1]), type_suffix(type));
-    else
-        EMIT("var_%c_%s", toupper(name[0]), type_suffix(type));
+    for (; *name; name++) {
+        if (*name == '.') EMIT("_dot_");
+        else EMIT("%c", *name);
+    }
 }
 
-/* Mangled C symbol for an inlined array's backing storage.  The type is part
- * of the identity (A%() and A!() are distinct arrays), so it is encoded too. */
-static void emit_arr_sym(const char name[2], gw_valtype_t type)
+static void emit_varname(const char *name, gw_valtype_t type)
 {
-    EMIT("_gwa_%c%c_%d", name[0], name[1] ? name[1] : '_', (int)type);
+    EMIT("var_"); emit_ident(name); EMIT("_%s", type_suffix(type));
+}
+
+static void emit_arr_sym(const char *name, gw_valtype_t type)
+{
+    EMIT("_gwa_"); emit_ident(name);
+    if (!name[1]) EMIT("_");
+    EMIT("_%d", (int)type);
 }
 
 /* Keep optimized accesses on the runtime allocation. Delegated statements
  * therefore see the same elements. A generation check prevents cached pointers
  * surviving CLEAR/ERASE/CHAIN; access before DIM takes the ordinary path. */
-static void emit_elem_ptr(const char name[2], gw_valtype_t type, int ndims,
+static void emit_elem_ptr(const char *name, gw_valtype_t type, int ndims,
                           char *const sub_bufs[])
 {
     array_info_t *ai = inline_arrays ? analysis_inlinable_array(ana, name, type) : NULL;
@@ -243,17 +245,9 @@ static void emit_elem_ptr(const char name[2], gw_valtype_t type, int ndims,
 }
 
 /* Parse a variable name from the token stream, return its type */
-static gw_valtype_t parse_var(char name_out[2])
+static gw_valtype_t parse_var(char name_out[GW_NAME_SIZE])
 {
-    name_out[0] = toupper(cur());
-    name_out[1] = 0;
-    tp++;
-    if (is_letter(cur()) || (cur() >= '0' && cur() <= '9')) {
-        name_out[1] = toupper(cur());
-        tp++;
-        while (is_letter(cur()) || (cur() >= '0' && cur() <= '9'))
-            tp++;
-    }
+    if (!gw_scan_name(&tp, name_out)) codegen_error("invalid variable name");
     uint8_t suffix = cur();
     if (suffix == '$') { advance(); return VT_STR; }
     if (suffix == '%') { advance(); return VT_INT; }
@@ -553,10 +547,7 @@ static void emit_atom(void)
                 for (int vi = 0; vi < ana->var_count; vi++) {
                     var_info_t *v = &ana->vars[vi];
                     if (v->type != VT_STR) continue;
-                    if (v->name[1])
-                        EMIT("gw_var_find_or_create(\"%c%c\",%d)->val.sval=", v->name[0], v->name[1], v->type);
-                    else
-                        EMIT("gw_var_find_or_create(\"%c\",%d)->val.sval=", v->name[0], v->type);
+                    EMIT("gw_var_find_or_create(\"%s\",%d)->val.sval=", v->name, v->type);
                     emit_varname(v->name, v->type);
                     EMIT(";");
                 }
@@ -651,7 +642,7 @@ static void emit_atom(void)
         tp++;  /* skip TOK_FN */
         skip_spaces();
         /* Skip function name + arguments */
-        while (is_letter(cur()) || (cur() >= '0' && cur() <= '9')) advance();
+        while (gw_name_char(cur())) advance();
         if (cur() == '%' || cur() == '!' || cur() == '#' || cur() == '$') advance();
         skip_spaces();
         if (cur() == '(') {
@@ -682,12 +673,8 @@ static void emit_atom(void)
         EMIT("({");
         for (int vi = 0; vi < ana->var_count; vi++) {
             var_info_t *v = &ana->vars[vi];
-            if (v->name[1])
-                EMIT(" gw_var_find_or_create(\"%c%c\",%d)->val=(gw_value_t){.type=%d,",
-                     v->name[0], v->name[1], v->type, v->type);
-            else
-                EMIT(" gw_var_find_or_create(\"%c\",%d)->val=(gw_value_t){.type=%d,",
-                     v->name[0], v->type, v->type);
+            EMIT(" gw_var_find_or_create(\"%s\",%d)->val=(gw_value_t){.type=%d,",
+                     v->name, v->type, v->type);
             switch (v->type) {
             case VT_INT: EMIT(".ival="); break;
             case VT_SNG: EMIT(".fval="); break;
@@ -725,7 +712,8 @@ static void emit_atom(void)
             if (cur() == ',') advance();
             char *arg2 = emit_to_buf(emit_prec_wrapper, 0);
             if (cur() == ')') advance();
-            EMIT("(float)gfx_pmap((double)(%s), (int)(%s))", arg1, arg2);
+            EMIT("({double _coord=(double)(%s); int _func=(int)(%s);"
+                 " (float)gfx_pmap(_coord,_func);})", arg1, arg2);
             free(arg1); free(arg2);
             return;
         }
@@ -788,7 +776,7 @@ static void emit_atom(void)
         if (cur() == ',') {
             advance();
             char *y = emit_to_buf(emit_prec_wrapper, 0);
-            EMIT("gfx_point((int)(%s), (int)(%s))", x, y);
+            EMIT("({int _x=(int)(%s); int _y=(int)(%s); gfx_point(_x,_y);})", x, y);
             free(y);
         } else {
             /* POINT(n) — get current drawing position */
@@ -805,10 +793,9 @@ static void emit_atom(void)
         return;
     }
 
-    /* Extern (FFI) function call — must be checked before parse_var(), which
-     * would truncate the name to two significant characters. */
+    /* Extern (FFI) function call — must be checked before parse_var(), before applying BASIC variable type rules. */
     if (is_letter(tok)) {
-        char fname[EXTERN_NAME_MAX];
+        char fname[GW_NAME_SIZE];
         peek_full_ident(fname, sizeof fname);
         const extern_func_t *ef = analysis_find_extern(ana, fname);
         if (ef) {
@@ -829,7 +816,7 @@ static void emit_atom(void)
 
     /* Variable or array element */
     if (is_letter(tok)) {
-        char name[2];
+        char name[GW_NAME_SIZE];
         gw_valtype_t type = parse_var(name);
         skip_spaces();
         if (cur() == '(') {
@@ -945,7 +932,7 @@ static void emit_num_prec(int min_prec)
                      || *peek == ';' || *peek == TOK_THEN || *peek == TOK_ELSE
                      || *peek == TOK_TO || *peek == TOK_STEP))
                 break;
-            if (*peek == TOK_MOD || *peek == TOK_IDIV || *peek == TOK_POW
+            if (*peek == TOK_INPUT || *peek == TOK_MOD || *peek == TOK_IDIV || *peek == TOK_POW
                 || *peek == TOK_IMP || *peek == TOK_EQV
                 || *peek == TOK_GT || *peek == TOK_LT || *peek == TOK_EQ)
                 { needs_buffer = true; break; }
@@ -1084,6 +1071,13 @@ static void emit_num_prec(int min_prec)
         size_t csz = 0;
         FILE *cm = open_memstream(&combined, &csz);
 
+        /* Stream reads are observable: C does not specify operand order. */
+        bool reads_input = strstr(left, "gw_input_chars(") || strstr(right, "gw_input_chars(");
+        char *saved_left = left, *saved_right = right;
+        if (reads_input) {
+            fprintf(cm, "({__auto_type _lhs=(%s); __auto_type _rhs=(%s); ", left, right);
+            left = "_lhs"; right = "_rhs";
+        }
         if (cop) {
             fprintf(cm, "((%s %s %s) ? -1 : 0)", left, cop, right);
         } else if (op == TOK_GT || op == TOK_LT || op == TOK_EQ) {
@@ -1121,6 +1115,8 @@ static void emit_num_prec(int min_prec)
         } else {
             fprintf(cm, "(%s %s %s)", left, binop_c(op), right);
         }
+        if (reads_input) fprintf(cm, ";})");
+        left = saved_left; right = saved_right;
         fclose(cm);
 
         free(left);
@@ -1148,6 +1144,16 @@ static void emit_num_prec(int min_prec)
 static void emit_num_expr(void)
 {
     emit_num_prec(0);
+}
+
+static void emit_input_byte(void)
+{
+    if (peek_is_string_expr()) {
+        EMIT("({gw_string_t _bad="); emit_str_expr();
+        EMIT("; gw_str_free(&_bad); gw_error(ERR_TM); 0;})");
+    } else {
+        EMIT("gw_input_byte((double)("); emit_num_expr(); EMIT("))");
+    }
 }
 
 /* Emit a string atom (no concatenation) */
@@ -1183,6 +1189,24 @@ static void emit_str_atom(void)
         return;
     }
 
+    if (tok == TOK_INPUT) {
+        advance();
+        if (cur() != '$') codegen_error("expected '$' after INPUT");
+        advance();
+        if (cur() != '(') codegen_error("expected '(' after INPUT$");
+        advance();
+        EMIT("({int _n="); emit_input_byte(); EMIT("; int _f=-1;");
+        if (cur() == ',') {
+            advance();
+            if (cur() == '#') advance();
+            EMIT("_f="); emit_input_byte(); EMIT(";");
+        }
+        if (cur() != ')') codegen_error("expected ')' after INPUT$");
+        advance();
+        EMIT("gw_input_chars(_n,_f);})");
+        return;
+    }
+
     /* String functions (0xFF prefix) */
     if (tok == TOK_PREFIX_FF) {
         uint8_t func = tp[1];
@@ -1201,43 +1225,26 @@ static void emit_str_atom(void)
             if (cur() == ')') advance();
             EMIT(")}).sval");
             return;
-        case FUNC_LEFT: {
-            EMIT("gw_fn_left(&(gw_value_t){.type=VT_STR,.sval=");
-            advance(); emit_str_expr();
-            if (cur() == ',') advance();
-            EMIT("}, ");
-            emit_num_expr();
-            if (cur() == ')') advance();
-            EMIT(").sval");
-            return;
-        }
+        case FUNC_LEFT:
         case FUNC_RIGHT: {
-            EMIT("gw_fn_right(&(gw_value_t){.type=VT_STR,.sval=");
+            EMIT("({gw_value_t _s={.type=VT_STR,.sval=");
             advance(); emit_str_expr();
             if (cur() == ',') advance();
-            EMIT("}, ");
-            emit_num_expr();
+            EMIT("}; int _n="); emit_num_expr();
             if (cur() == ')') advance();
-            EMIT(").sval");
+            EMIT("; %s(&_s,_n).sval;})", func == FUNC_LEFT ? "gw_fn_left" : "gw_fn_right");
             return;
         }
         case FUNC_MID: {
-            EMIT("gw_fn_mid(&(gw_value_t){.type=VT_STR,.sval=");
+            EMIT("({gw_value_t _s={.type=VT_STR,.sval=");
             advance(); emit_str_expr();
             if (cur() == ',') advance();
-            EMIT("}, (int)(");
-            emit_num_expr();
-            EMIT("), ");
-            if (cur() == ',') {
-                advance();
-                EMIT("(int)(");
-                emit_num_expr();
-                EMIT(")");
-            } else {
-                EMIT("255");
-            }
+            EMIT("}; int _start="); emit_num_expr();
+            EMIT("; int _len=");
+            if (cur() == ',') { advance(); emit_num_expr(); }
+            else EMIT("255");
             if (cur() == ')') advance();
-            EMIT(").sval");
+            EMIT("; gw_fn_mid(&_s,_start,_len).sval;})");
             return;
         }
         case FUNC_SPACE:
@@ -1362,17 +1369,14 @@ static void emit_str_atom(void)
         char *arg1 = emit_to_buf(emit_prec_wrapper, 0);
         if (cur() == ',') advance();
         skip_spaces();
-        if (cur() == '"') {
-            /* STRING$(n, "c") — use ASCII value of first char */
-            tp++;  /* skip opening " */
-            int ch = *tp ? *tp : 32;
-            while (*tp && *tp != '"') tp++;
-            if (*tp == '"') tp++;
-            EMIT("gw_fn_strings((int)(%s), %d).sval", arg1, ch);
+        EMIT("({int _n=gw_cint((double)(%s)); ", arg1);
+        if (peek_is_string_expr()) {
+            EMIT("gw_string_t _ch="); emit_str_expr();
+            EMIT("; if (!_ch.len) gw_error(ERR_FC); int _code=(unsigned char)_ch.data[0];"
+                 " gw_str_free(&_ch); gw_fn_strings(_n,_code).sval;})");
         } else {
-            char *arg2 = emit_to_buf(emit_prec_wrapper, 0);
-            EMIT("gw_fn_strings((int)(%s), (int)(%s)).sval", arg1, arg2);
-            free(arg2);
+            EMIT("int _code=gw_cint((double)("); emit_num_expr();
+            EMIT(")); gw_fn_strings(_n,_code).sval;})");
         }
         free(arg1);
         if (cur() == ')') advance();
@@ -1381,7 +1385,7 @@ static void emit_str_atom(void)
 
     /* Extern (FFI) function call returning a string. */
     if (is_letter(tok)) {
-        char fname[EXTERN_NAME_MAX];
+        char fname[GW_NAME_SIZE];
         peek_full_ident(fname, sizeof fname);
         const extern_func_t *ef = analysis_find_extern(ana, fname);
         if (ef) {
@@ -1401,7 +1405,7 @@ static void emit_str_atom(void)
 
     /* String variable or array element */
     if (is_letter(tok)) {
-        char name[2];
+        char name[GW_NAME_SIZE];
         gw_valtype_t type = parse_var(name);
         skip_spaces();
         if (cur() == '(' && type == VT_STR) {
@@ -1459,9 +1463,9 @@ static void emit_str_expr(void)
         char *combined = NULL;
         size_t csz = 0;
         FILE *cm = open_memstream(&combined, &csz);
-        fprintf(cm, "gw_str_concat("
-                "&(gw_value_t){.type=VT_STR,.sval=%s},"
-                "&(gw_value_t){.type=VT_STR,.sval=%s}).sval",
+        fprintf(cm, "({gw_value_t _left={.type=VT_STR,.sval=%s};"
+                "gw_value_t _right={.type=VT_STR,.sval=%s};"
+                "gw_str_concat(&_left,&_right).sval;})",
                 left, right);
         fclose(cm);
         free(left);
@@ -1566,16 +1570,20 @@ static bool peek_is_string_expr(void)
     if (tok == '(') {
         advance();
         result = peek_is_string_expr();
+    } else if (tok == TOK_INPUT) {
+        uint8_t *pk = tp + 1;
+        while (*pk == ' ') pk++;
+        result = *pk == '$';
     } else if (tok == '"' || tok == TOK_STRINGS) {
         result = true;
     } else if (is_letter(tok)) {
-        char fname[EXTERN_NAME_MAX];
+        char fname[GW_NAME_SIZE];
         peek_full_ident(fname, sizeof fname);
         const extern_func_t *ef = analysis_find_extern(ana, fname);
         if (ef) {
             result = (ef->ret_type == VT_STR);
         } else {
-            char name[2];
+            char name[GW_NAME_SIZE];
             result = (parse_var(name) == VT_STR);
         }
     } else if (tok == TOK_PREFIX_FF) {
@@ -1631,15 +1639,15 @@ static gw_valtype_t peek_expr_type(void)
     skip_spaces();
     uint8_t tok = cur();
 
-    if (tok == '"' || tok == TOK_STRINGS) { tp = save; return VT_STR; }
+    if (tok == '"' || tok == TOK_STRINGS || tok == TOK_INPUT) { tp = save; return VT_STR; }
 
     /* Variable — check suffix (most important case) */
     if (is_letter(tok)) {
-        char fname[EXTERN_NAME_MAX];
+        char fname[GW_NAME_SIZE];
         peek_full_ident(fname, sizeof fname);
         const extern_func_t *ef = analysis_find_extern(ana, fname);
         if (ef) { tp = save; return ef->ret_type; }
-        char name[2];
+        char name[GW_NAME_SIZE];
         gw_valtype_t type = parse_var(name);
         tp = save;
         return type;
@@ -1771,19 +1779,23 @@ static void emit_delegate_stmt_ex(uint8_t *stmt_start, bool read_back, bool sync
                 if (*sc == '"') { sc++; while (sc < tp && *sc != '"') sc++; if (sc < tp) sc++; continue; }
                 if (*sc == TOK_CONST_SNG) { sc += 5; continue; }
                 if (*sc == TOK_CONST_DBL) { sc += 9; continue; }
-                if (*sc == (uint8_t)v->name[0]) {
-                    if (!v->name[1] || (sc + 1 < tp && sc[1] == (uint8_t)v->name[1])) {
+                if (is_letter(*sc)) {
+                    char candidate[GW_NAME_SIZE];
+                    bool valid = gw_scan_name(&sc, candidate);
+                    if (valid && strcmp(candidate, v->name) == 0) {
                         found = true; break;
                     }
+                    continue;
                 }
-                sc++;
+                if (*sc == TOK_INT1) sc += 2;
+                else if (*sc == TOK_INT2) sc += 3;
+                else if (*sc == TOK_PREFIX_FD || *sc == TOK_PREFIX_FE || *sc == TOK_PREFIX_FF) sc += 2;
+                else sc++;
+
             }
             if (!found) continue;
         }
-        if (v->name[1])
-            EMIT("    gw_var_find_or_create(\"%c%c\", %d)->val = ", v->name[0], v->name[1], v->type);
-        else
-            EMIT("    gw_var_find_or_create(\"%c\", %d)->val = ", v->name[0], v->type);
+        EMIT("    gw_var_find_or_create(\"%s\", %d)->val = ", v->name, v->type);
         EMIT("(gw_value_t){.type=%d,", v->type);
         switch (v->type) {
         case VT_INT: EMIT(".ival="); break;
@@ -1808,10 +1820,7 @@ static void emit_delegate_stmt_ex(uint8_t *stmt_start, bool read_back, bool sync
             var_info_t *v = &ana->vars[vi];
             EMIT("    ");
             emit_varname(v->name, v->type);
-            if (v->name[1])
-                EMIT(" = gw_var_find_or_create(\"%c%c\", %d)->val.", v->name[0], v->name[1], v->type);
-            else
-                EMIT(" = gw_var_find_or_create(\"%c\", %d)->val.", v->name[0], v->type);
+            EMIT(" = gw_var_find_or_create(\"%s\", %d)->val.", v->name, v->type);
             switch (v->type) {
             case VT_INT: EMIT("ival;\n"); break;
             case VT_SNG: EMIT("fval;\n"); break;
@@ -1881,7 +1890,7 @@ static void emit_print(void)
 
 static void emit_assignment(void)
 {
-    char name[2];
+    char name[GW_NAME_SIZE];
     gw_valtype_t type = parse_var(name);
     skip_spaces();
 
@@ -2028,11 +2037,7 @@ static void emit_stmt(void)
             EMIT("  {\n");
             for (int vi = 0; vi < ana->var_count; vi++) {
                 var_info_t *v = &ana->vars[vi];
-                char n0 = v->name[0], n1 = v->name[1];
-                if (n1)
-                    EMIT("    gw_var_find_or_create(\"%c%c\", %d)->val = ", n0, n1, v->type);
-                else
-                    EMIT("    gw_var_find_or_create(\"%c\", %d)->val = ", n0, v->type);
+                EMIT("    gw_var_find_or_create(\"%s\", %d)->val = ", v->name, v->type);
                 EMIT("(gw_value_t){.type=%d,", v->type);
                 switch (v->type) {
                 case VT_INT: EMIT(".ival="); break;
@@ -2095,7 +2100,7 @@ static void emit_stmt(void)
     /* FOR records the executed loop, including its continuation label. */
     if (tok == TOK_FOR) {
         advance();
-        char name[2];
+        char name[GW_NAME_SIZE];
         uint8_t *for_name = tp;
         gw_valtype_t type = parse_var(name);
         bool for_explicit_type = parsed_explicit_type(for_name);
@@ -2141,11 +2146,11 @@ static void emit_stmt(void)
             uint8_t *save = tp;
             tp = next_var;
             if (is_letter(cur())) {
-                char next_name[2];
+                char next_name[GW_NAME_SIZE];
                 uint8_t *next_start = tp;
                 gw_valtype_t next_type = parse_var(next_name);
                 bool explicit_type = parsed_explicit_type(next_start);
-                EMIT("    if (%d || ", memcmp(name, next_name, 2) != 0 || *after == '(');
+                EMIT("    if (%d || ", strcmp(name, next_name) != 0 || *after == '(');
                 if (explicit_type) EMIT("%d", next_type);
                 else EMIT("gw.def_type[%d]", next_name[0] - 'A');
                 EMIT(" != _entry_type) { gw.cur_line_num = %u; gw_error(ERR_NF); }\n", target->num);
@@ -2177,7 +2182,7 @@ static void emit_stmt(void)
             skip_spaces();
             EMIT("  _gw_loop = gwrt_for_next(");
             if (is_letter(cur())) {
-                char name[2];
+                char name[GW_NAME_SIZE];
                 gw_valtype_t type = parse_var(name);
                 EMIT("&");
                 emit_varname(name, type);
@@ -2302,7 +2307,7 @@ static void emit_stmt(void)
         while (cur() && cur() != ':' && cur() != 0) {
             skip_spaces();
             if (!is_letter(cur())) break;
-            char name[2];
+            char name[GW_NAME_SIZE];
             gw_valtype_t type = parse_var(name);
             skip_spaces();
             if (cur() != '(') break;
@@ -2345,17 +2350,16 @@ static void emit_stmt(void)
         advance();
         /* Parse both operands, emit as pointer swaps */
         EMIT("  {\n");
-        char sw_names[2][2];
+        char sw_names[2][GW_NAME_SIZE];
         gw_valtype_t sw_types[2];
         bool sw_is_scalar[2] = {false, false};
         for (int si = 0; si < 2; si++) {
             skip_spaces();
             if (si == 1 && cur() == ',') advance();
             skip_spaces();
-            char name[2];
+            char name[GW_NAME_SIZE];
             gw_valtype_t type = parse_var(name);
-            sw_names[si][0] = name[0];
-            sw_names[si][1] = name[1];
+            strcpy(sw_names[si], name);
             sw_types[si] = type;
             skip_spaces();
             if (cur() == '(') {
@@ -2450,12 +2454,12 @@ static void emit_stmt(void)
     if (tok == TOK_RANDOMIZE) {
         advance();
         skip_spaces();
-        if (cur() && cur() != ':' && cur() != 0) {
+        if (cur() && cur() != ':' && cur() != TOK_ELSE && cur() != TOK_SQUOTE && cur() != 0) {
             EMIT("  gw_randomize(gw_cint(");
             emit_num_expr();
             EMIT("));\n");
         } else {
-            EMIT("  { extern uint32_t gw_rnd_seed; gw_rnd_seed = (uint32_t)time(NULL) & 0xFFFFFFu; }\n");
+            EMIT("  gw_randomize_prompt();\n");
         }
         return;
     }
@@ -2842,7 +2846,7 @@ static void emit_stmt(void)
         while (cur() && cur() != ':' && cur() != 0) {
             skip_spaces();
             if (is_letter(cur())) {
-                char name[2];
+                char name[GW_NAME_SIZE];
                 gw_valtype_t type = parse_var(name);
                 skip_spaces();
                 if (cur() == '(') {
@@ -2946,10 +2950,7 @@ static void emit_stmt(void)
         /* Sync string variables to interpreter table */
         for (int vi = 0; vi < ana->var_count; vi++) {
             var_info_t *v = &ana->vars[vi];
-            if (v->name[1])
-                EMIT("    gw_var_find_or_create(\"%c%c\", %d)->val = ", v->name[0], v->name[1], v->type);
-            else
-                EMIT("    gw_var_find_or_create(\"%c\", %d)->val = ", v->name[0], v->type);
+            EMIT("    gw_var_find_or_create(\"%s\", %d)->val = ", v->name, v->type);
             EMIT("(gw_value_t){.type=%d,", v->type);
             switch (v->type) {
             case VT_INT: EMIT(".ival="); break;
@@ -2974,10 +2975,7 @@ static void emit_stmt(void)
             if (v->type != VT_STR) continue;
             EMIT("    ");
             emit_varname(v->name, v->type);
-            if (v->name[1])
-                EMIT(" = gw_var_find_or_create(\"%c%c\", %d)->val.sval;\n", v->name[0], v->name[1], v->type);
-            else
-                EMIT(" = gw_var_find_or_create(\"%c\", %d)->val.sval;\n", v->name[0], v->type);
+            EMIT(" = gw_var_find_or_create(\"%s\", %d)->val.sval;\n", v->name, v->type);
         }
         EMIT("  }\n");
         return;

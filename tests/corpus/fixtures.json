@@ -357,6 +357,81 @@
         26,
         1340
       ]
+    },
+    {
+      "id": "rockscissors-rounds",
+      "source": "rockscissors.bas",
+      "input": "inputs/rockscissors-rounds.txt",
+      "expected": "expected/rockscissors-rounds.txt",
+      "features": [
+        "random choices",
+        "win/loss/tie",
+        "final score"
+      ]
+    },
+    {
+      "id": "rockscissors-retry",
+      "source": "rockscissors.bas",
+      "input": "inputs/rockscissors-retry.txt",
+      "expected": "expected/rockscissors-retry.txt",
+      "features": [
+        "game-count retry",
+        "invalid move retry"
+      ]
+    },
+    {
+      "id": "dice-replay",
+      "source": "dice.bas",
+      "input": "inputs/dice-replay.txt",
+      "expected": "expected/dice-replay.txt",
+      "features": [
+        "dice histogram",
+        "array reset",
+        "replay"
+      ]
+    },
+    {
+      "id": "dice-zero",
+      "source": "dice.bas",
+      "input": "inputs/dice-zero.txt",
+      "expected": "expected/dice-zero.txt",
+      "features": [
+        "empty FOR range",
+        "zero histogram"
+      ]
+    },
+    {
+      "id": "nim-normal",
+      "source": "nim.bas",
+      "input": "inputs/nim-normal.txt",
+      "expected": "expected/nim-normal.txt",
+      "features": [
+        "two piles",
+        "computer move",
+        "normal-play ending"
+      ]
+    },
+    {
+      "id": "nim-replay",
+      "source": "nim.bas",
+      "input": "inputs/nim-replay.txt",
+      "expected": "expected/nim-replay.txt",
+      "features": [
+        "instructions",
+        "invalid setup and moves",
+        "normal/misere replay"
+      ]
+    },
+    {
+      "id": "tictactoe-o-loss",
+      "source": "tictactoe2.bas",
+      "input": "inputs/tictactoe-o-loss.txt",
+      "expected": "expected/tictactoe-o-loss.txt",
+      "features": [
+        "O-player branch",
+        "occupied-square retry",
+        "computer win"
+      ]
     }
   ]
 }

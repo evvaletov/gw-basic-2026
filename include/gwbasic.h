@@ -44,9 +44,12 @@ void gw_lpt_close(void);
 /* Line number parsing helper (interp.c) */
 bool read_linenum(uint16_t *out);
 
-/* Variables (vars.c) */
-gw_valtype_t gw_parse_varname(char name_out[2]);
-var_entry_t *gw_var_find_or_create(const char name[2], gw_valtype_t type);
+/* Variables (vars.c): case-insensitive names, 1-40 characters. */
+bool gw_name_char(uint8_t ch);
+bool gw_scan_name(uint8_t **text, char name[GW_NAME_SIZE]);
+char *gw_name_dup(const char *name);
+gw_valtype_t gw_parse_varname(char name_out[GW_NAME_SIZE]);
+var_entry_t *gw_var_find_or_create(const char *name, gw_valtype_t type);
 void gw_var_assign(var_entry_t *var, gw_value_t *val);
 void gw_vars_clear(void);
 void gw_stmt_deftype(gw_valtype_t type);
@@ -54,7 +57,7 @@ void gw_stmt_swap(void);
 
 /* Arrays (arrays.c) */
 void gw_stmt_dim(void);
-gw_value_t *gw_array_element(const char name[2], gw_valtype_t type);
+gw_value_t *gw_array_element(const char *name, gw_valtype_t type);
 void gw_stmt_erase(void);
 void gw_stmt_option(void);
 void gw_arrays_clear(void);
@@ -64,6 +67,9 @@ extern unsigned long gw_array_generation;
 /* Input (input.c) */
 void gw_stmt_input(void);
 void gw_stmt_line_input(void);
+int gw_input_byte(double value);
+gw_string_t gw_input_chars(int count, int filenum);
+void gw_randomize_prompt(void);
 
 /* DEF FN evaluation (interp.c) */
 gw_value_t gw_eval_fn_call(void);

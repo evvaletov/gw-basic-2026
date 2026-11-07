@@ -43,8 +43,8 @@
 #define ERR_AO  56   /* File already open */
 #define ERR_IO  58   /* Device I/O Error */
 #define ERR_FE  60   /* File already exists */
-#define ERR_FL  62   /* Disk full */
-#define ERR_EF  63   /* Input past end */
+#define ERR_FL  61   /* Disk full */
+#define ERR_EF  62   /* Input past end */
 #define ERR_RN  64   /* Bad record number */
 #define ERR_NM  65   /* Bad file name */
 #define ERR_DS  67   /* Direct statement in file */

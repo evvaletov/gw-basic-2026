@@ -16,9 +16,9 @@ bash tests/run_corpus.sh --case plot --mode O2
 python3 tests/test_corpus.py
 ```
 
-`fixtures.json` selects 32 cases from seventeen listings. Inputs are fixed.
+`fixtures.json` selects 39 cases from twenty listings. Inputs are fixed.
 Random games use the original default RND sequence in a fresh process; no case
-uses the current date or RANDOMIZE. Twenty-eight cases finish naturally with
+uses the current date or RANDOMIZE. Thirty-five cases finish naturally with
 `END`, two stop at documented input checkpoints, and two reproduce errors in
 the original listings. The vendored listing bytes remain unchanged.
 
@@ -32,13 +32,16 @@ the original listings. The vendored listing bytes remain unchanged.
 | Weekday | same date, Friday the 13th, pre-1582 date | Multiple INPUT fields, FN, branches |
 | Calendar | complete 1979 calendar | Arrays, ON GOTO, DATA |
 | Literature Quiz | four wrong answers | INPUT, zero-score branch |
-| Tic-Tac-Toe 2 | loss, draw, invalid moves | Board arrays, nested branches, complete games |
+| Tic-Tac-Toe 2 | X/O play, loss, draw, invalid moves | Board arrays, nested branches, complete games |
 | Towers | two/three disks, invalid-move recovery | FOR/GOSUB scope, complete solutions, TAB after INPUT |
 | Chomp | normal game, rules and invalid inputs | Nested arrays, player rotation, input validation |
 | One Check | jumps and rejection, replay | Board updates, replay state, input validation |
 | Hi-Lo | two wins with replay, six-guess loss | Default RND sequence, high/low feedback, accumulated winnings |
 | Bagels | retries and two wins, twenty-guess loss | Distinct random digits, PICO/FERMI feedback, answer reveal |
 | Craps | loss followed by replay win | RND(0), dice sequence, running wager balance |
+| Rock–Scissors–Paper | win/loss/tie, invalid setup and moves | Random choices, final score |
+| Dice | 100 rolls, replay and zero rolls | Histogram, array reset, empty FOR range |
+| Nim | two piles, instructions/retries, replay with misere rules | Computer moves, normal/misere endings |
 | Awari | three invalid inputs; first legal move | Input checkpoint; original error 26 at line 230 |
 | Checkers | opening with invalid input; computer capture | Input checkpoint; original error 26 at line 1340 |
 
