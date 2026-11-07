@@ -109,7 +109,7 @@ retry:;
         if (ch == 0 || ch == ':')
             break;
 
-        char name[2];
+        char name[GW_NAME_SIZE];
         gw_valtype_t type = gw_parse_varname(name);
 
         gw_skip_spaces();
@@ -223,7 +223,7 @@ void gw_stmt_line_input(void)
             gw_chrget();
     }
 
-    char name[2];
+    char name[GW_NAME_SIZE];
     gw_valtype_t type = gw_parse_varname(name);
     if (type != VT_STR)
         gw_error(ERR_TM);
@@ -246,5 +246,132 @@ void gw_stmt_line_input(void)
     } else {
         var = gw_var_find_or_create(name, type);
         gw_var_assign(var, &val);
+    }
+}
+
+/* INPUT$ converts its count before the file expression, but rejects count zero
+ * only after validating the file and closing parenthesis. Keep those stages
+ * separate so errors and argument side effects retain their original order. */
+int gw_input_byte(double value)
+{
+    int n = gw_cint(value);
+    if (n < 0 || n > 255) gw_error(ERR_FC);
+    return n;
+}
+
+static void input_break(void)
+{
+    if (tui.active) {
+        tui.break_flag = true;
+        tui_check_break();
+    }
+    if (gw_hal) gw_hal->puts("\nBreak\n");
+    gw.running = false;
+    longjmp(gw_error_jmp, -1);
+}
+
+gw_string_t gw_input_chars(int count, int filenum)
+{
+    file_entry_t *file = NULL;
+    if (filenum != -1) {
+        if (filenum == 0) gw_error(ERR_BN);
+        if (filenum < 0 || filenum > 255) gw_error(ERR_FC);
+        if (filenum > 15 || !gw.files[filenum].fp) gw_error(ERR_BM);
+        file = &gw.files[filenum];
+        if (file->mode != 'I' && file->mode != 'R') gw_error(ERR_BM);
+    }
+    if (count < 1 || count > 255) gw_error(ERR_FC);
+    char buf[255];
+    int n = 0;
+    if (!file && tui.active) {
+        tui_refresh();
+        tui_update_cursor();
+    }
+    if (!file && !tui.active && gw_hal && gw_hal->read_chars) {
+        n = gw_hal->read_chars(buf, count);
+        if (n == -2) input_break();
+        if (n == -3) n = 0;
+        else if (n != count) gw_error(ERR_EF);
+    }
+    while (n < count) {
+        int ch;
+        if (file) {
+            if (file->eof_flag) ch = EOF;
+            else if (file->mode == 'R') {
+                if (file->input_pos >= file->record_len) gw_error(ERR_FO);
+                ch = file->field_buf[file->input_pos++];
+            } else ch = fgetc(file->fp);
+            if (ch == EOF || ch == 26) {
+                file->eof_flag = true;
+                gw_error(ERR_EF);
+            }
+        } else {
+            ch = tui_pop_key();
+            if (ch < 0) {
+                if (tui.active) ch = tui_read_key();
+                else if (gw_hal) ch = gw_hal->getch();
+                else ch = getchar();
+            }
+            if (ch < 0) gw_error(ERR_EF);
+            if (ch == 3) input_break();
+            if (ch > 255) continue;  /* INPUT$ ignores extended/function keys. */
+        }
+        buf[n++] = (char)ch;
+    }
+    gw_string_t result = gw_str_alloc(count);
+    memcpy(result.data, buf, count);
+    return result;
+}
+
+/* RANDOMIZE reads a numeric literal, not an expression. Tokenizing only the
+ * literal reuses BASIC's decimal, D-exponent, hex/octal and type-suffix rules
+ * without borrowing or changing the interpreter's statement/retry cursor. */
+static bool randomize_literal(const char *line, double *value)
+{
+    char compact[258];
+    int len = 0;
+    for (; *line; line++)
+        if (*line != ' ' && *line != '\t') compact[len++] = *line;
+    /* FIN treats an omitted exponent as zero, including 1E and 1D+. */
+    int exponent = len - 1;
+    if (exponent >= 0 && (compact[exponent] == '+' || compact[exponent] == '-')) exponent--;
+    if (exponent > 0 && (toupper((unsigned char)compact[exponent]) == 'E' ||
+                         toupper((unsigned char)compact[exponent]) == 'D')) compact[len++] = '0';
+    compact[len] = 0;
+    uint8_t tokens[300];
+    if (gw_crunch(compact, tokens, sizeof(tokens)) < 0) return false;
+    uint8_t *p = tokens;
+    while (*p == ' ') p++;
+    int sign = 1;
+    if (*p == TOK_PLUS || *p == TOK_MINUS) {
+        if (*p == TOK_MINUS) sign = -1;
+        p++;
+        while (*p == ' ') p++;
+    }
+    double v = 0;
+    if (*p >= 0x11 && *p <= 0x1a) v = *p++ - 0x11;
+    else if (*p == TOK_INT1) { v = p[1]; p += 2; }
+    else if (*p == TOK_INT2) { v = (int16_t)(p[1] | ((uint16_t)p[2] << 8)); p += 3; }
+    else if (*p == TOK_CONST_SNG) { float f; memcpy(&f, p + 1, 4); v = f; p += 5; }
+    else if (*p == TOK_CONST_DBL) { memcpy(&v, p + 1, 8); p += 9; }
+    else if (*p) return false;
+    while (*p == ' ') p++;
+    if (*p) return false;
+    *value = sign * v;
+    return true;
+}
+
+void gw_randomize_prompt(void)
+{
+    for (;;) {
+        const char *prompt = "Random number seed (-32768 to 32767)? ";
+        if (gw_hal) gw_hal->puts(prompt); else fputs(prompt, stdout);
+        fflush(stdout);
+        char *line = read_input_line(false);
+        if (!line) gw_error(ERR_EF);
+        double value;
+        if (!randomize_literal(line, &value)) continue;
+        gw_randomize(gw_cint(value));
+        return;
     }
 }

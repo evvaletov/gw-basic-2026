@@ -35,6 +35,12 @@ Explicit suffixes override the default. Different types have separate storage:
 after `A=1.5:DEFSTR A:A="text"`, `A` and `A$` contain the string, while `A!`
 still contains 1.5. Arrays follow the same rule.
 
+Variable names are case-insensitive and retain up to 40 significant characters.
+They start with a letter and can then contain letters, digits and periods. A
+type suffix is separate from that limit. `A.LEFT`, `A.RIGHT`, `ALPHA` and
+`ALPINE` are distinct names in both the interpreter and compiled code; arrays,
+FOR counters, INPUT/READ, FIELD bindings and DEF FN parameters use the same names.
+
 ## Operators
 
 `+`, `-`, `*`, `/`, `^`, `\` (integer div), `MOD`, `AND`, `OR`, `XOR`, `EQV`,
@@ -55,13 +61,30 @@ from its normalized single-precision mantissa. Interpreter and compiled code
 use the same argument behavior. `RANDOMIZE n` converts n to a signed 16-bit
 integer, replaces the upper two state bytes and advances once, matching the
 original. Repeating a seed can produce a different sequence because its low
-state byte is retained. The no-argument interactive seed prompt remains
-unimplemented; it does not have original-reference parity.
+state byte is retained. With no argument, `RANDOMIZE` prompts with
+`Random number seed (-32768 to 32767)? ` and reads a numeric literal. An empty
+answer seeds with zero; invalid text or an expression such as `1+1` prompts
+again. Decimal, D-exponent, hexadecimal/octal and type-suffixed literals are
+accepted, including spaces inside the number. Integer conversion and overflow
+match the explicit form. The prompt works in the editor, ordinary terminals,
+pipes and native executables.
 
 ## String Functions
 
 `LEN`, `ASC`, `CHR$`, `VAL`, `STR$`, `LEFT$`, `RIGHT$`, `MID$`, `SPACE$`,
 `STRING$`, `HEX$`, `OCT$`, `INSTR`, `INPUT$`
+
+`INPUT$(count[, [#]file])` reads 1 through 255 characters, with CINT conversion
+of numeric arguments. It works in native string expressions as well as the
+interpreter. Keyboard reads finish without Enter, do not echo, and ignore
+extended/function keys; CR, Ctrl-Z and NUL are ordinary input bytes. File reads
+preserve CR/LF and stop at Ctrl-Z or EOF with error 62 (Input past end). Random
+files read the current GET record; reading beyond that record raises error 50
+(FIELD overflow). An unopened/output/append file raises error 54. A short read
+raises an error rather than assigning a partial string. Argument evaluation and
+multiple reads in an expression preserve their left-to-right order, including
+POINT coordinates and the string argument of STRING$. EOF queries leave the
+current random-file record available to INPUT$.
 
 ## File Functions
 
@@ -446,8 +469,8 @@ on typed Ctrl-C and EOF. Tabs printed before a prompt and modified ANSI arrow
 keys preserve the editing position. Piped stdin and file input keep their stdio
 behavior. The supported editing model is byte-oriented; very small or resized
 terminals, UTF-8 character editing and external-signal cleanup remain follow-ups
-listed in the [roadmap](roadmap.md). Native INPUT$ lowering is also separate work;
-interpreter INPUT$ followed by line input preserves queued terminal bytes.
+listed in the [roadmap](roadmap.md). INPUT$ followed by line input preserves
+queued terminal bytes in both the interpreter and compiled programs.
 
 ## Event Trapping
 

@@ -101,14 +101,18 @@ round trips; expression INTEGER limits remain unchanged (`58ea19c`).
 The harness now fails on output mismatches and process errors, with separate
 limits for audio, timer, and compilation tests (git-bug `54f3aa6`).
 
-The curated compatibility suite checks 32 scripted cases from seventeen original
+The curated compatibility suite checks 39 scripted cases from twenty original
 listings against Microsoft GW-BASIC output and across six compiler modes.
-Hi-Lo, Bagels and Craps include complete random games and replay. Awari and
+Hi-Lo, Bagels, Craps, Rock–Scissors–Paper and Dice include complete random
+games or simulations, retries and replay. Nim covers normal/misere endings,
+and Tic-Tac-Toe includes both X and O play. Awari and
 Checkers have input checkpoints and expected original-listing failures: FOR
 without NEXT at lines 230 and 1340, respectively. These are documented dialect
 limitations, not successful complete games. The interpreter and compiler now
 share the original RND initial state, sequence, argument behavior and explicit
-RANDOMIZE seeding. The 98-listing build audit has
+RANDOMIZE seeding, including the no-argument seed prompt. Full variable names
+(up to 40 characters, including periods) and native INPUT$ have independent
+reference coverage. The 98-listing build audit has
 97 successes and one syntax rejection: Super Star Trek's unspaced `TO`, also
 rejected by Microsoft GW-BASIC. Broader gameplay coverage stays open (`51679f0`).
 
@@ -130,14 +134,13 @@ Next priorities:
 1. Prepare Show HN and Lobsters posts and a FreeDOS package submission using the
    published release and clearly identified development changes
    (git-bug `dc24012`, `ab8188c`).
-2. Verify dotted variable names against original GW-BASIC and repair parsing
-   (git-bug `b036f08`).
-3. Extend the gameplay corpus to the interactive RANDOMIZE prompt and more games;
-   decide whether to provide separately labeled GW-BASIC ports of listings
-   with original dialect errors (git-bug `51679f0`).
-4. Harden ordinary terminal input for resizing, very small viewports and
-   signal-driven shutdown (git-bug `b1cdad6`).
-5. Implement native INPUT$ for terminal and file reads (git-bug `c4b8db7`).
+2. Harden ordinary terminal input for resizing, very small viewports, encoding
+   and signal-driven shutdown (git-bug `b1cdad6`).
+3. Expand gameplay beyond the twenty covered listings; assess separately labeled
+   GW-BASIC ports of original-dialect failures (git-bug `51679f0`).
+4. Add native runtime DEFTYPE storage and FFI support (git-bug `990569c`).
+5. Tighten documentation-runner fence parsing and process/output cleanup
+   (git-bug `a83cc1e`).
 
 ## Longer-Term Plans
 
@@ -147,11 +150,9 @@ repository for design notes and current status.
 | Theme | Item | git-bug | Priority |
 |-------|------|---------|----------|
 | testing | Expand scripted gameplay and reference coverage beyond the curated corpus | `51679f0` | P2 |
-| compiler | Native INPUT$ function lowering | `c4b8db7` | P2 |
 | input | Tiny/resized ordinary terminals, encoding and signal cleanup | `b1cdad6` | P2 |
 | compiler | Native runtime DEFTYPE storage and FFI support | `990569c` | P2 |
 | compiler | Export individual BASIC routines as C-callable functions | `1b7d59c` | P2 |
-| language | Original-reference triage and parsing of dotted names | `b036f08` | P2 |
 | testing | Tighten documentation-runner fence parsing and process/output cleanup | `a83cc1e` | P2 |
 | language | FORTRAN-style `WRITE` formatted I/O | `a6e99af` | P2 |
 | language | C-style `PRINTF` / `FPRINTF` | `cd8750c` | P2 |
@@ -175,18 +176,11 @@ The corpus runtime checks cover only the cases listed in its fixture manifest.
 - Programs with runtime DEFTYPE changes use interpreter execution in the
   compiled executable, so native expression/array optimizations do not apply.
   Combining this path with `$EXTERN` calls is rejected with a diagnostic.
-- RANDOMIZE without an argument lacks the original interactive seed prompt.
-  Explicit seed values have reference coverage; the corpus games use the default
-  startup sequence.
 - Ordinary-terminal input is tested with 80-column, 24/25-row byte-oriented
   displays. Very small viewports, resize reconciliation, UTF-8 character editing
   and restoration after external termination signals remain follow-up work
   (`b1cdad6`). Typed Ctrl-C and EOF are covered.
-- Native INPUT$ currently lacks lowering; use the interpreter for this function
-  until `c4b8db7` is implemented.
 - Most corpus games lack runtime fixtures; build success is separate evidence.
-- Dotted variable names currently raise a syntax error in the runtime parser;
-  tokenizer/parser and original-GW-BASIC triage is tracked in `b036f08`.
 - The compiler reads ASCII source. Save tokenized files with `SAVE "file.bas",A`
   before compiling them.
 - `DATE$` and `TIME$` assignments change a process-local clock offset and leave

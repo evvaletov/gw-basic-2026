@@ -1,6 +1,6 @@
 # Focused GW-BASIC semantics
 
-`semantics.json` contains 97 programs and output captured from Microsoft
+`semantics.json` contains 121 programs and output captured from Microsoft
 GW-BASIC source build (JWasm, 2023-10-03) on 2026-11-06 and 2026-11-07.
 This is the pinned source build, not a claim of retail 3.23 identity. It covers FOR-entry evaluation and errors, lexical NEXT
 matching, GOSUB loop scope, executed DEFTYPE changes, typed arrays, and integer
@@ -36,7 +36,7 @@ control: its loop prints 3, 2, and 1. Earlier notes that counted all five as
 rejected paths were incorrect.
 
 A case-level adapter hash overrides the manifest default when a later capture
-used a revised capture script. The 20 cases marked `native` exercise RESUME
+used a revised capture script. The first 20 cases marked `native` exercise RESUME
 continuations, retries, RESUME 0, handler state, and IF/ELSE boundaries. The
 regression runner verifies that these use native generated code in every
 compiler mode. Earlier RESUME cases with late DEFTYPE declarations still
@@ -72,3 +72,36 @@ condition. An error reports WHILE's line, but retrying that WEND raises error 30
 Monte Carlo, binary-search guessing game and interactive issue-6 answer tests
 after correcting explicit RANDOMIZE. Their previous expectations used the old
 generator. END is appended only to close the two no-END reference captures.
+
+The November 7 name/INPUT$ milestone adds 24 semantic captures: distinct full
+names and periods, the 40-character boundary, typed arrays, delegated INPUT/READ,
+FN parameters, FIELD, and mismatched NEXT names; INPUT$ argument conversion and
+error order, sequential bytes, Ctrl-Z/EOF, random GET records/overflow, partial
+reads, nested expressions and PRINT# state. `file_io: true` preserves explicit
+OPEN/CLOSE/PRINT# in these fixtures; files #8/#9 belong to the adapter and must
+remain open. `files_hex` supplies exact initial bytes for both capture and tests.
+No file fixture modifies a vendored game. A 41-character name is independently
+rejected by the reference and checked as malformed source in the regression runner.
+
+`input-functions.json` adds 17 RANDOMIZE and three INPUT$ real-console captures.
+The sources save numeric results to files. Seed cases cover retries, empty and
+signed input, rounding/overflow, hexadecimal, D-exponents, suffixes, internal
+spaces and incomplete exponents. INPUT$ measures raw controls, ignored extended
+keys and unchanged cursor positions. The reference filters arrows/function keys;
+the first exploratory arrow-only run timed out and is not counted as a capture.
+The source build is the same pinned Microsoft/JWasm executable, not retail 3.23.
+
+Both PTY suites replay these sources in the editor and ordinary terminals; the
+ordinary suite also runs native O0/safe. Seed literals additionally run through
+all sixteen native modes using equivalent numeric PRINT probes and prompt
+counts. Source, raw-result and executable hashes retain their provenance.
+
+Review follow-up adds original references for EOF queries preserving a GET
+record, STRING$ accepting INPUT$ as its string argument (and rejecting empty
+strings), and POINT evaluating input coordinates in order. A separate native
+PMAP regression checks interpreter agreement for read order; it does not claim
+original PMAP numeric parity. The POINT case marks
+`sixel_output`: the host runner removes only terminal Sixel image sequences and
+compares the numeric result; it makes no pixel-rendering equivalence claim.
+The DOS CI smoke also replays all three byte-input console sources and the seed
+retry case, checking saved numbers, prompts and completion screens.

@@ -222,7 +222,11 @@ static void dos_cls(void)
 }
 
 static void dos_set_width(int cols) { (void)cols; }
-static void dos_enable_raw(void)  { }
+static void dos_enable_raw(void)
+{
+    /* Console stdio input updates the BIOS cursor outside the HAL. */
+    bios_get_cursor(&cursor_row, &cursor_col);
+}
 static void dos_disable_raw(void) { }
 
 static void dos_write_raw(const char *data, int len)

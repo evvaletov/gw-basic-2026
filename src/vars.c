@@ -5,30 +5,24 @@
 
 /*
  * Variable storage - reimplements PTRGET from GWMAIN.ASM.
- * Variable names: first 2 chars significant, case-insensitive.
+ * Variable names: up to 40 significant characters, case-insensitive.
  * Type determined by suffix (%, !, #, $) or def_type table.
  * Variables with different type suffixes are distinct (A% != A!).
  */
 
-gw_valtype_t gw_parse_varname(char name_out[2])
+char *gw_name_dup(const char *name)
+{
+    char *copy = malloc(strlen(name) + 1);
+    if (!copy) gw_error(ERR_OM);
+    strcpy(copy, name);
+    return copy;
+}
+
+gw_valtype_t gw_parse_varname(char name_out[GW_NAME_SIZE])
 {
     gw_skip_spaces();
-    uint8_t ch = gw_chrgot();
-    if (!gw_is_letter(ch))
-        gw_error(ERR_SN);
-
-    name_out[0] = toupper(ch);
-    name_out[1] = '\0';
-    gw.text_ptr++;
-
-    ch = gw_chrgot();
-    if (gw_is_letter(ch) || gw_is_digit(ch)) {
-        name_out[1] = toupper(ch);
-        gw.text_ptr++;
-        /* Skip remaining alphanumeric chars (not significant) */
-        while (gw_is_letter(gw_chrgot()) || gw_is_digit(gw_chrgot()))
-            gw.text_ptr++;
-    }
+    if (!gw_scan_name(&gw.text_ptr, name_out)) gw_error(ERR_SN);
+    uint8_t ch;
 
     /* Check for type suffix */
     ch = gw_chrgot();
@@ -44,20 +38,19 @@ gw_valtype_t gw_parse_varname(char name_out[2])
     return gw.def_type[idx];
 }
 
-var_entry_t *gw_var_find_or_create(const char name[2], gw_valtype_t type)
+var_entry_t *gw_var_find_or_create(const char *name, gw_valtype_t type)
 {
     for (int i = 0; i < gw.var_count; i++) {
-        if (gw.vars[i].name[0] == name[0] && gw.vars[i].name[1] == name[1]
+        if (strcmp(gw.vars[i].name, name) == 0
             && gw.vars[i].type == type)
             return &gw.vars[i];
     }
 
-    if (gw.var_count >= 256)
+    if (gw.var_count >= MAX_VAR_TABLE)
         gw_error(ERR_OM);
 
-    var_entry_t *v = &gw.vars[gw.var_count++];
-    v->name[0] = name[0];
-    v->name[1] = name[1];
+    var_entry_t *v = &gw.vars[gw.var_count];
+    v->name = gw_name_dup(name);
     v->type = type;
     memset(&v->val, 0, sizeof(v->val));
     v->val.type = type;
@@ -65,6 +58,7 @@ var_entry_t *gw_var_find_or_create(const char name[2], gw_valtype_t type)
         v->val.sval.len = 0;
         v->val.sval.data = NULL;
     }
+    gw.var_count++;
     return v;
 }
 
@@ -93,6 +87,7 @@ void gw_vars_clear(void)
     for (int i = 0; i < gw.var_count; i++) {
         if (gw.vars[i].type == VT_STR)
             gw_str_free(&gw.vars[i].val.sval);
+        free(gw.vars[i].name);
     }
     gw.var_count = 0;
 }
@@ -132,7 +127,7 @@ void gw_stmt_deftype(gw_valtype_t type)
 void gw_stmt_swap(void)
 {
     /* Parse first variable */
-    char name1[2];
+    char name1[GW_NAME_SIZE];
     gw_valtype_t type1 = gw_parse_varname(name1);
 
     /* Check if it's an array element */
@@ -149,7 +144,7 @@ void gw_stmt_swap(void)
     gw_expect(',');
 
     /* Parse second variable */
-    char name2[2];
+    char name2[GW_NAME_SIZE];
     gw_valtype_t type2 = gw_parse_varname(name2);
 
     gw_skip_spaces();

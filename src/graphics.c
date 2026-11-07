@@ -289,16 +289,17 @@ static int draw_parse_varref(const char **pp)
     const char *p = *pp;
     if (*p != '=') return 0;
     p++;
-    /* Parse variable name (1-2 chars + optional type suffix) */
+    /* Parse variable name and optional type suffix */
     if (!isalpha((unsigned char)*p)) return 0;
-    char vname[2];
-    vname[0] = toupper(*p); vname[1] = 0;
-    p++;
-    if (isalpha((unsigned char)*p)) { vname[1] = toupper(*p); p++; }
-    gw_valtype_t vtype = VT_SNG;
+    char vname[GW_NAME_SIZE];
+    uint8_t *scan = (uint8_t *)p;
+    if (!gw_scan_name(&scan, vname)) gw_error(ERR_SN);
+    p = (const char *)scan;
+    gw_valtype_t vtype = gw.def_type[vname[0] - 'A'];
     if (*p == '%') { vtype = VT_INT; p++; }
     else if (*p == '!') { vtype = VT_SNG; p++; }
     else if (*p == '#') { vtype = VT_DBL; p++; }
+
     if (*p == ';') p++;
     *pp = p;
     var_entry_t *var = gw_var_find_or_create(vname, vtype);
@@ -355,10 +356,10 @@ static void draw_engine(const char *cmd, int *px, int *py,
                 /* X stringvar; — execute substring */
                 while (*p == ' ') p++;
                 if (!isalpha((unsigned char)*p)) continue;
-                char vn[2];
-                vn[0] = toupper(*p); vn[1] = 0;
-                p++;
-                if (isalpha((unsigned char)*p)) { vn[1] = toupper(*p); p++; }
+                char vn[GW_NAME_SIZE];
+                uint8_t *scan = (uint8_t *)p;
+                if (!gw_scan_name(&scan, vn)) gw_error(ERR_SN);
+                p = (const char *)scan;
                 gw_valtype_t vt = VT_STR;
                 if (*p == '$') p++;
                 if (*p == ';') p++;

@@ -166,6 +166,17 @@ class CorpusTests(unittest.TestCase):
             with self.subTest(source=source), self.assertRaises(ValueError):
                 corpus_reference.adapt(source)
 
+    def test_reference_adapter_preserves_fixture_file_io(self):
+        source = ('10 OPEN "DATA.DAT" FOR INPUT AS #1\n'
+                  '20 OPEN "O",#2,"COPY.DAT":PRINT #2,INPUT$(2,#1)\n'
+                  '30 CLOSE #1,#2:END\n')
+        adapted = corpus_reference.adapt(source, file_io=True)
+        self.assertIn('10 OPEN "DATA.DAT" FOR INPUT AS #1', adapted)
+        self.assertIn('PRINT #2,INPUT$(2,#1)', adapted)
+        self.assertIn('CLOSE #1,#2:PRINT #9,"__CORPUS_DONE__"', adapted)
+        for unsafe in ('10 CLOSE', '10 CLOSE #8', '10 OPEN "OUTPUT.TXT" FOR OUTPUT AS #9'):
+            with self.assertRaises(ValueError): corpus_reference.adapt(unsafe, file_io=True)
+
     def test_input_checkpoint_requires_the_requested_prompt(self):
         checkpoint = {'inputs': 1, 'prompt': 'MOVE?', 'occurrence': 2}
         script = self.root / 'checkpoint'

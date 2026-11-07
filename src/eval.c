@@ -959,30 +959,20 @@ static gw_value_t eval_atom(void)
             gw_chrget();
             gw_expect('(');
             int n = gw_eval_int();
-            if (n < 1 || n > 255) gw_error(ERR_FC);
-            int filenum = 0;
+            if (n < 0 || n > 255) gw_error(ERR_FC);
+            int filenum = -1;
             gw_skip_spaces();
             if (gw_chrgot() == ',') {
                 gw_chrget();
                 gw_skip_spaces();
                 if (gw_chrgot() == '#') gw_chrget();
                 filenum = gw_eval_int();
+                if (filenum < 0 || filenum > 255) gw_error(ERR_FC);
             }
             gw_expect_rparen();
             gw_value_t v;
             v.type = VT_STR;
-            v.sval = gw_str_alloc(n);
-            if (filenum > 0) {
-                file_entry_t *fe = gw_file_get(filenum);
-                for (int i = 0; i < n; i++) {
-                    int ch = fgetc(fe->fp);
-                    if (ch == EOF) { v.sval.len = i; break; }
-                    v.sval.data[i] = ch;
-                }
-            } else {
-                for (int i = 0; i < n; i++)
-                    v.sval.data[i] = gw_hal ? gw_hal->getch() : getchar();
-            }
+            v.sval = gw_input_chars(n, filenum);
             return v;
         }
         gw.text_ptr = save;
@@ -1090,7 +1080,7 @@ not_xfunc:
 
     /* Variable or array element */
     if (gw_is_letter(tok)) {
-        char name[2];
+        char name[GW_NAME_SIZE];
         gw_valtype_t type = gw_parse_varname(name);
 
         gw_skip_spaces();

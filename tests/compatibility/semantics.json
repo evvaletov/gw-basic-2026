@@ -1104,6 +1104,385 @@
       "captured_on": "2026-11-07",
       "native": true,
       "adapter_sha256": "b7304f29de73a68ca4e2a144af160aeb1542780d35c10ecaa0a375941fb38015"
+    },
+    {
+      "id": "dotted_identity",
+      "source": "10 A.LEFT=1:A.RIGHT=2:AB.ONE=3:AB.TWO=4\n20 PRINT A.LEFT;A.RIGHT;AB.ONE;AB.TWO\n30 END\n",
+      "stdin": "",
+      "output": " 1  2  3  4\n",
+      "capture_sha256": "346b38f44a399a1b1c5d4e80da36855c8ea924a457fd622c4039eb99248399ab",
+      "source_sha256": "e546b7d3ad77effc73abbe22b66f8c1c86c40511404ff9b4e240944cf8016958",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "3ff6f7b6ab574b54aa56b83a91339ab2b79c7ab8f1a5edbe0f1852dc05a23b16",
+      "adapter_sha256": "9859d25a25d4a3943d4773c260ab48210e55dbb81bed7c2c46f1de4643f6fd61",
+      "native": true,
+      "captured_on": "2026-11-07"
+    },
+    {
+      "id": "dotted_types",
+      "source": "10 DEFINT A:DIM A.ONE(2),A.TWO$(2)\n20 A.ONE(1)=7:A.TWO$(1)=\"YES\":A.REM$=\"OK\"\n30 PRINT A.ONE(1);A.TWO$(1);A.REM$\n40 FOR I.X=1 TO 2:PRINT I.X;:NEXT I.X\n50 PRINT:END\n",
+      "stdin": "",
+      "output": " 7 YESOK\n 1  2\n",
+      "capture_sha256": "5fab31fd4ce6490fb8369aab2ac9b20ed5990b63bf19524f801623d81824e9d0",
+      "source_sha256": "cf3969786ba28d94fc6cc5d277ffef2e07688d479de066d24a12088cec8cb9d2",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "9927cfe6c6767f4c1d38e273368d18b7c03d3f894c0d3fba90382bf3448248b1",
+      "adapter_sha256": "9859d25a25d4a3943d4773c260ab48210e55dbb81bed7c2c46f1de4643f6fd61",
+      "native": true,
+      "captured_on": "2026-11-07"
+    },
+    {
+      "id": "long_identity",
+      "source": "10 ALPHA=1:ALPINE=2:AB=3\n20 PRINT ALPHA;ALPINE;AB\n30 END\n",
+      "stdin": "",
+      "output": " 1  2  3\n",
+      "capture_sha256": "799b6a18fc404b9303d03edaa541593bf01d6bc2b0dbe26165966cc0633e8f38",
+      "source_sha256": "e382bab8f0fba54d46bac7efdbdc996995b21da20780bc28e70cb078347cb212",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "790f89f1087a0b72a4c69004acbf339d9327b0ebbaf758dda4838e2efaadc897",
+      "adapter_sha256": "9859d25a25d4a3943d4773c260ab48210e55dbb81bed7c2c46f1de4643f6fd61",
+      "native": true,
+      "captured_on": "2026-11-07"
+    },
+    {
+      "id": "dotted_empty_components",
+      "source": "10 A=1:A.=2:A..=3\n20 PRINT A;A.;A..\n30 END\n",
+      "stdin": "",
+      "output": " 1  2  3\n",
+      "capture_sha256": "bb6c36d2f441b1ad0029ce5306fb93063d2ea19228c0d60806f8d5a798cb919c",
+      "source_sha256": "3db0b86beb7906d0ff0265ee2e9c536fb1d51f839e597c166d619a0558e786b8",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "790f89f1087a0b72a4c69004acbf339d9327b0ebbaf758dda4838e2efaadc897",
+      "adapter_sha256": "9859d25a25d4a3943d4773c260ab48210e55dbb81bed7c2c46f1de4643f6fd61",
+      "native": true,
+      "captured_on": "2026-11-07"
+    },
+    {
+      "id": "long_boundary",
+      "source": "10 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=2\n20 PRINT AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA;AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n30 END\n",
+      "stdin": "",
+      "output": " 1  2\n",
+      "capture_sha256": "6adcfa2e0b86627d79785baef7a39f1b5f384ed1e96abd2c62cc5b62cfb3f815",
+      "source_sha256": "f374590d2ccc3be86eb42dbed23d8fa26900cc6ec4508bc383d112d383071ad3",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "edbed07009b70fa23404f722a9c32b04753179166148a219166eefd45ee5a452",
+      "adapter_sha256": "9859d25a25d4a3943d4773c260ab48210e55dbb81bed7c2c46f1de4643f6fd61",
+      "native": true,
+      "captured_on": "2026-11-07"
+    },
+    {
+      "id": "dotted_delegates",
+      "source": "10 DEFINT A-Z:DIM A.LEFT(2),A.RIGHT(2)\n20 READ A.LEFT(1),A.RIGHT(1):INPUT \"VALUES\";ALPHA,ALPINE\n30 DEF FNA(P.VALUE)=P.VALUE+ALPHA\n40 SWAP A.LEFT(1),A.RIGHT(1):PRINT A.LEFT(1);A.RIGHT(1);FNA(ALPINE)\n50 ERASE A.LEFT:DIM A.LEFT(1):PRINT A.LEFT(1);A.RIGHT(1)\n60 DATA 3,7\n70 END\n",
+      "stdin": "5,11\n",
+      "output": "VALUES?  7  3  16\n 0  3\n",
+      "capture_sha256": "0fe07bb133349818a4f83899dd4a6fcd1ff229e9899e11b348ff59311d27e55c",
+      "source_sha256": "c074739d04b3be600e2f6b65c985942710376833081f5ac30dd85f2b151c292a",
+      "input_sha256": "5b3b53df643d7079a2a52e24002525ffba31a8130b08e587bccc61b6db756d04",
+      "sha256": "8a3ea2b790a6fbf2ef6a076df889ff2d04811d7db9a4fd5f498f3914333d9b2c",
+      "adapter_sha256": "9859d25a25d4a3943d4773c260ab48210e55dbb81bed7c2c46f1de4643f6fd61",
+      "native": true,
+      "captured_on": "2026-11-07"
+    },
+    {
+      "id": "input_chars_bytes",
+      "source": "5 ON ERROR GOTO 100\n10 OPEN \"DATA.DAT\" FOR INPUT AS #1\n20 FOR I=1 TO 7:A$=INPUT$(1,#1):PRINT ASC(A$);:NEXT I\n30 END\n100 PRINT ERR;ERL:END\n",
+      "stdin": "",
+      "output": " 65  66  13  10  67  62  20\n",
+      "capture_sha256": "0cb8ba5dbf67494a3de36e37137d598c1a52f6e419d33b06daa4035c2ba6eac5",
+      "source_sha256": "51d6b036639ad0ee644ed0ccfc70a2e7e504e9c9958e7edc0c5a6aeed0e43ca3",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "7b53ccf007e6723321a16293ea5470f8b2dcf9dc159d3a6a059e706aa9f569ef",
+      "adapter_sha256": "9859d25a25d4a3943d4773c260ab48210e55dbb81bed7c2c46f1de4643f6fd61",
+      "native": true,
+      "captured_on": "2026-11-07",
+      "file_io": true,
+      "files_hex": {
+        "DATA.DAT": "41420d0a431a44"
+      }
+    },
+    {
+      "id": "input_chars_random",
+      "source": "5 ON ERROR GOTO 100\n10 OPEN \"R\",#1,\"DATA.DAT\",7\n15 GET #1,1\n20 FOR I=1 TO 8:A$=INPUT$(1,#1):PRINT ASC(A$);:NEXT I\n30 END\n100 PRINT ERR;ERL:END\n",
+      "stdin": "",
+      "output": " 65  66  13  10  67  62  20\n",
+      "capture_sha256": "9acfa02d82ae86891494fe30802f7a07dd6f64990b4af075592da116c6c6edbf",
+      "source_sha256": "adefd83d30ea91bc71d620b68eb4187a2521c3c97d8b9b0eba74fbcb1b29018d",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "7b53ccf007e6723321a16293ea5470f8b2dcf9dc159d3a6a059e706aa9f569ef",
+      "adapter_sha256": "9859d25a25d4a3943d4773c260ab48210e55dbb81bed7c2c46f1de4643f6fd61",
+      "native": true,
+      "captured_on": "2026-11-07",
+      "file_io": true,
+      "files_hex": {
+        "DATA.DAT": "41420d0a431a44"
+      }
+    },
+    {
+      "id": "input_chars_short",
+      "source": "10 ON ERROR GOTO 100\n20 OPEN \"DATA.DAT\" FOR INPUT AS #1:A$=\"KEPT\"\n30 A$=INPUT$(20,#1)\n40 PRINT A$;EOF(1):CLOSE #1:END\n100 PRINT ERR;ERL:RESUME NEXT\n",
+      "stdin": "",
+      "output": " 62  30\nKEPT-1\n",
+      "capture_sha256": "995d1af4173d42810c4d5be4a27c35e7c3650bc7fd8022a21221a24556c2fd10",
+      "source_sha256": "798560f585b75f47987491fbcb16b38bfb9b1c87bbf790b7dd6ce699a455d4c3",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "64a0a42204829143554c3d4c43cfaa096b32c501274080e111f454c61451b537",
+      "adapter_sha256": "9859d25a25d4a3943d4773c260ab48210e55dbb81bed7c2c46f1de4643f6fd61",
+      "native": true,
+      "captured_on": "2026-11-07",
+      "file_io": true,
+      "files_hex": {
+        "DATA.DAT": "41420d0a431a44"
+      }
+    },
+    {
+      "id": "input_chars_invalid",
+      "source": "10 ON ERROR GOTO 100\n20 FOR I=1 TO 8:READ N,F\n30 A$=INPUT$(N,#F):PRINT LEN(A$)\n40 NEXT I:END\n50 DATA 0,0,256,0,-1,0,32768,0,1,0,1,-1,1,16,1,1\n100 PRINT ERR;ERL:RESUME NEXT\n",
+      "stdin": "",
+      "output": " 52  30\n 0\n 5  30\n 0\n 5  30\n 0\n 6  30\n 0\n 52  30\n 0\n 5  30\n 0\n 54  30\n 0\n 54  30\n 0\n",
+      "capture_sha256": "1003cf271c17a27fc7bb8d108185b7256b95c5385e54dacd472eae51f663581b",
+      "source_sha256": "2a518e7c5a6bc00214d111cf76935d804aef2d03931433bfd5e35c2f4715ab9f",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "01791784827d29b9af24445d5376f48a2400eaf51525ee04aaaf2d914f1d37a7",
+      "adapter_sha256": "9859d25a25d4a3943d4773c260ab48210e55dbb81bed7c2c46f1de4643f6fd61",
+      "native": true,
+      "captured_on": "2026-11-07",
+      "file_io": true,
+      "files_hex": {
+        "DATA.DAT": "41420d0a431a44"
+      }
+    },
+    {
+      "id": "input_chars_modes",
+      "source": "10 ON ERROR GOTO 100\n20 OPEN \"EMPTY.DAT\" FOR OUTPUT AS #1\n30 A$=INPUT$(1,#1)\n40 CLOSE #1:OPEN \"EMPTY.DAT\" FOR APPEND AS #1\n50 A$=INPUT$(1,#1)\n60 CLOSE #1:END\n100 PRINT ERR;ERL:RESUME NEXT\n",
+      "stdin": "",
+      "output": " 54  30\n 54  50\n",
+      "capture_sha256": "284455b04f2ace3b11f437a72601b52c110c72be74bf8a4ce90074870ee78ca6",
+      "source_sha256": "d1ecbb41362758cb86e777ad529fbebc94ab169d7fa230edfaf9b2c4ac63f7ba",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "cbfb744a05cb52b6315a1950a439fe547678aeaa3b4d322ec562b64e1e6ab919",
+      "adapter_sha256": "9859d25a25d4a3943d4773c260ab48210e55dbb81bed7c2c46f1de4643f6fd61",
+      "native": true,
+      "captured_on": "2026-11-07",
+      "file_io": true,
+      "files_hex": {
+        "DATA.DAT": "41420d0a431a44"
+      }
+    },
+    {
+      "id": "input_chars_rounding",
+      "source": "10 OPEN \"DATA.DAT\" FOR INPUT AS #1\n20 A$=INPUT$(1.5,#1):B$=INPUT$(1.5,1)\n30 PRINT LEN(A$);ASC(A$);ASC(RIGHT$(A$,1));LEN(B$);ASC(B$);ASC(RIGHT$(B$,1))\n40 CLOSE #1:END\n",
+      "stdin": "",
+      "output": " 2  65  66  2  13  10\n",
+      "capture_sha256": "a880d2369e6ed029dc93c36f62f9aa9ee6c631d4382b3c2073e52942d2e95e4a",
+      "source_sha256": "882b10edc3ab2e2b1538063939519fdfe2ae16b38c86c26682af7369d3de4265",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "610945836c315b3a53bb2c55bd39db45a6ff23c038b46644e4e950b8214c7fde",
+      "adapter_sha256": "9859d25a25d4a3943d4773c260ab48210e55dbb81bed7c2c46f1de4643f6fd61",
+      "native": true,
+      "captured_on": "2026-11-07",
+      "file_io": true,
+      "files_hex": {
+        "DATA.DAT": "41420d0a431a44"
+      }
+    },
+    {
+      "id": "input_chars_error_order",
+      "source": "10 ON ERROR GOTO 100\n20 A$=INPUT$(0,1/0)\n30 A$=INPUT$(256,1/0)\n40 A$=INPUT$(1,0)\n50 END\n100 PRINT ERR;ERL:RESUME NEXT\n",
+      "stdin": "",
+      "output": " 11  20\n 5  30\n 52  40\n",
+      "capture_sha256": "a854e6fd01b87cdceeee7572da99e618e0842c25816ff334900a159596cf9157",
+      "source_sha256": "ca4b712ae037e18e3ccd1512223d1011098cff178b0751b87092de0d700f8ca8",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "b38fd8248b0a678c2e7a9fd29e0c0dafd4113e6c2279537b31d236b7bc5c97b3",
+      "adapter_sha256": "9859d25a25d4a3943d4773c260ab48210e55dbb81bed7c2c46f1de4643f6fd61",
+      "native": true,
+      "captured_on": "2026-11-07",
+      "file_io": true,
+      "files_hex": {
+        "DATA.DAT": "41420d0a431a44"
+      }
+    },
+    {
+      "id": "input_chars_zero_type",
+      "source": "10 ON ERROR GOTO 100\n20 OPEN \"DATA.DAT\" FOR INPUT AS #1\n30 A$=INPUT$(0,1)\n40 A$=INPUT$(\"1\",1)\n50 A$=INPUT$(1,\"1\")\n60 PRINT INPUT$(1,1):CLOSE #1:END\n100 PRINT ERR;ERL:RESUME NEXT\n",
+      "stdin": "",
+      "output": " 5  30\n 13  40\n 13  50\nA\n",
+      "capture_sha256": "9c7011ac24e2233e852f72942e93b8e6cf3dfb9865f94a39010fc33ead7b6643",
+      "source_sha256": "905bb35275c45a248de851993ce186d5d0db391a22419beb74b3053b5b60a4f0",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "c8f3b661dd775440c3f3586801d6855c75df070d239a90f8b03d17147b359d77",
+      "adapter_sha256": "9859d25a25d4a3943d4773c260ab48210e55dbb81bed7c2c46f1de4643f6fd61",
+      "native": true,
+      "captured_on": "2026-11-07",
+      "file_io": true,
+      "files_hex": {
+        "DATA.DAT": "41420d0a431a44"
+      }
+    },
+    {
+      "id": "input_chars_nested",
+      "source": "10 OPEN \"DATA.DAT\" FOR INPUT AS #1\n20 PRINT \"[\"+INPUT$(1,#1)+INPUT$(1,1)+\"]\";ASC(INPUT$(1,1));LEN(INPUT$(1,1))\n30 CLOSE #1:END\n",
+      "stdin": "",
+      "output": "[AB] 13  1\n",
+      "capture_sha256": "c8e37c6061dd2c630b3af9357d6181e90d69ac5b61f575e51d9ccdc1a9d89346",
+      "source_sha256": "4159b443ba16294fbdc2ade3fca4153b3f440d1839b4f7cd869d2e2114d772b1",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "68a6c81bb89fa4de3ede6750beb3111376fd141cff2194d12cf9b9192a5aba04",
+      "adapter_sha256": "9859d25a25d4a3943d4773c260ab48210e55dbb81bed7c2c46f1de4643f6fd61",
+      "native": true,
+      "captured_on": "2026-11-07",
+      "file_io": true,
+      "files_hex": {
+        "DATA.DAT": "41420d0a431a44"
+      }
+    },
+    {
+      "id": "dotted_field",
+      "source": "10 OPEN \"R\",#1,\"FIELD.DAT\",8\n20 FIELD #1,4 AS A.LEFT$,4 AS A.RIGHT$\n30 LSET A.LEFT$=\"LEFT\":RSET A.RIGHT$=\"R\"\n40 PUT #1,1:LSET A.LEFT$=\"X\":GET #1,1\n50 PRINT A.LEFT$;\":\";A.RIGHT$\n60 CLOSE #1:END\n",
+      "stdin": "",
+      "output": "LEFT:   R\n",
+      "capture_sha256": "088db0325442585065bcc94c38a038dba1a465fd5458fbc283e88fc758442a92",
+      "source_sha256": "5f3157498019b4d2571a66e1d5435fe8cc0c5f49d9131a3fb9a59672f6365c91",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "0f2754c02891b765c6fa78a6a1c2aaf6a74cbb77f42aff3624f5d05d91885b5a",
+      "adapter_sha256": "9859d25a25d4a3943d4773c260ab48210e55dbb81bed7c2c46f1de4643f6fd61",
+      "native": true,
+      "captured_on": "2026-11-07",
+      "file_io": true,
+      "files_hex": {}
+    },
+    {
+      "id": "dotted_next_mismatch",
+      "source": "10 ON ERROR GOTO 100\n20 FOR A.LEFT=1 TO 2\n30 PRINT A.LEFT\n40 NEXT A.RIGHT\n50 END\n100 PRINT ERR;ERL:END\n",
+      "stdin": "",
+      "output": " 1  40\n",
+      "capture_sha256": "a08c921b74fc5e433b1ab95eaf723eb2d8c6341e101d05badf60d37e59f10648",
+      "source_sha256": "1c6448f7562de716db8712f6558ffc3d455f6d1307bed498fff377417ea4e27b",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "90c15abfceecd9e576fd76efe3ac714b3ad6f7871c205726056389b15ddc6041",
+      "adapter_sha256": "9859d25a25d4a3943d4773c260ab48210e55dbb81bed7c2c46f1de4643f6fd61",
+      "native": true,
+      "captured_on": "2026-11-07"
+    },
+    {
+      "id": "input_chars_record",
+      "source": "5 ON ERROR GOTO 100\n10 OPEN \"R\",#1,\"REC.DAT\",2\n20 A$=INPUT$(1,1)\n30 GET #1,1:A$=INPUT$(2,1):PRINT A$\n40 A$=INPUT$(1,1)\n50 GET #1,1:PRINT INPUT$(1,1)\n60 CLOSE #1:END\n100 PRINT ERR;ERL:RESUME NEXT\n",
+      "stdin": "",
+      "output": " 62  20\nAB\n 50  40\nA\n",
+      "file_io": true,
+      "files_hex": {
+        "REC.DAT": "4142"
+      },
+      "capture_sha256": "a510c4dc0e572bae63e9605f272eadd76550200efcf3412973d65aff7cb85084",
+      "source_sha256": "73a7f119f0c84e1dd18ad14afa777940278b8ed2a18df5326f0ace4790f5bd3f",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "82b1c440db76a62054178bcb9d72c403a69c470faad5b8b8aff2a70e74e2eeeb",
+      "adapter_sha256": "9859d25a25d4a3943d4773c260ab48210e55dbb81bed7c2c46f1de4643f6fd61",
+      "native": true,
+      "captured_on": "2026-11-07"
+    },
+    {
+      "id": "input_chars_short_record",
+      "source": "5 ON ERROR GOTO 100\n10 OPEN \"R\",#1,\"REC.DAT\",3\n20 GET #1,1\n30 FOR I=1 TO 3:PRINT ASC(INPUT$(1,1));:NEXT I\n40 CLOSE #1:END\n100 PRINT ERR;ERL:END\n",
+      "stdin": "",
+      "output": " 65  0  0",
+      "file_io": true,
+      "files_hex": {
+        "REC.DAT": "41"
+      },
+      "capture_sha256": "aec6d71e0ca7546a7e831b62bb7206fb8da92998e393a75f6e85f1565bcf3095",
+      "source_sha256": "6fc027fb0483a8e75414b6023894a587956a9877335f371a7b55406b88623f82",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "b054a47cf47703ba72e601905f02a6a6aca957255de7401cf476f95d567abd00",
+      "adapter_sha256": "9859d25a25d4a3943d4773c260ab48210e55dbb81bed7c2c46f1de4643f6fd61",
+      "native": true,
+      "captured_on": "2026-11-07"
+    },
+    {
+      "id": "input_chars_expressions",
+      "source": "10 OPEN \"DATA.DAT\" FOR INPUT AS #1\n20 PRINT INPUT$(1,1)<INPUT$(1,1)\n30 CLOSE #1:OPEN \"DATA.DAT\" FOR INPUT AS #1\n40 PRINT LEFT$(INPUT$(3,1),ASC(INPUT$(1,1))-64)\n50 CLOSE #1:OPEN \"DATA.DAT\" FOR INPUT AS #1\n60 PRINT MID$(INPUT$(3,1),ASC(INPUT$(1,1))-64,ASC(INPUT$(1,1))-64)\n70 CLOSE #1:OPEN \"DATA.DAT\" FOR INPUT AS #1\n80 PRINT ASC(INPUT$(1,1))-ASC(INPUT$(1,1))\n90 CLOSE #1:OPEN \"DATA.DAT\" FOR INPUT AS #1\n100 PRINT STRING$(ASC(INPUT$(1,1))-64,ASC(INPUT$(1,1)))\n110 CLOSE #1:END\n",
+      "stdin": "",
+      "output": "-1\nAB\nB\n-1\nB\n",
+      "capture_sha256": "676806430d4729e47fb5a795d98c925d3be5f4992218e3eb724cf2b7e6fb524a",
+      "file_io": true,
+      "files_hex": {
+        "DATA.DAT": "414243424146"
+      },
+      "source_sha256": "dce61fb6c0c3642023d0d9d1b8a7b93d1a4b3f73ce8b9733091778bca97906e8",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "4c1bc01d10b3c3ed54cae45c112bddd6322ea70573df8fd29ad65ff9e38174c4",
+      "adapter_sha256": "9859d25a25d4a3943d4773c260ab48210e55dbb81bed7c2c46f1de4643f6fd61",
+      "native": true,
+      "captured_on": "2026-11-07"
+    },
+    {
+      "id": "input_chars_print_file",
+      "source": "10 OPEN \"DATA.DAT\" FOR INPUT AS #1:OPEN \"O\",#2,\"COPY.DAT\"\n20 PRINT #2,INPUT$(2,1);\":\";\n30 CLOSE #2:OPEN \"COPY.DAT\" FOR INPUT AS #2\n40 PRINT INPUT$(3,2)\n50 CLOSE #1,#2:END\n",
+      "stdin": "",
+      "output": "AB:\n",
+      "capture_sha256": "f46affc69aa4d6adbaa4130de7d2365ab9be30b79e93ba032bee1e1ef99e5f34",
+      "file_io": true,
+      "files_hex": {
+        "DATA.DAT": "41424344"
+      },
+      "source_sha256": "c6b6fc82cefa3b70b7f2b36ba79aa93d38e6bd5d8e449da91e6b73359ea4df02",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "79f92f90f3952ff842c1cdcca044097d9b3664a1e7f07d1cbd1e34a7a431ec71",
+      "adapter_sha256": "9859d25a25d4a3943d4773c260ab48210e55dbb81bed7c2c46f1de4643f6fd61",
+      "native": true,
+      "captured_on": "2026-11-07"
+    },
+    {
+      "id": "input_chars_record_eof",
+      "source": "10 ON ERROR GOTO 100\n20 OPEN \"R\",#1,\"REC.DAT\",2:GET #1,1\n30 PRINT EOF(1);EOF(1):PRINT INPUT$(2,1)\n40 GET #1,1:PRINT EOF(1):PRINT INPUT$(1,1):PRINT EOF(1):PRINT INPUT$(1,1)\n50 CLOSE #1:END\n100 PRINT ERR;ERL:RESUME NEXT\n",
+      "stdin": "",
+      "output": " 0  0\nAB\n 0\nA\n 0\nB\n",
+      "capture_sha256": "3dc6a92f3178aa80158c8042c882129f0c41d148d1a5532721cccf83ba80559e",
+      "file_io": true,
+      "files_hex": {
+        "REC.DAT": "4142"
+      },
+      "source_sha256": "5e1f14479835ba4b73bc698c0eec4bb2639ee8c363ca2b6b30abd336c1a5e69e",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "703b1d19774b206e83679deb1660e5462aa76f99db4616579ee776074e6878fc",
+      "adapter_sha256": "9859d25a25d4a3943d4773c260ab48210e55dbb81bed7c2c46f1de4643f6fd61",
+      "native": true,
+      "captured_on": "2026-11-07"
+    },
+    {
+      "id": "input_chars_string_arg",
+      "source": "10 ON ERROR GOTO 100\n20 OPEN \"REC.DAT\" FOR INPUT AS #1\n30 PRINT STRING$(2,INPUT$(1,1))\n40 PRINT STRING$(2,\"\")\n50 CLOSE #1:END\n100 PRINT ERR;ERL:RESUME NEXT\n",
+      "stdin": "",
+      "output": "ZZ\n 5  40\n",
+      "capture_sha256": "a0f0728e66d36d74c4ed078ff0f09e21639e545541e8a1de41748b76e0c87067",
+      "file_io": true,
+      "files_hex": {
+        "REC.DAT": "5a"
+      },
+      "source_sha256": "39eaba1acca8da0766cb75c955c17c79f3081e4c12050cf7ddef88abf5e3fbcb",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "2ac41f900c329b18fb06b920f393e923e72e99c1bd36cfe93be36f03ea93a5af",
+      "adapter_sha256": "9859d25a25d4a3943d4773c260ab48210e55dbb81bed7c2c46f1de4643f6fd61",
+      "native": true,
+      "captured_on": "2026-11-07"
+    },
+    {
+      "id": "input_chars_point_order",
+      "source": "10 OPEN \"REC.DAT\" FOR INPUT AS #1\n20 SCREEN 1:PSET (1,2),3\n30 PRINT POINT(ASC(INPUT$(1,1)),ASC(INPUT$(1,1)))\n40 CLOSE #1:END\n",
+      "stdin": "",
+      "output": " 3\n",
+      "capture_sha256": "e0e7397c8fc3543edab59bf2aff21c017362ab1ef4b85981b73f19a60e0db135",
+      "file_io": true,
+      "files_hex": {
+        "REC.DAT": "0102"
+      },
+      "source_sha256": "381bff12ca43a6f367d4e751db0bdbf451a40393f70020277c0f5cef83457277",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "97a48af4ff00379bde03c1da991ba363755ff1ee1624a0d061edc9219d1e664b",
+      "adapter_sha256": "9859d25a25d4a3943d4773c260ab48210e55dbb81bed7c2c46f1de4643f6fd61",
+      "native": true,
+      "captured_on": "2026-11-07",
+      "sixel_output": true
     }
   ],
   "reference_build": "Microsoft GW-BASIC source build, JWasm 2023-10-03; not retail 3.23"

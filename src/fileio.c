@@ -3,6 +3,12 @@
 #include <stdlib.h>
 #include <ctype.h>
 
+static void clear_fields(file_entry_t *f)
+{
+    for (int i = 0; i < f->field_count; i++) free(f->fields[i].name);
+    f->field_count = 0;
+}
+
 file_entry_t *gw_file_get(int num)
 {
     if (num < 1 || num > 15)
@@ -24,7 +30,7 @@ void gw_file_close_all(void)
         }
         free(gw.files[i].field_buf);
         gw.files[i].field_buf = NULL;
-        gw.files[i].field_count = 0;
+        clear_fields(&gw.files[i]);
         gw.files[i].record_len = 0;
     }
 }
@@ -36,6 +42,9 @@ int gw_file_eof(int num)
     file_entry_t *f = &gw.files[num];
     if (!f->fp)
         gw_error(ERR_BN);
+    /* A random file exposes its current GET record, not the underlying
+     * stdio position after that record. EOF must not consume/invalidate it. */
+    if (f->mode == 'R') return f->eof_flag ? -1 : 0;
     if (f->eof_flag || feof(f->fp))
         return -1;
     /* Peek ahead to detect EOF before next read */
@@ -150,10 +159,10 @@ void gw_stmt_open(void)
 
     const char *fmode;
     switch (mode) {
-    case 'I': fmode = "r"; break;
+    case 'I': fmode = "rb"; break;
     case 'O': fmode = "w"; break;
     case 'A': fmode = "a"; break;
-    case 'R': fmode = "r+"; break;
+    case 'R': fmode = "r+b"; break;
     default:
         free(filename);
         gw_error(ERR_BM);
@@ -164,7 +173,7 @@ void gw_stmt_open(void)
     if (!fp) {
         /* For random mode, try creating if doesn't exist */
         if (mode == 'R')
-            fp = fopen(filename, "w+");
+            fp = fopen(filename, "w+b");
         if (!fp) {
             free(filename);
             gw_error(ERR_FF);
@@ -175,9 +184,10 @@ void gw_stmt_open(void)
     gw.files[file_num].fp = fp;
     gw.files[file_num].mode = mode;
     gw.files[file_num].file_num = file_num;
-    gw.files[file_num].eof_flag = false;
+    gw.files[file_num].eof_flag = (mode == 'R');
+    gw.files[file_num].input_pos = 0;
     gw.files[file_num].field_buf = NULL;
-    gw.files[file_num].field_count = 0;
+    clear_fields(&gw.files[file_num]);
 
     /* Parse optional record length */
     int reclen = 128;
@@ -227,7 +237,7 @@ void gw_stmt_close(void)
             gw.files[num].eof_flag = false;
             free(gw.files[num].field_buf);
             gw.files[num].field_buf = NULL;
-            gw.files[num].field_count = 0;
+            clear_fields(&gw.files[num]);
             gw.files[num].record_len = 0;
         }
         gw_skip_spaces();
@@ -385,7 +395,7 @@ void gw_stmt_input_file(void)
         uint8_t ch = gw_chrgot();
         if (ch == 0 || ch == ':') break;
 
-        char name[2];
+        char name[GW_NAME_SIZE];
         gw_valtype_t type = gw_parse_varname(name);
 
         gw_skip_spaces();
@@ -475,7 +485,7 @@ void gw_stmt_line_input_file(void)
     if (gw_chrgot() == ',')
         gw_chrget();
 
-    char name[2];
+    char name[GW_NAME_SIZE];
     gw_valtype_t type = gw_parse_varname(name);
     if (type != VT_STR)
         gw_error(ERR_TM);
@@ -522,7 +532,7 @@ void gw_stmt_field(void)
     if (gw_chrgot() == ',')
         gw_chrget();
 
-    f->field_count = 0;
+    clear_fields(f);
     int offset = 0;
 
     for (;;) {
@@ -543,13 +553,12 @@ void gw_stmt_field(void)
         }
 
         gw_skip_spaces();
-        char name[2];
+        char name[GW_NAME_SIZE];
         gw_valtype_t type = gw_parse_varname(name);
         if (type != VT_STR) gw_error(ERR_TM);
 
         if (f->field_count >= 32) gw_error(ERR_FO);
-        f->fields[f->field_count].name[0] = name[0];
-        f->fields[f->field_count].name[1] = name[1];
+        f->fields[f->field_count].name = gw_name_dup(name);
         f->fields[f->field_count].type = type;
         f->fields[f->field_count].offset = offset;
         f->fields[f->field_count].width = width;
@@ -606,7 +615,7 @@ static void vars_to_field_buf(file_entry_t *f)
 void gw_stmt_lset(void)
 {
     gw_skip_spaces();
-    char name[2];
+    char name[GW_NAME_SIZE];
     gw_valtype_t type = gw_parse_varname(name);
     if (type != VT_STR) gw_error(ERR_TM);
     var_entry_t *var = gw_var_find_or_create(name, type);
@@ -632,7 +641,7 @@ void gw_stmt_lset(void)
 void gw_stmt_rset(void)
 {
     gw_skip_spaces();
-    char name[2];
+    char name[GW_NAME_SIZE];
     gw_valtype_t type = gw_parse_varname(name);
     if (type != VT_STR) gw_error(ERR_TM);
     var_entry_t *var = gw_var_find_or_create(name, type);
@@ -681,6 +690,8 @@ void gw_stmt_put(void)
 
     fwrite(f->field_buf, 1, f->record_len, f->fp);
     fflush(f->fp);
+    f->input_pos = 0;
+    f->eof_flag = false;
 }
 
 /* GET #n [, record] - read record from file into field buffer */
@@ -707,8 +718,8 @@ void gw_stmt_get(void)
 
     memset(f->field_buf, 0, f->record_len);
     size_t got = fread(f->field_buf, 1, f->record_len, f->fp);
-    if (got == 0)
-        f->eof_flag = true;
+    f->eof_flag = (got == 0);
+    f->input_pos = 0;
 
     field_buf_to_vars(f);
 }

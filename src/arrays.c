@@ -2,6 +2,7 @@
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
+#include <limits.h>
 
 unsigned long gw_array_generation;
 
@@ -11,37 +12,40 @@ unsigned long gw_array_generation;
  * Default bounds 0-10 (11 elements) if not DIMmed.
  */
 
-static array_entry_t *find_array(const char name[2], gw_valtype_t type)
+static array_entry_t *find_array(const char *name, gw_valtype_t type)
 {
     for (int i = 0; i < gw.array_count; i++) {
-        if (gw.arrays[i].name[0] == name[0] && gw.arrays[i].name[1] == name[1]
+        if (strcmp(gw.arrays[i].name, name) == 0
             && gw.arrays[i].type == type)
             return &gw.arrays[i];
     }
     return NULL;
 }
 
-static array_entry_t *create_array(const char name[2], gw_valtype_t type,
+static array_entry_t *create_array(const char *name, gw_valtype_t type,
                                    int ndims, const int *dims)
 {
-    if (gw.array_count >= 64)
+    if (gw.array_count >= MAX_ARRAY_TABLE)
         gw_error(ERR_OM);
 
-    array_entry_t *a = &gw.arrays[gw.array_count++];
-    a->name[0] = name[0];
-    a->name[1] = name[1];
+    array_entry_t *a = &gw.arrays[gw.array_count];
     a->type = type;
     a->ndims = ndims;
 
     int total = 1;
     for (int i = 0; i < ndims; i++) {
         a->dims[i] = dims[i];
-        total *= (dims[i] - gw.option_base + 1);
+        if (dims[i] < gw.option_base || dims[i] > 32767) gw_error(ERR_BS);
+        long size = (long)dims[i] - gw.option_base + 1;
+        if (size > INT_MAX || total > INT_MAX / size) gw_error(ERR_OM);
+        total *= (int)size;
     }
     a->total_elements = total;
-    a->data = calloc(total, sizeof(gw_value_t));
-    if (!a->data)
-        gw_error(ERR_OM);
+    if ((size_t)total > SIZE_MAX / sizeof(gw_value_t)) gw_error(ERR_OM);
+    a->name = gw_name_dup(name);
+    a->data = calloc((size_t)(unsigned int)total, sizeof(gw_value_t));
+    if (!a->data) { free(a->name); gw_error(ERR_OM); }
+    gw.array_count++;
 
     for (int i = 0; i < total; i++)
         a->data[i].type = type;
@@ -50,7 +54,7 @@ static array_entry_t *create_array(const char name[2], gw_valtype_t type,
 }
 
 /* Parse subscripts and return pointer to element */
-gw_value_t *gw_array_element(const char name[2], gw_valtype_t type)
+gw_value_t *gw_array_element(const char *name, gw_valtype_t type)
 {
     gw_expect('(');
 
@@ -97,7 +101,7 @@ gw_value_t *gw_array_element(const char name[2], gw_valtype_t type)
 void gw_stmt_dim(void)
 {
     for (;;) {
-        char name[2];
+        char name[GW_NAME_SIZE];
         gw_valtype_t type = gw_parse_varname(name);
 
         gw_skip_spaces();
@@ -131,7 +135,7 @@ void gw_stmt_dim(void)
 void gw_stmt_erase(void)
 {
     for (;;) {
-        char name[2];
+        char name[GW_NAME_SIZE];
         gw_valtype_t type = gw_parse_varname(name);
 
         array_entry_t *a = find_array(name, type);
@@ -143,6 +147,7 @@ void gw_stmt_erase(void)
                 gw_str_free(&a->data[i].sval);
         }
         free(a->data);
+        free(a->name);
         gw_array_generation++;
 
         /* Remove from array by swapping with last */
@@ -185,6 +190,7 @@ void gw_arrays_clear(void)
                 gw_str_free(&gw.arrays[i].data[j].sval);
         }
         free(gw.arrays[i].data);
+        free(gw.arrays[i].name);
     }
     gw.array_count = 0;
 }

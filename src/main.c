@@ -18,6 +18,7 @@ void gw_init(void)
     gw_free_program();
     gw_vars_clear();
     gw_arrays_clear();
+    gw_file_close_all();
     memset(&gw, 0, sizeof(gw));
     gw.cur_line_num = LINE_DIRECT;
 

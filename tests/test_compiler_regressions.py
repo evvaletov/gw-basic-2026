@@ -2,6 +2,7 @@
 """Compare control-flow, string and array semantics across compiler modes."""
 import argparse
 import json
+import re
 from pathlib import Path
 import shlex
 import subprocess
@@ -406,17 +407,46 @@ CASES = {
 }
 
 
-# Range invariant only: no-argument RANDOMIZE is not original-compatible yet.
-CASES["randomize_time_range"] = ("10 RANDOMIZE:PRINT RND(0)>=0 AND RND(0)<1\n20 END\n", "", ["-1"])
+# Interactive seed values must still produce a 24-bit state.
+CASES["randomize_prompt_range"] = ("10 RANDOMIZE:PRINT RND(0)>=0 AND RND(0)<1\n20 END\n", "1\n", ["Random number seed (-32768 to 32767)? -1"])
+
+
+# PMAP uses the project's graphics mapping; this checks native read order,
+# without claiming numeric PMAP parity with the reference source build.
+CASES["input_chars_pmap_order"] = ('''10 OPEN "MAP.DAT" FOR OUTPUT AS #1
+20 PRINT #1,CHR$(1);CHR$(0);:CLOSE #1
+30 OPEN "MAP.DAT" FOR INPUT AS #1
+40 PRINT PMAP(ASC(INPUT$(1,1)),ASC(INPUT$(1,1)))
+50 CLOSE #1:END
+''', "", ["1"])
 
 
 # Original Microsoft GW-BASIC captures supersede the former permissive FOR
 # expectations. Keep source and reference output together for reproduction.
 REFERENCE = json.loads((Path(__file__).parent / "compatibility/semantics.json").read_text())
+FILE_FIXTURES = {c["id"]: c.get("files_hex", {}) for c in REFERENCE["cases"]}
+SIXEL_CASES = {case["id"] for case in REFERENCE["cases"] if case.get("sixel_output")}
 NATIVE_REFERENCES = {case["id"] for case in REFERENCE["cases"] if case.get("native")}
 NATIVE_ERROR_EXITS = {"native_resume_bad_target", "native_resume_bad_syntax"}
 for case in REFERENCE["cases"]:
     CASES[case["id"]] = (case["source"], case["stdin"], case["output"].splitlines())
+
+PROMPT_REFERENCES = json.loads((Path(__file__).parent / "compatibility/input-functions.json").read_text())
+for case in PROMPT_REFERENCES["randomize"]:
+    source = ('10 ON ERROR GOTO 100\n20 X=RND(-1)\n30 RANDOMIZE\n'
+              '40 PRINT INT(RND(0)*1000000);INT(RND(1)*1000000):END\n'
+              '100 PRINT ERR;ERL:END\n')
+    output = 'Random number seed (-32768 to 32767)? ' * len(case["answers"])
+    output += ' '.join(str(v) for v in case["values"])
+    CASES[case["id"]] = (source, '\n'.join(case["answers"]) + '\n', [output])
+    NATIVE_REFERENCES.add(case["id"])
+
+
+def case_output(name, text):
+    if name in SIXEL_CASES:
+        # Compare the numeric POINT probe; rendered pixels are not this oracle.
+        text = re.sub(r"\x1bPq[^\x1b]*\x1b\\", "", text)
+    return normalized(text)
 
 
 def normalized(text):
@@ -435,7 +465,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--build", type=Path, default=Path(__file__).resolve().parents[1] / "build")
     parser.add_argument("--sanitize", action="store_true")
+    parser.add_argument("--case", action="append", help="run a named case (repeatable)")
     args = parser.parse_args()
+    if args.case:
+        unknown = set(args.case) - CASES.keys()
+        if unknown: parser.error(f"unknown cases: {sorted(unknown)}")
+    selected = {k: v for k, v in CASES.items() if not args.case or k in args.case}
     build = args.build.resolve()
     repo = Path(__file__).resolve().parents[1]
     pkg = subprocess.run(["pkg-config", "--libs", "libpulse-simple"], capture_output=True, text=True)
@@ -445,11 +480,14 @@ def main():
     count = 0
     with tempfile.TemporaryDirectory(prefix="gw-regress-") as temp:
         root = Path(temp)
-        for name, (source, stdin, expected) in CASES.items():
+        for name, (source, stdin, expected) in selected.items():
             bas = root / f"{name}.bas"
             bas.write_text(source)
             want = normalized("\n".join(expected))
-            actual = normalized(run([str(build / "gwbasic"), str(bas)], root, stdin))
+            for filename, data in FILE_FIXTURES.get(name, {}).items():
+                assert Path(filename).name == filename
+                (root / filename).write_bytes(bytes.fromhex(data))
+            actual = case_output(name, run([str(build / "gwbasic"), str(bas)], root, stdin))
             assert actual == want, (name, "interpreter", actual, want)
             if name == "backward_tab":
                 assert (root / "LPT1.TXT").read_bytes() == b"ABCDE\n  X\nABC\n"
@@ -464,7 +502,7 @@ def main():
                 run([str(build / "gwbasic-compile"), str(bas), "-o", str(c),
                      "--max-output-size", "1", *flags], root)
                 code = c.read_text()
-                if name == "deftype_prefix" or name.startswith(("native_resume_", "high_line_")) or name in NATIVE_REFERENCES:
+                if name in {"deftype_prefix", "input_chars_pmap_order"} or name.startswith(("native_resume_", "high_line_")) or name in NATIVE_REFERENCES:
                     assert "gw_run_loop();" not in code, "native compilation was not exercised"
                 if name == "resume_text_only":
                     assert "_gw_stmt" not in code, "non-code RESUME enabled statement tracking"
@@ -475,7 +513,9 @@ def main():
                 san = ["-fsanitize=address,undefined", "-fno-sanitize-recover=all"] if args.sanitize else []
                 run(["gcc", opt, *san, str(c), str(build / "libgwrt.a"),
                      "-I" + str(repo / "include"), "-lm", "-pthread", *libs, "-o", str(exe)], root)
-                actual = normalized(run([str(exe)], root, stdin,
+                for filename, data in FILE_FIXTURES.get(name, {}).items():
+                    (root / filename).write_bytes(bytes.fromhex(data))
+                actual = case_output(name, run([str(exe)], root, stdin,
                                         expected_exit=1 if name in NATIVE_ERROR_EXITS else 0))
                 assert actual == want, (name, flags, actual, want)
                 if name == "backward_tab":
@@ -514,6 +554,19 @@ def main():
                  "-I" + str(repo / "include"), "-lm", "-pthread", *libs, "-o", str(exe)], root)
             assert run([str(exe)], root) == expected
 
+        # Native hosted entries own full variable/array/FIELD names. Leave
+        # a random file open to verify shutdown releases all state for reentry.
+        bas.write_text('10 DIM A.LEFT$(1):A.LEFT$(1)="array"\n'
+                       '20 OPEN "R",#1,"HOST.DAT",8:FIELD #1,4 AS A.LEFT$,4 AS A.RIGHT$\n'
+                       '30 LSET A.LEFT$="LEFT":RSET A.RIGHT$="R":PUT #1,1:GET #1,1\n'
+                       '40 PRINT A.LEFT$;":";A.RIGHT$;":";A.LEFT$(1):END\n')
+        run([str(build / "gwbasic-compile"), str(bas), "-o", str(c),
+             "--main-name", "typed_entry"], root)
+        assert "gw_run_loop();" not in c.read_text()
+        run(["gcc", "-O2", *san, str(c), str(host), str(build / "libgwrt.a"),
+             "-I" + str(repo / "include"), "-lm", "-pthread", *libs, "-o", str(exe)], root)
+        assert run([str(exe)], root) == "LEFT:   R:array\n" * 2
+
         # Entry declarations remain usable with native foreign functions.
         bas.write_text("10 '$EXTERN Plusone(INTEGER) AS INTEGER\n20 DEFINT A\n"
                        "30 A=2.5:PRINT Plusone(A)\n40 END\n")
@@ -526,6 +579,15 @@ def main():
         result = subprocess.run([str(build / "gwbasic-compile"), str(bas), "-o", str(c)],
                                 capture_output=True, text=True, timeout=5)
         assert result.returncode != 0 and not c.exists() and "$EXTERN" in result.stderr, result
+        # A long ordinary variable must not alias a shorter declared extern.
+        external = "A" * 31
+        variable = external + "B"
+        bas.write_text(f"10 '$EXTERN {external}(INTEGER) AS INTEGER = Plusone\n"
+                       f"20 {variable}=7:PRINT {external}(2);{variable}\n30 END\n")
+        run([str(build / "gwbasic-compile"), str(bas), "-o", str(c)], root)
+        run(["gcc", "-O2", *san, str(c), str(host), str(build / "libgwrt.a"),
+             "-I" + str(repo / "include"), "-lm", "-pthread", *libs, "-o", str(exe)], root)
+        assert normalized(run([str(exe)], root)) == ["3 7"]
         print("PASS runtime entry cleanup and DEFTYPE/FFI diagnostics", flush=True)
 
         # Preserve native-build coverage for the original listings that exposed
@@ -546,7 +608,13 @@ def main():
         result = subprocess.run([str(build / "gwbasic-compile"), str(bad), "-o", str(c),
                                  "--max-output-size", "1"], capture_output=True, text=True, timeout=5)
         assert result.returncode != 0 and not c.exists(), result
-    print(f"Compiler regressions: {len(CASES)} interpreter cases, {count} compiled comparisons; malformed input rejected")
+        # Original GW-BASIC rejects a 41-character variable name at line 10.
+        bad.write_text('10 ' + 'A'*41 + '=1\n20 END\n')
+        result = subprocess.run([str(build / "gwbasic-compile"), str(bad), "-o", str(c)],
+                                capture_output=True, text=True, timeout=5)
+        assert result.returncode != 0 and not c.exists(), result
+        assert "Syntax error in 10" in run([str(build / "gwbasic"), str(bad)], root)
+    print(f"Compiler regressions: {len(selected)} interpreter cases, {count} compiled comparisons; malformed input rejected")
 
 
 if __name__ == "__main__":

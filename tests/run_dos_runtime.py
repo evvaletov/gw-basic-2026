@@ -108,6 +108,11 @@ def prepare(work, boot, binary, extender, case):
     put(partition, work, "SMOKE.BAS", dos_text(smoke))
     put(partition, work, "HIGH.BAS", dos_text((ROOT / "tests/dos_runtime.bas").read_text()))
     put(partition, work, "INPUT.BAS", dos_text(case["source"]))
+    functions = json.loads((ROOT / "tests/compatibility/input-functions.json").read_text())
+    for i, probe in enumerate(functions["input_chars"]):
+        put(partition, work, f"KEY{i}.BAS", dos_text(probe["source"]))
+    seed = next(c for c in functions["randomize"] if c["id"] == "randomize_prompt_retry")
+    put(partition, work, "SEED.BAS", dos_text(seed["source"]))
     put(partition, work, "RUNTEST.BAT", dos_text(
         "@ECHO OFF\nBASIC SMOKE.BAS\nBASIC HIGH.BAS\nECHO GW-BATCH-DONE\n"))
     return partition
@@ -209,7 +214,7 @@ class VM:
     def text(self, text):
         symbols = {" ": "spc", "\n": "ret", '"': "shift-apostrophe", ":": "shift-semicolon",
                    ";": "semicolon", ",": "comma", ".": "dot", "=": "equal", "-": "minus",
-                   "(": "shift-9", ")": "shift-0"}
+                   "(": "shift-9", ")": "shift-0", "+": "shift-equal"}
         for ch in text:
             self.key(symbols.get(ch, "shift-" + ch.lower() if ch.isupper() else ch))
 
@@ -261,6 +266,18 @@ def run_target(args, mode, boot, case, report):
             check("boot", lambda ls: "GW-BOOT-READY" in ls and "C:\\>" in ls, 45)
             vm.command("RUNTEST")
             check("batch-return", lambda ls: "GW-BATCH-DONE" in ls and "C:\\>" in ls, 45)
+            functions = json.loads((ROOT / "tests/compatibility/input-functions.json").read_text())
+            for i, probe in enumerate(functions["input_chars"]):
+                vm.command(f"BASIC KEY{i}.BAS")
+                check(f"byte-prompt-{i}", lambda ls: any(f"READ{i}:" in row for row in ls))
+                for key in probe["keys"]: vm.key(key)
+                check(f"byte-done-{i}", lambda ls: f"READ{i}:DONE{i}" in ls and "C:\\>" in ls)
+            seed = next(c for c in functions["randomize"] if c["id"] == "randomize_prompt_retry")
+            vm.command("BASIC SEED.BAS")
+            for count, answer in enumerate(seed["answers"], 1):
+                check(f"seed-prompt-{count}", lambda ls: sum("Random number seed" in row for row in ls) == count)
+                vm.command(answer)
+            check("seed-done", lambda ls: "DONE-2" in ls and "C:\\>" in ls)
             vm.command("BASIC")
             check("editor", lambda ls: "Ok" in ls and "1LIST" in ls[-1])
             vm.command('40000 PRINT "HIGH EDIT"')
@@ -292,7 +309,7 @@ def run_target(args, mode, boot, case, report):
             vm.close()
             # Preserve partial output on guest failures before deleting its disk.
             capture_errors = {}
-            for filename in ("OUT.TXT", "HIGH.TXT", "O11.TXT"):
+            for filename in ("OUT.TXT", "HIGH.TXT", "O11.TXT", "I0.TXT", "I1.TXT", "I2.TXT", "R2.TXT"):
                 try:
                     data = run(["mtype", "-i", part, "::" + filename]).decode("ascii").rstrip("\x1a")
                     captures[filename] = data
@@ -317,6 +334,13 @@ def run_target(args, mode, boot, case, report):
         if [int(float(x)) for x in lines[0].split()] != case["positions"] or lines[1] != case["value"]:
             raise AssertionError("Saved input/cursor differs from original reference")
         checks.append("saved-input")
+        for filename, probe in [(f"I{i}.TXT", c) for i, c in enumerate(functions["input_chars"])] + [("R2.TXT", seed)]:
+            if filename not in captures: raise AssertionError("Missing saved input: " + filename)
+            actual = [int(x) for x in captures[filename].split()]
+            if actual != probe["values"]:
+                raise AssertionError(f"{filename} differs from original: {actual} != {probe['values']}")
+            checks.append("saved-" + filename)
+
     report["targets"][mode]["status"] = "passed"
 
 

@@ -37,7 +37,12 @@ def statements(text):
     yield text[start:]
 
 
-def adapt_statement(text, bounded=False):
+def adapt_statement(text, bounded=False, file_io=False):
+    # OPEN may contain the keyword INPUT as its mode, not a statement.
+    if file_io and re.match(r'\s*(?:OPEN|CLOSE)\b', text, re.I):
+        if re.search(r"(?:#\s*[89]\b|[\\/])", text) or re.fullmatch(r"\s*CLOSE\s*", text, re.I):
+            raise ValueError("file-I/O fixture must preserve capture files #8/#9")
+        return text
     result = []
     pos = 0
     token = re.compile(r'"[^"\r\n]*"|[A-Za-z][A-Za-z0-9.$%!#]*')
@@ -53,6 +58,9 @@ def adapt_statement(text, bounded=False):
             return "".join(result)
         if upper == "PRINT":
             if text[pos:].lstrip().startswith('#'):
+                if file_io:
+                    result.append(word)
+                    continue
                 raise ValueError("reference adapter does not support existing PRINT#")
             result.append("PRINT #9,")
         elif upper == "INPUT":
@@ -77,6 +85,8 @@ def adapt_statement(text, bounded=False):
             return "".join(result)
         elif upper == "END":
             result.append(f'PRINT #9,"{MARKER}":CLOSE:SYSTEM')
+        elif file_io and upper in {"OPEN", "CLOSE"}:
+            result.append(word)
         elif upper in {"SYSTEM", "SHELL", "OPEN", "CLOSE", "LINE"}:
             raise ValueError(f"unsupported {upper} in reference adapter")
         else:
@@ -85,7 +95,7 @@ def adapt_statement(text, bounded=False):
     return "".join(result)
 
 
-def adapt(source, input_limit=None):
+def adapt(source, input_limit=None, file_io=False):
     if input_limit is not None:
         if not isinstance(input_limit, int) or input_limit < 0:
             raise ValueError('input limit must be a nonnegative integer')
@@ -102,7 +112,7 @@ def adapt(source, input_limit=None):
         if body.upper().startswith("REM"):
             lines.append(line)
         else:
-            lines.append(match[1] + ' ' + ':'.join(adapt_statement(part, input_limit is not None) for part in statements(body)))
+            lines.append(match[1] + ' ' + ':'.join(adapt_statement(part, input_limit is not None, file_io) for part in statements(body)))
     lines.append('65500 PRINT #9,"__CORPUS_ERROR__";ERR;ERL:CLOSE:SYSTEM')
     if input_limit is not None:
         lines.append(f'65510 IF C9={input_limit} THEN PRINT #9,"{CHECKPOINT}":CLOSE:SYSTEM')
@@ -140,7 +150,11 @@ def main():
             source = (corpus / case['source']).read_text() if args.suite == 'corpus' else case['source']
             stdin = (corpus / case['input']).read_text() if args.suite == 'corpus' else case['stdin']
             checkpoint = case.get('checkpoint')
-            transformed = adapt(source, checkpoint['inputs'] if checkpoint else None)
+            transformed = adapt(source, checkpoint['inputs'] if checkpoint else None, case.get('file_io', False))
+            for filename, data in case.get('files_hex', {}).items():
+                if Path(filename).name != filename:
+                    raise ValueError('fixture filename must be a basename')
+                (drive / filename).write_bytes(bytes.fromhex(data))
             (drive / 'CASE.BAS').write_bytes(transformed.encode('ascii'))
             (drive / 'INPUT.TXT').write_bytes(stdin.replace('\n', '\r\n').encode('ascii'))
             command = ['flatpak', 'run', '--die-with-parent',

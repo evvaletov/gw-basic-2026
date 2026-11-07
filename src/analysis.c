@@ -201,31 +201,30 @@ static void mark_target(analysis_t *a, uint16_t line_num)
     }
 }
 
-int analysis_find_var(analysis_t *a, const char name[2], gw_valtype_t type)
+int analysis_find_var(analysis_t *a, const char *name, gw_valtype_t type)
 {
     for (int i = 0; i < a->var_count; i++) {
-        if (a->vars[i].name[0] == name[0] && a->vars[i].name[1] == name[1]
+        if (strcmp(a->vars[i].name, name) == 0
             && a->vars[i].type == type)
             return i;
     }
     return -1;
 }
 
-int analysis_add_var(analysis_t *a, const char name[2], gw_valtype_t type)
+int analysis_add_var(analysis_t *a, const char *name, gw_valtype_t type)
 {
     int idx = analysis_find_var(a, name, type);
     if (idx >= 0) return idx;
     if (a->var_count >= MAX_VARS) return -1;
     idx = a->var_count++;
-    a->vars[idx].name[0] = name[0];
-    a->vars[idx].name[1] = name[1];
+    strcpy(a->vars[idx].name, name);
     a->vars[idx].type = type;
     a->vars[idx].first_assign_line = 0;
     a->vars[idx].first_use_line = 0;
     return idx;
 }
 
-static void mark_var_assign(analysis_t *a, const char name[2],
+static void mark_var_assign(analysis_t *a, const char *name,
                              gw_valtype_t type, uint16_t line)
 {
     int idx = analysis_add_var(a, name, type);
@@ -233,7 +232,7 @@ static void mark_var_assign(analysis_t *a, const char name[2],
         a->vars[idx].first_assign_line = line;
 }
 
-static void mark_var_use(analysis_t *a, const char name[2],
+static void mark_var_use(analysis_t *a, const char *name,
                           gw_valtype_t type, uint16_t line)
 {
     int idx = analysis_add_var(a, name, type);
@@ -263,28 +262,28 @@ static gw_valtype_t resolve_var_type(analysis_t *a, uint8_t first_char, uint8_t 
 
 /* Scan a token stream for variable references, GOTO targets, DATA.
  * When line_num != 0, also tracks assignment vs. use context. */
-static array_info_t *find_array_info(analysis_t *a, const char name[2], gw_valtype_t type)
+static array_info_t *find_array_info(analysis_t *a, const char *name, gw_valtype_t type)
 {
     for (int i = 0; i < a->array_count; i++)
-        if (a->arrays[i].name[0] == name[0] && a->arrays[i].name[1] == name[1]
+        if (strcmp(a->arrays[i].name, name) == 0
             && a->arrays[i].type == type)
             return &a->arrays[i];
     return NULL;
 }
 
 /* Mark an array as never-inlinable (variable DIM, redefinition, or ERASE). */
-static void disqualify_array(analysis_t *a, const char name[2], gw_valtype_t type)
+static void disqualify_array(analysis_t *a, const char *name, gw_valtype_t type)
 {
     array_info_t *ai = find_array_info(a, name, type);
     if (ai) { ai->inlinable = false; return; }
     if (a->array_count < MAX_ARRAYS) {
         array_info_t *n = &a->arrays[a->array_count++];
-        n->name[0] = name[0]; n->name[1] = name[1]; n->type = type;
+        strcpy(n->name, name); n->type = type;
         n->inlinable = false; n->dimmed = false; n->ndims = 0;
     }
 }
 
-array_info_t *analysis_inlinable_array(analysis_t *a, const char name[2], gw_valtype_t type)
+array_info_t *analysis_inlinable_array(analysis_t *a, const char *name, gw_valtype_t type)
 {
     array_info_t *ai = find_array_info(a, name, type);
     return (ai && ai->inlinable && ai->dimmed) ? ai : NULL;
@@ -339,12 +338,8 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
             for (;;) {
                 while (p < end && *p == ' ') p++;
                 if (p >= end || *p == ':' || *p == 0 || !is_letter(*p)) break;
-                char nm[2] = {(char)toupper(*p), 0};
-                p++;
-                if (p < end && (is_letter(*p) || (*p >= '0' && *p <= '9'))) {
-                    nm[1] = (char)toupper(*p); p++;
-                    while (p < end && (is_letter(*p) || (*p >= '0' && *p <= '9'))) p++;
-                }
+                char nm[GW_NAME_SIZE];
+                if (!gw_scan_name(&p, nm)) break;
                 uint8_t suf = (p < end) ? *p : 0;
                 if (suf == '$' || suf == '%' || suf == '!' || suf == '#') p++;
                 else suf = 0;
@@ -375,7 +370,7 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
                     ai->inlinable = false;  /* redefinition -> runtime DD error */
                 } else if (a->array_count < MAX_ARRAYS) {
                     array_info_t *n = &a->arrays[a->array_count++];
-                    n->name[0] = nm[0]; n->name[1] = nm[1]; n->type = type;
+                    strcpy(n->name, nm); n->type = type;
                     /* String arrays stay on the runtime path so their elements
                      * remain visible to the string-pool garbage collector. */
                     n->dimmed = true; n->ndims = nd;
@@ -415,11 +410,8 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
                 while (p < end && *p == ' ') p++;
                 if (p >= end || !*p || *p == ':' || *p == TOK_ELSE) break;
                 if (p < end && is_letter(*p)) {
-                    char nm[2] = {(char)toupper(*p), 0}; p++;
-                    if (p < end && (is_letter(*p) || (*p >= '0' && *p <= '9'))) {
-                        nm[1] = (char)toupper(*p); p++;
-                        while (p < end && (is_letter(*p) || (*p >= '0' && *p <= '9'))) p++;
-                    }
+                    char nm[GW_NAME_SIZE];
+                    if (!gw_scan_name(&p, nm)) break;
                     uint8_t suf = (p < end) ? *p : 0;
                     if (suf == '$' || suf == '%' || suf == '!' || suf == '#') p++;
                     else suf = 0;
@@ -447,7 +439,10 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
 
         /* READ/INPUT — all variables in the list are assigned */
         if (tok == TOK_READ || tok == TOK_INPUT) {
-            p++; assign_ctx = true; multi_assign = true;
+            p++;
+            uint8_t *next = p;
+            while (*next == ' ') next++;
+            assign_ctx = multi_assign = !(tok == TOK_INPUT && *next == '$');
             continue;
         }
 
@@ -541,19 +536,13 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
 
         /* Variable reference */
         if (is_letter(tok)) {
-            char name[2] = {(char)toupper(tok), 0};
-            char full[EXTERN_NAME_MAX];
+            uint8_t *name_start = p;
+            char name[GW_NAME_SIZE];
+            char full[GW_NAME_SIZE];
             int fi = 0;
-            full[fi++] = (char)toupper(tok);
-            p++;
-            if (p < end && (is_letter(*p) || (*p >= '0' && *p <= '9'))) {
-                name[1] = (char)toupper(*p);
-                if (fi < EXTERN_NAME_MAX - 1) full[fi++] = (char)toupper(*p);
+            while (p < end && gw_name_char(*p)) {
+                if (fi < GW_NAME_MAX) full[fi++] = (char)toupper(*p);
                 p++;
-                while (p < end && (is_letter(*p) || (*p >= '0' && *p <= '9'))) {
-                    if (fi < EXTERN_NAME_MAX - 1) full[fi++] = (char)toupper(*p);
-                    p++;
-                }
             }
             full[fi] = 0;
             /* A declared extern is a function call, not a variable — don't add
@@ -565,6 +554,7 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
                 assign_ctx = false;
                 continue;
             }
+            if (!gw_scan_name(&name_start, name)) continue;
             uint8_t suffix = (p < end) ? *p : 0;
             if (suffix == '$' || suffix == '%' || suffix == '!' || suffix == '#')
                 p++;
@@ -782,13 +772,8 @@ void analysis_warnings(analysis_t *a)
     /* Uninitialized variable detection */
     for (int i = 0; i < a->var_count; i++) {
         var_info_t *v = &a->vars[i];
-        char vname[8];
-        if (v->name[1])
-            snprintf(vname, sizeof(vname), "%c%c%s", v->name[0], v->name[1],
-                     var_suffix_str(v->type));
-        else
-            snprintf(vname, sizeof(vname), "%c%s", v->name[0],
-                     var_suffix_str(v->type));
+        char vname[GW_NAME_SIZE + 1];
+        snprintf(vname, sizeof(vname), "%s%s", v->name, var_suffix_str(v->type));
         if (v->first_use_line && !v->first_assign_line) {
             fprintf(stderr, "warning: variable %s used at line %u"
                     " but never assigned\n", vname, v->first_use_line);

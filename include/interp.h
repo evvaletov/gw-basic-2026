@@ -94,7 +94,7 @@ typedef struct {
 
     /* COMMON variable list for CHAIN */
     int common_count;
-    struct { char name[2]; gw_valtype_t type; } common_vars[64];
+    struct { char name[GW_NAME_SIZE]; gw_valtype_t type; } common_vars[64];
 
     /* Event trapping */
     timer_trap_t timer_trap;

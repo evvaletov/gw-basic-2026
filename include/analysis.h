@@ -37,7 +37,7 @@ typedef struct {
 } extern_func_t;
 
 typedef struct {
-    char name[2];
+    char name[GW_NAME_SIZE];
     gw_valtype_t type;
     uint16_t first_assign_line;  /* 0 = never assigned */
     uint16_t first_use_line;     /* 0 = never used */
@@ -50,7 +50,7 @@ typedef struct {
  * DIM, redefinition, or ERASE). Codegen caches the runtime storage pointer
  * for direct indexing, with a lookup fallback after storage invalidation. */
 typedef struct {
-    char name[2];
+    char name[GW_NAME_SIZE];
     gw_valtype_t type;
     int ndims;
     int dims[MAX_ARR_DIMS];   /* upper bound per dimension, as written in DIM */
@@ -90,10 +90,10 @@ typedef struct {
 void analysis_run(analysis_t *a);
 
 /* Find a variable in the census, return index or -1 */
-int analysis_find_var(analysis_t *a, const char name[2], gw_valtype_t type);
+int analysis_find_var(analysis_t *a, const char *name, gw_valtype_t type);
 
 /* Add a variable to the census if not already present */
-int analysis_add_var(analysis_t *a, const char name[2], gw_valtype_t type);
+int analysis_add_var(analysis_t *a, const char *name, gw_valtype_t type);
 
 /* Check if a line number is a jump target */
 bool analysis_is_target(analysis_t *a, uint16_t line_num);
@@ -102,7 +102,7 @@ bool analysis_is_target(analysis_t *a, uint16_t line_num);
 const extern_func_t *analysis_find_extern(analysis_t *a, const char *name);
 
 /* Find an inlinable array by name+type; returns NULL if none or not inlinable */
-array_info_t *analysis_inlinable_array(analysis_t *a, const char name[2], gw_valtype_t type);
+array_info_t *analysis_inlinable_array(analysis_t *a, const char *name, gw_valtype_t type);
 
 /* Emit static analysis warnings to stderr */
 void analysis_warnings(analysis_t *a);

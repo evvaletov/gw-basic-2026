@@ -55,6 +55,32 @@ class InteractiveTests(unittest.TestCase):
         self.command('LOAD "test.bas"')
         self.assertFalse(any("Syntax error" in line for line in self.lines()))
 
+    def test_input_chars_and_randomize_console_references(self):
+        references = json.loads((Path(__file__).parent / "compatibility/input-functions.json").read_text())
+        keys = {"a": "a", "b": "b", "ret": "\r", "ctrl-z": "\x1a",
+                "left": "\x1b[D", "shift-z": "Z", "shift-y": "Y"}
+        for i, case in enumerate(references["input_chars"]):
+            with self.subTest(case=case["id"]):
+                self.load(case["source"].replace(':SYSTEM', ':END'))
+                self.command('RUN')
+                self.wait_for(lambda: any(f'READ{i}:' in line for line in self.lines()))
+                self.child.send(''.join(keys[key] for key in case["keys"]))
+                self.wait_for(lambda: any(f'DONE{i}' in line for line in self.lines()))
+                output = self.root / f'I{i}.TXT'
+                self.assertEqual([int(x) for x in output.read_text().split()], case["values"])
+                self.assertTrue(self.lines()[0].startswith(f'READ{i}:DONE{i}'))
+        for case in references["randomize"]:
+            with self.subTest(case=case["id"]):
+                self.load(case["source"].replace(':SYSTEM', ':END'))
+                self.command('RUN')
+                for count, answer in enumerate(case["answers"], 1):
+                    self.wait_for(lambda: sum('Random number seed' in line for line in self.lines()) == count)
+                    self.command(answer)
+                self.wait_for(lambda: any(line.startswith('DONE-') for line in self.lines()))
+                output = next(self.root.glob('R*.TXT'))
+                self.assertEqual([int(x) for x in output.read_text().split()], case["values"])
+                output.unlink()
+
     def test_numbered_edits_do_not_print_ok(self):
         self.assertEqual(self.lines().count("Ok"), 1)
         for text in ['10 PRINT "HELLO"', '20 END', '20', '']:

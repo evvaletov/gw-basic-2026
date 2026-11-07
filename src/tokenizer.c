@@ -557,3 +557,24 @@ bool gw_for_exit(program_line_t *line, uint8_t *p,
     }
     return false;
 }
+
+bool gw_name_char(uint8_t ch)
+{
+    return (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') ||
+           (ch >= '0' && ch <= '9') || ch == '.';
+}
+
+bool gw_scan_name(uint8_t **text, char name[GW_NAME_SIZE])
+{
+    uint8_t *p = *text;
+    if (!((*p >= 'A' && *p <= 'Z') || (*p >= 'a' && *p <= 'z'))) return false;
+    int n = 0;
+    while (gw_name_char(*p)) {
+        if (n < GW_NAME_MAX) name[n] = (char)toupper(*p);
+        n++;
+        p++;
+    }
+    name[n < GW_NAME_MAX ? n : GW_NAME_MAX] = 0;
+    *text = p;
+    return n <= GW_NAME_MAX;
+}

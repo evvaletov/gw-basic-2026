@@ -153,6 +153,34 @@ static int input_byte(int timeout)
     return count == 1 ? ch : -1;
 }
 
+/* Decode terminal keys for both echoing line input and INPUT$. Ordinary
+ * bytes remain unchanged; supported extended keys use IBM PC scan codes. */
+static int input_key(void)
+{
+    int key = input_byte(-1);
+    if (key != 27) return key;
+    int lead = input_byte(100);
+    if (lead < 0) return 27;
+    if (lead != '[' && lead != 'O') { pending_char = lead; return 27; }
+    int number = 0, ch;
+    bool first = true;
+    do {
+        ch = input_byte(100);
+        if (ch == 3) return 3;
+        if (first && ch >= '0' && ch <= '9') {
+            if (number < 100) number = number * 10 + ch - '0';
+        } else first = false;
+    } while (ch >= 0 && (ch < 0x40 || ch > 0x7e));
+    int scan = ch == 'A' ? 72 : ch == 'B' ? 80 : ch == 'C' ? 77 :
+               ch == 'D' ? 75 : ch == 'H' ? 71 : ch == 'F' ? 79 :
+               ch >= 'P' && ch <= 'S' ? 59 + ch - 'P' : 0;
+    if (ch == '~') {
+        static const int scans[] = {0,71,82,83,79,73,81,71,79,0,0,59,60,61,62,63,0,64,65,66,67,68};
+        if (number < (int)(sizeof(scans) / sizeof(scans[0]))) scan = scans[number];
+    }
+    return scan ? 256 + scan : -4;
+}
+
 /* Move within the answer using relative rows, preserving the surrounding
  * terminal and its scrollback. No alternate screen or absolute origin. */
 static void input_move(int from, int to, int origin_col)
@@ -165,6 +193,29 @@ static void input_move(int from, int to, int origin_col)
     cursor_col = (origin_col + to) % terminal_cols;
     putchar('\r');
     if (cursor_col) printf("\033[%dC", cursor_col);
+}
+
+static int posix_read_chars(char *buf, int count)
+{
+    struct termios saved, raw;
+    if (!isatty(STDIN_FILENO) || tcgetattr(STDIN_FILENO, &saved) < 0) return -3;
+    raw = saved;
+    cfmakeraw(&raw);
+    raw.c_oflag = saved.c_oflag;
+    raw.c_cc[VMIN] = 1;
+    raw.c_cc[VTIME] = 0;
+    if (tcsetattr(STDIN_FILENO, TCSANOW, &raw) < 0) return -3;
+    int n = 0;
+    while (n < count) {
+        int ch = input_key();
+        if (ch == -4) continue;
+        if (ch < 0) break;
+        if (ch == 3) { n = -2; break; }
+        if (ch > 255) continue;  /* Original INPUT$ filters extended keys. */
+        buf[n++] = (char)ch;
+    }
+    tcsetattr(STDIN_FILENO, TCSANOW, &saved);
+    return n;
 }
 
 static int posix_read_input(char *buf, int capacity, bool suppress_newline)
@@ -187,7 +238,8 @@ static int posix_read_input(char *buf, int capacity, bool suppress_newline)
     bool insert = false;
     buf[0] = '\0';
     for (;;) {
-        int key = input_byte(-1);
+        int key = input_key();
+        if (key == -4) continue;
         if (key < 0 || (key == 4 && !len)) break;
         if (key == 3) { result = -2; break; }
         if (key == '\r' || key == '\n' || key == 4) {
@@ -198,30 +250,11 @@ static int posix_read_input(char *buf, int capacity, bool suppress_newline)
             result = len;
             break;
         }
-        if (key == 27) {
-            int lead = input_byte(100);
-            if (lead < 0) key = 21;  /* Escape clears the answer. */
-            else if (lead == '[' || lead == 'O') {
-                /* Consume the entire CSI/SS3 sequence, including modifiers,
-                 * so an unsupported key cannot insert its suffix as text. */
-                int first = -1, count = 0, ch;
-                do {
-                    ch = input_byte(100);
-                    if (!count) first = ch;
-                    if (count < 3) count++;
-                } while (ch >= 0 && (ch < 0x40 || ch > 0x7e));
-                key = ch == 'D' ? 256 : ch == 'C' ? 257 :
-                      ch == 'H' ? 258 : ch == 'F' ? 259 : 0;
-                if (ch == '~' && count == 2 && first >= '1' && first <= '4') {
-                    static const int tilde_keys[] = {258, 260, 261, 259};
-                    key = tilde_keys[first - '1'];
-                }
-            } else {
-                /* A standalone Escape clears the answer; a queued ordinary
-                 * key (including Enter) still belongs to the next edit. */
-                pending_char = lead;
-                key = 21;
-            }
+        if (key == 27) key = 21;  /* Escape clears the answer. */
+        else if (key > 255) {
+            key = key == 331 ? 256 : key == 333 ? 257 :
+                  key == 327 ? 258 : key == 335 ? 259 :
+                  key == 338 ? 260 : key == 339 ? 261 : 0;
         }
         if (key == 256) { if (pos) pos--; }
         else if (key == 257) { if (pos < len) pos++; }
@@ -341,6 +374,7 @@ static hal_ops_t posix_hal = {
     .init = posix_init,
     .shutdown = posix_shutdown,
     .read_input = posix_read_input,
+    .read_chars = posix_read_chars,
 };
 
 hal_ops_t *hal_posix_create(void)

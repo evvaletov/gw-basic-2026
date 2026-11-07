@@ -27,7 +27,7 @@ static void stmt_next(void)
     for (;;) {
         var_entry_t *var = NULL;
         if (gw_is_letter(gw_chrgot())) {
-            char name[2];
+            char name[GW_NAME_SIZE];
             gw_valtype_t type = gw_parse_varname(name);
             var = gw_var_find_or_create(name, type);
         }
@@ -353,7 +353,7 @@ static void stmt_read(void)
     for (;;) {
         gw_skip_spaces();
 
-        char name[2];
+        char name[GW_NAME_SIZE];
         gw_valtype_t type = gw_parse_varname(name);
 
         gw_skip_spaces();
@@ -527,23 +527,7 @@ static void stmt_def_fn(void)
     if (gw_chrgot() == '(') {
         gw_chrget();
         gw_skip_spaces();
-        /* Parse parameter name */
-        if (gw_is_letter(gw_chrgot())) {
-            fn->param_name[0] = toupper(gw_chrgot());
-            gw_chrget();
-            if (gw_is_letter(gw_chrgot()) || gw_is_digit(gw_chrgot())) {
-                fn->param_name[1] = toupper(gw_chrgot());
-                gw_chrget();
-                while (gw_is_letter(gw_chrgot()) || gw_is_digit(gw_chrgot()))
-                    gw_chrget();
-            }
-            /* Param type suffix */
-            if (gw_chrgot() == '%') { fn->param_type = VT_INT; gw_chrget(); }
-            else if (gw_chrgot() == '!') { fn->param_type = VT_SNG; gw_chrget(); }
-            else if (gw_chrgot() == '#') { fn->param_type = VT_DBL; gw_chrget(); }
-            else if (gw_chrgot() == '$') { fn->param_type = VT_STR; gw_chrget(); }
-            else { fn->param_type = gw.def_type[fn->param_name[0] - 'A']; }
-        }
+        fn->param_type = gw_parse_varname(fn->param_name);
         gw_expect_rparen();
     }
 
@@ -647,7 +631,7 @@ void gw_stmt_mid_assign(void)
     gw_chrget();  /* skip '(' */
 
     /* Parse the target variable */
-    char name[2];
+    char name[GW_NAME_SIZE];
     gw_valtype_t type = gw_parse_varname(name);
     if (type != VT_STR)
         gw_error(ERR_TM);
@@ -782,8 +766,7 @@ void gw_stmt_chain(void)
             for (int i = gw.var_count - 1; i >= 0; i--) {
                 bool keep = false;
                 for (int j = 0; j < saved_common_count; j++) {
-                    if (gw.vars[i].name[0] == gw.common_vars[j].name[0] &&
-                        gw.vars[i].name[1] == gw.common_vars[j].name[1] &&
+                    if (strcmp(gw.vars[i].name, gw.common_vars[j].name) == 0 &&
                         gw.vars[i].type == gw.common_vars[j].type) {
                         keep = true;
                         break;
@@ -792,6 +775,7 @@ void gw_stmt_chain(void)
                 if (!keep) {
                     if (gw.vars[i].type == VT_STR)
                         gw_str_free(&gw.vars[i].val.sval);
+                    free(gw.vars[i].name);
                     if (i < gw.var_count - 1)
                         gw.vars[i] = gw.vars[gw.var_count - 1];
                     gw.var_count--;
@@ -869,7 +853,7 @@ static void stmt_gfx_get(void)
     gw_skip_spaces();
     gw_expect(',');
 
-    char name[2];
+    char name[GW_NAME_SIZE];
     gw_valtype_t type = gw_parse_varname(name);
     if (type != VT_INT)
         gw_error(ERR_TM);
@@ -881,7 +865,7 @@ static void stmt_gfx_get(void)
     gw_skip_spaces();
     array_entry_t *a = NULL;
     for (int i = 0; i < gw.array_count; i++) {
-        if (gw.arrays[i].name[0] == name[0] && gw.arrays[i].name[1] == name[1]
+        if (strcmp(gw.arrays[i].name, name) == 0
             && gw.arrays[i].type == VT_INT) {
             a = &gw.arrays[i];
             break;
@@ -915,7 +899,7 @@ static void stmt_gfx_put(void)
     gw_skip_spaces();
     gw_expect(',');
 
-    char name[2];
+    char name[GW_NAME_SIZE];
     gw_valtype_t type = gw_parse_varname(name);
     if (type != VT_INT)
         gw_error(ERR_TM);
@@ -923,7 +907,7 @@ static void stmt_gfx_put(void)
     /* Find the array */
     array_entry_t *a = NULL;
     for (int i = 0; i < gw.array_count; i++) {
-        if (gw.arrays[i].name[0] == name[0] && gw.arrays[i].name[1] == name[1]
+        if (strcmp(gw.arrays[i].name, name) == 0
             && gw.arrays[i].type == VT_INT) {
             a = &gw.arrays[i];
             break;
@@ -1068,7 +1052,7 @@ inline_statement:
                 gw_skip_spaces();
                 if (!gw_chrgot() || gw_chrgot() == ':' || gw_chrgot() == TOK_ELSE)
                     break;
-                char name[2];
+                char name[GW_NAME_SIZE];
                 gw_valtype_t type = gw_parse_varname(name);
                 /* Skip array parens if present: COMMON A() */
                 gw_skip_spaces();
@@ -1078,8 +1062,7 @@ inline_statement:
                     if (gw_chrgot() == ')') gw_chrget();
                 }
                 if (gw.common_count < 64) {
-                    gw.common_vars[gw.common_count].name[0] = name[0];
-                    gw.common_vars[gw.common_count].name[1] = name[1];
+                    strcpy(gw.common_vars[gw.common_count].name, name);
                     gw.common_vars[gw.common_count].type = type;
                     gw.common_count++;
                 }
@@ -2135,7 +2118,7 @@ inline_statement:
         gw_chrget();
 
         /* Parse variable */
-        char name[2];
+        char name[GW_NAME_SIZE];
         gw_valtype_t type = gw_parse_varname(name);
         if (type == VT_STR) gw_error(ERR_TM);
         var_entry_t *var = gw_var_find_or_create(name, type);
@@ -2188,9 +2171,9 @@ inline_statement:
             gw_error(ERR_FW);
         gw.text_ptr = next_var;
         if (gw_is_letter(gw_chrgot())) {
-            char next_name[2];
+            char next_name[GW_NAME_SIZE];
             gw_valtype_t next_type = gw_parse_varname(next_name);
-            if (next_type != type || memcmp(next_name, name, 2) || *after == '(') {
+            if (next_type != type || strcmp(next_name, name) || *after == '(') {
                 if (target != &direct) {
                     gw.cur_line = target;
                     gw.cur_line_num = target->num;
@@ -2615,10 +2598,12 @@ inline_statement:
     if (tok == TOK_RANDOMIZE) {
         gw_chrget();
         gw_skip_spaces();
-        if (gw_chrgot() != 0 && gw_chrgot() != ':') {
+        if (gw_chrgot() != 0 && gw_chrgot() != ':' &&
+            gw_chrgot() != TOK_ELSE && gw_chrgot() != TOK_SQUOTE) {
             gw_randomize(gw_eval_int());
+        } else {
+            gw_randomize_prompt();
         }
-        /* The original no-argument seed prompt remains unimplemented. */
         return;
     }
 
@@ -3136,7 +3121,7 @@ inline_statement:
 
     /* Implicit LET: variable assignment */
     if (gw_is_letter(tok)) {
-        char name[2];
+        char name[GW_NAME_SIZE];
         gw_valtype_t type = gw_parse_varname(name);
 
         gw_skip_spaces();

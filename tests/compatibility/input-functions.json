@@ -1,0 +1,285 @@
+{
+  "reference_sha256": "3d83e8d2bbc71e8b79e20c6cfb7bceba36c4dd4bda2a7af4c415cab6b3f3203c",
+  "method": "Microsoft GW-BASIC source build under FreeDOS/QEMU; real console input, numeric results saved by BASIC",
+  "captured_on": "2026-11-07",
+  "randomize": [
+    {
+      "id": "randomize_prompt_seed",
+      "source": "10 ON ERROR GOTO 900\n20 CLS:PRINT \"CASE-0\"\n30 X=RND(-1):RANDOMIZE\n40 OPEN \"R0.TXT\" FOR OUTPUT AS #1\n50 PRINT #1,INT(RND(0)*1000000);INT(RND(1)*1000000)\n60 CLOSE:PRINT \"DONE-0\":SYSTEM\n900 OPEN \"R0.TXT\" FOR OUTPUT AS #1:PRINT #1,ERR;ERL:CLOSE:PRINT \"DONE-0\":SYSTEM\n",
+      "answers": [
+        "1"
+      ],
+      "values": [
+        903892,
+        823582
+      ],
+      "source_sha256": "23e31cfb649f5c7fe3dba027ffbdde69b526bdbeb9696743cd206e4b871fa49b",
+      "raw_sha256": "7c114227857cdf59f95e94f0c90d6ed5e52125bcf622cf6a466439041f811d5a"
+    },
+    {
+      "id": "randomize_prompt_empty",
+      "source": "10 ON ERROR GOTO 900\n20 CLS:PRINT \"CASE-1\"\n30 X=RND(-1):RANDOMIZE\n40 OPEN \"R1.TXT\" FOR OUTPUT AS #1\n50 PRINT #1,INT(RND(0)*1000000);INT(RND(1)*1000000)\n60 CLOSE:PRINT \"DONE-1\":SYSTEM\n900 OPEN \"R1.TXT\" FOR OUTPUT AS #1:PRINT #1,ERR;ERL:CLOSE:PRINT \"DONE-1\":SYSTEM\n",
+      "answers": [
+        ""
+      ],
+      "values": [
+        638312,
+        417195
+      ],
+      "source_sha256": "2d9322f726b53eda6757486f93feba54a392ce7b68ee5ea3470ef4614fb847ff",
+      "raw_sha256": "30f90435cd637b4dc1579729877ac8a80f3fe5a6d3177f1026b693f07d9a1970"
+    },
+    {
+      "id": "randomize_prompt_retry",
+      "source": "10 ON ERROR GOTO 900\n20 CLS:PRINT \"CASE-2\"\n30 X=RND(-1):RANDOMIZE\n40 OPEN \"R2.TXT\" FOR OUTPUT AS #1\n50 PRINT #1,INT(RND(0)*1000000);INT(RND(1)*1000000)\n60 CLOSE:PRINT \"DONE-2\":SYSTEM\n900 OPEN \"R2.TXT\" FOR OUTPUT AS #1:PRINT #1,ERR;ERL:CLOSE:PRINT \"DONE-2\":SYSTEM\n",
+      "answers": [
+        "abc",
+        "1+1",
+        "1 "
+      ],
+      "values": [
+        903892,
+        823582
+      ],
+      "source_sha256": "4a5c135f8c5acf31cb3b1b4c2e9d18113b794f2757790458013051e2b3155f84",
+      "raw_sha256": "7c114227857cdf59f95e94f0c90d6ed5e52125bcf622cf6a466439041f811d5a"
+    },
+    {
+      "id": "randomize_prompt_round",
+      "source": "10 ON ERROR GOTO 900\n20 CLS:PRINT \"CASE-3\"\n30 X=RND(-1):RANDOMIZE\n40 OPEN \"R3.TXT\" FOR OUTPUT AS #1\n50 PRINT #1,INT(RND(0)*1000000);INT(RND(1)*1000000)\n60 CLOSE:PRINT \"DONE-3\":SYSTEM\n900 OPEN \"R3.TXT\" FOR OUTPUT AS #1:PRINT #1,ERR;ERL:CLOSE:PRINT \"DONE-3\":SYSTEM\n",
+      "answers": [
+        "2.5"
+      ],
+      "values": [
+        435050,
+        636357
+      ],
+      "source_sha256": "e17e28ade5168b602824d85d466a7466829e580932d5f136ffcec819e1d042d8",
+      "raw_sha256": "3ebfb03c41fcd81cd7259a2b3d74b10b60a9378cb7b3fba16367d46f1125931e"
+    },
+    {
+      "id": "randomize_prompt_negative",
+      "source": "10 ON ERROR GOTO 900\n20 CLS:PRINT \"CASE-4\"\n30 X=RND(-1):RANDOMIZE\n40 OPEN \"R4.TXT\" FOR OUTPUT AS #1\n50 PRINT #1,INT(RND(0)*1000000);INT(RND(1)*1000000)\n60 CLOSE:PRINT \"DONE-4\":SYSTEM\n900 OPEN \"R4.TXT\" FOR OUTPUT AS #1:PRINT #1,ERR;ERL:CLOSE:PRINT \"DONE-4\":SYSTEM\n",
+      "answers": [
+        "-2.5"
+      ],
+      "values": [
+        841575,
+        198033
+      ],
+      "source_sha256": "375fc54e15e0e5ee0cad4b565f5fd68535fc05c442dd9ff51c4d04f4724873e9",
+      "raw_sha256": "e50b138fdef1c96f8e1c7e4945da91293719bfe4e644dd1fb670913991fce861"
+    },
+    {
+      "id": "randomize_prompt_overflow",
+      "source": "10 ON ERROR GOTO 900\n20 CLS:PRINT \"CASE-5\"\n30 X=RND(-1):RANDOMIZE\n40 OPEN \"R5.TXT\" FOR OUTPUT AS #1\n50 PRINT #1,INT(RND(0)*1000000);INT(RND(1)*1000000)\n60 CLOSE:PRINT \"DONE-5\":SYSTEM\n900 OPEN \"R5.TXT\" FOR OUTPUT AS #1:PRINT #1,ERR;ERL:CLOSE:PRINT \"DONE-5\":SYSTEM\n",
+      "answers": [
+        "32768"
+      ],
+      "values": [
+        6,
+        30
+      ],
+      "source_sha256": "5c7d594b4950be24bb51e7db36f9a437d3adf60b43266c25068a94888a635c17",
+      "raw_sha256": "9d2271a23809ee059e1b918987c75fa49fbd287c0f2a4f1173829e4a06069ce9"
+    },
+    {
+      "id": "randomize_prompt_hex",
+      "source": "10 ON ERROR GOTO 900\n20 CLS:PRINT \"CASE-6\"\n30 X=RND(-1):RANDOMIZE\n40 OPEN \"R6.TXT\" FOR OUTPUT AS #1\n50 PRINT #1,INT(RND(0)*1000000);INT(RND(1)*1000000)\n60 CLOSE:PRINT \"DONE-6\":SYSTEM\n900 OPEN \"R6.TXT\" FOR OUTPUT AS #1:PRINT #1,ERR;ERL:CLOSE:PRINT \"DONE-6\":SYSTEM\n",
+      "answers": [
+        "&H10"
+      ],
+      "values": [
+        887580,
+        919392
+      ],
+      "source_sha256": "c6d6b8025826541f547b592909cc3a8c4a6e517101251f2afdec5fbb312d0495",
+      "raw_sha256": "39759da2ab47170b1312eb16c584a0de09acc2a37d888299b14e2de27becfaa9"
+    },
+    {
+      "id": "randomize_prompt_exponent",
+      "source": "10 ON ERROR GOTO 900\n20 CLS:PRINT \"CASE-7\"\n30 X=RND(-1):RANDOMIZE\n40 OPEN \"R7.TXT\" FOR OUTPUT AS #1\n50 PRINT #1,INT(RND(0)*1000000);INT(RND(1)*1000000)\n60 CLOSE:PRINT \"DONE-7\":SYSTEM\n900 OPEN \"R7.TXT\" FOR OUTPUT AS #1:PRINT #1,ERR;ERL:CLOSE:PRINT \"DONE-7\":SYSTEM\n",
+      "answers": [
+        "1D1"
+      ],
+      "values": [
+        294105,
+        481068
+      ],
+      "source_sha256": "e0d40170863d454c06fe6c5f74ac2a91a7b727fbfd26acbb41aa49d01e3ba1ed",
+      "raw_sha256": "ad10397bf19be934cf79b031e07e9396743eb5882f0bbaa6abbef0aeff22c565"
+    },
+    {
+      "id": "randomize_prompt_spaces",
+      "source": "10 ON ERROR GOTO 900\n20 CLS:PRINT \"CASE-8\"\n30 X=RND(-1):RANDOMIZE\n40 OPEN \"R8.TXT\" FOR OUTPUT AS #1\n50 PRINT #1,INT(RND(0)*1000000);INT(RND(1)*1000000)\n60 CLOSE:PRINT \"DONE-8\":SYSTEM\n900 OPEN \"R8.TXT\" FOR OUTPUT AS #1:PRINT #1,ERR;ERL:CLOSE:PRINT \"DONE-8\":SYSTEM\n",
+      "answers": [
+        " 2 "
+      ],
+      "values": [
+        169471,
+        229970
+      ],
+      "source_sha256": "1a96499eb8b883a42f7b38c12d90b33c46d23c4bd9b2641da1d30addb23cb0e7",
+      "raw_sha256": "c291ae294c8b85ab84210f743dbf9a4ad4d26bdc68fc87c06287049f6c4e995b"
+    },
+    {
+      "id": "randomize_prompt_type_suffix",
+      "source": "10 ON ERROR GOTO 900\n20 CLS:PRINT \"CASE-9\"\n30 X=RND(-1):RANDOMIZE\n40 OPEN \"R9.TXT\" FOR OUTPUT AS #1\n50 PRINT #1,INT(RND(0)*1000000);INT(RND(1)*1000000)\n60 CLOSE:PRINT \"DONE-9\":SYSTEM\n900 OPEN \"R9.TXT\" FOR OUTPUT AS #1:PRINT #1,ERR;ERL:CLOSE:PRINT \"DONE-9\":SYSTEM\n",
+      "answers": [
+        "2!"
+      ],
+      "values": [
+        169471,
+        229970
+      ],
+      "source_sha256": "d883e544fb25fe4ea15d3b907570db09b55f81915ba987dcb1083aa02d24de62",
+      "raw_sha256": "c291ae294c8b85ab84210f743dbf9a4ad4d26bdc68fc87c06287049f6c4e995b"
+    },
+    {
+      "id": "randomize_prompt_inner_spaces",
+      "source": "10 ON ERROR GOTO 900\n20 CLS:PRINT \"CASE-0\"\n30 X=RND(-1):RANDOMIZE\n40 OPEN \"R0.TXT\" FOR OUTPUT AS #1\n50 PRINT #1,INT(RND(0)*1000000);INT(RND(1)*1000000)\n60 CLOSE:PRINT \"DONE-0\":SYSTEM\n900 OPEN \"R0.TXT\" FOR OUTPUT AS #1:PRINT #1,ERR;ERL:CLOSE:PRINT \"DONE-0\":SYSTEM\n",
+      "answers": [
+        "1 2"
+      ],
+      "values": [
+        825263,
+        293843
+      ],
+      "source_sha256": "23e31cfb649f5c7fe3dba027ffbdde69b526bdbeb9696743cd206e4b871fa49b",
+      "raw_sha256": "c6930abd25f6db99b32391e44dc4cbcf8cbc98879aa39a971e0260a5ed87277a"
+    },
+    {
+      "id": "randomize_prompt_sign",
+      "source": "10 ON ERROR GOTO 900\n20 CLS:PRINT \"CASE-1\"\n30 X=RND(-1):RANDOMIZE\n40 OPEN \"R1.TXT\" FOR OUTPUT AS #1\n50 PRINT #1,INT(RND(0)*1000000);INT(RND(1)*1000000)\n60 CLOSE:PRINT \"DONE-1\":SYSTEM\n900 OPEN \"R1.TXT\" FOR OUTPUT AS #1:PRINT #1,ERR;ERL:CLOSE:PRINT \"DONE-1\":SYSTEM\n",
+      "answers": [
+        "+"
+      ],
+      "values": [
+        638312,
+        417195
+      ],
+      "source_sha256": "2d9322f726b53eda6757486f93feba54a392ce7b68ee5ea3470ef4614fb847ff",
+      "raw_sha256": "30f90435cd637b4dc1579729877ac8a80f3fe5a6d3177f1026b693f07d9a1970"
+    },
+    {
+      "id": "randomize_prompt_percent",
+      "source": "10 ON ERROR GOTO 900\n20 CLS:PRINT \"CASE-2\"\n30 X=RND(-1):RANDOMIZE\n40 OPEN \"R2.TXT\" FOR OUTPUT AS #1\n50 PRINT #1,INT(RND(0)*1000000);INT(RND(1)*1000000)\n60 CLOSE:PRINT \"DONE-2\":SYSTEM\n900 OPEN \"R2.TXT\" FOR OUTPUT AS #1:PRINT #1,ERR;ERL:CLOSE:PRINT \"DONE-2\":SYSTEM\n",
+      "answers": [
+        "2%"
+      ],
+      "values": [
+        169471,
+        229970
+      ],
+      "source_sha256": "4a5c135f8c5acf31cb3b1b4c2e9d18113b794f2757790458013051e2b3155f84",
+      "raw_sha256": "c291ae294c8b85ab84210f743dbf9a4ad4d26bdc68fc87c06287049f6c4e995b"
+    },
+    {
+      "id": "randomize_prompt_incomplete_exp",
+      "source": "10 ON ERROR GOTO 900\n20 CLS:PRINT \"CASE-3\"\n30 X=RND(-1):RANDOMIZE\n40 OPEN \"R3.TXT\" FOR OUTPUT AS #1\n50 PRINT #1,INT(RND(0)*1000000);INT(RND(1)*1000000)\n60 CLOSE:PRINT \"DONE-3\":SYSTEM\n900 OPEN \"R3.TXT\" FOR OUTPUT AS #1:PRINT #1,ERR;ERL:CLOSE:PRINT \"DONE-3\":SYSTEM\n",
+      "answers": [
+        "1E"
+      ],
+      "values": [
+        903892,
+        823582
+      ],
+      "source_sha256": "e17e28ade5168b602824d85d466a7466829e580932d5f136ffcec819e1d042d8",
+      "raw_sha256": "7c114227857cdf59f95e94f0c90d6ed5e52125bcf622cf6a466439041f811d5a"
+    },
+    {
+      "id": "randomize_prompt_hex_negative",
+      "source": "10 ON ERROR GOTO 900\n20 CLS:PRINT \"CASE-4\"\n30 X=RND(-1):RANDOMIZE\n40 OPEN \"R4.TXT\" FOR OUTPUT AS #1\n50 PRINT #1,INT(RND(0)*1000000);INT(RND(1)*1000000)\n60 CLOSE:PRINT \"DONE-4\":SYSTEM\n900 OPEN \"R4.TXT\" FOR OUTPUT AS #1:PRINT #1,ERR;ERL:CLOSE:PRINT \"DONE-4\":SYSTEM\n",
+      "answers": [
+        "&HFFFF"
+      ],
+      "values": [
+        372733,
+        10808
+      ],
+      "source_sha256": "375fc54e15e0e5ee0cad4b565f5fd68535fc05c442dd9ff51c4d04f4724873e9",
+      "raw_sha256": "f33a8d0d78e668f8be3dca7ad5bfd57408868889e594828c29dfadd155f3a84b"
+    },
+    {
+      "id": "randomize_prompt_hex_empty",
+      "source": "10 ON ERROR GOTO 900\n20 CLS:PRINT \"CASE-5\"\n30 X=RND(-1):RANDOMIZE\n40 OPEN \"R5.TXT\" FOR OUTPUT AS #1\n50 PRINT #1,INT(RND(0)*1000000);INT(RND(1)*1000000)\n60 CLOSE:PRINT \"DONE-5\":SYSTEM\n900 OPEN \"R5.TXT\" FOR OUTPUT AS #1:PRINT #1,ERR;ERL:CLOSE:PRINT \"DONE-5\":SYSTEM\n",
+      "answers": [
+        "&H"
+      ],
+      "values": [
+        638312,
+        417195
+      ],
+      "source_sha256": "5c7d594b4950be24bb51e7db36f9a437d3adf60b43266c25068a94888a635c17",
+      "raw_sha256": "30f90435cd637b4dc1579729877ac8a80f3fe5a6d3177f1026b693f07d9a1970"
+    },
+    {
+      "id": "randomize_prompt_double_sign",
+      "source": "10 ON ERROR GOTO 900\n20 CLS:PRINT \"CASE-6\"\n30 X=RND(-1):RANDOMIZE\n40 OPEN \"R6.TXT\" FOR OUTPUT AS #1\n50 PRINT #1,INT(RND(0)*1000000);INT(RND(1)*1000000)\n60 CLOSE:PRINT \"DONE-6\":SYSTEM\n900 OPEN \"R6.TXT\" FOR OUTPUT AS #1:PRINT #1,ERR;ERL:CLOSE:PRINT \"DONE-6\":SYSTEM\n",
+      "answers": [
+        "--1",
+        "1"
+      ],
+      "values": [
+        903892,
+        823582
+      ],
+      "source_sha256": "c6d6b8025826541f547b592909cc3a8c4a6e517101251f2afdec5fbb312d0495",
+      "raw_sha256": "7c114227857cdf59f95e94f0c90d6ed5e52125bcf622cf6a466439041f811d5a"
+    }
+  ],
+  "input_chars": [
+    {
+      "id": "characters",
+      "source": "10 CLS:PRINT \"READ0:\";\n20 A$=INPUT$(3)\n30 OPEN \"I0.TXT\" FOR OUTPUT AS #1\n40 FOR I=1 TO LEN(A$):PRINT #1,ASC(MID$(A$,I,1));:NEXT I\n60 PRINT #1,POS(0);CSRLIN:CLOSE #1:PRINT \"DONE0\":SYSTEM\n",
+      "keys": [
+        "a",
+        "ret",
+        "ctrl-z"
+      ],
+      "source_sha256": "d6dcd0863387a28a4d125c972977f88d413189b2442d9b1772ef3bbde5e80012",
+      "raw_sha256": "1fa72617b46a7e9a9fe8c74afc7c31073dc878dee6b2ee2fa3827992abca9449",
+      "values": [
+        97,
+        13,
+        26,
+        7,
+        1
+      ]
+    },
+    {
+      "id": "extended",
+      "source": "10 CLS:PRINT \"READ1:\";\n20 A$=INPUT$(2)\n30 OPEN \"I1.TXT\" FOR OUTPUT AS #1\n40 FOR I=1 TO LEN(A$):PRINT #1,ASC(MID$(A$,I,1));:NEXT I\n60 PRINT #1,POS(0);CSRLIN:CLOSE #1:PRINT \"DONE1\":SYSTEM\n",
+      "keys": [
+        "left",
+        "a",
+        "b"
+      ],
+      "source_sha256": "13d11daee9f8cbe09904ca62a1956f100ef8f44ec92065d9a5240b03b79655e1",
+      "raw_sha256": "8e23609ee3753a6686c127b25c46a9f712ce69447f104f164991ab9252aff7d3",
+      "values": [
+        97,
+        98,
+        7,
+        1
+      ]
+    },
+    {
+      "id": "discard_scan",
+      "source": "10 CLS:PRINT \"READ2:\";\n20 A$=INPUT$(1)\n30 OPEN \"I2.TXT\" FOR OUTPUT AS #1\n40 FOR I=1 TO LEN(A$):PRINT #1,ASC(MID$(A$,I,1));:NEXT I\n50 B$=INPUT$(1):PRINT #1,ASC(B$);\n60 PRINT #1,POS(0);CSRLIN:CLOSE #1:PRINT \"DONE2\":SYSTEM\n",
+      "keys": [
+        "left",
+        "shift-z",
+        "shift-y"
+      ],
+      "source_sha256": "562b4c340b00f38ca7ab0785e0ef9f8eaee8f6cc0971725606c971c65252dad5",
+      "raw_sha256": "6a81a53ff098070e06486d96b040e8fa375132b31b6f528391c18fe1cdc0b50a",
+      "values": [
+        90,
+        89,
+        7,
+        1
+      ]
+    }
+  ]
+}

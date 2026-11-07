@@ -38,16 +38,19 @@ typedef struct program_line {
     uint8_t *tokens;     /* tokenized line data */
 } program_line_t;
 
+#define GW_NAME_MAX 40
+#define GW_NAME_SIZE (GW_NAME_MAX + 1)
+
 /* Variable entry */
 typedef struct {
-    char name[2];        /* 2-char name (original GW-BASIC limit) */
+    char *name;         /* owned, complete case-folded identifier */
     gw_valtype_t type;
     gw_value_t val;
 } var_entry_t;
 
 /* Array entry */
 typedef struct {
-    char name[2];
+    char *name;
     gw_valtype_t type;
     int ndims;
     int dims[8];        /* max dimensions per DIM */
@@ -103,7 +106,7 @@ typedef struct {
 /* DEF FN entry */
 typedef struct {
     bool defined;
-    char param_name[2];
+    char param_name[GW_NAME_SIZE];
     gw_valtype_t param_type, ret_type;
     uint8_t *body_text;
     struct program_line *body_line;
@@ -117,9 +120,10 @@ typedef struct {
     bool eof_flag;
     int record_len;         /* record length for random access (default 128) */
     uint8_t *field_buf;     /* FIELD buffer (malloc'd, record_len bytes) */
+    int input_pos;          /* INPUT$ cursor within the random record */
     int field_count;        /* number of FIELDed variables */
     struct field_var {
-        char name[2];
+        char *name;
         gw_valtype_t type;
         int offset;
         int width;
