@@ -14,6 +14,11 @@
 #define GW_BANNER "GW-BASIC " GW_VERSION
 
 /* Tokenizer */
+#define GW_MAX_LINE 65529U
+/* Leading ASCII label: bytes consumed, 0 for no label, -1 for out of range. */
+int gw_parse_line_number(const char *text, uint16_t *num);
+/* Read an integral token in the line-number range without changing its type. */
+bool gw_read_line_number(uint8_t **text, uint16_t *num);
 /* Returns token length, or -1 if the complete line and terminator do not fit. */
 int  gw_crunch(const char *text, uint8_t *out, int outsize);
 void gw_list_line(uint8_t *tokens, int len, char *out, int outsize);

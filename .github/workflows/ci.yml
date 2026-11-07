@@ -31,6 +31,8 @@ jobs:
           python3 tests/test_harnesses.py
           python3 tests/test_corpus.py
           python3 tests/test_tokenizer.py --sanitize
+          python3 tests/test_line_numbers.py
+          python3 tests/test_dos_runtime.py
 
       - name: Interpreter tests (audio disabled)
         env:
@@ -108,6 +110,7 @@ jobs:
 
   dos-cross-compile:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -171,6 +174,31 @@ jobs:
           echo "gwbasic.exe   = $size32 bytes"
           [ "$size16" -gt 80000 ]  && [ "$size16" -lt 200000 ]
           [ "$size32" -gt 100000 ] && [ "$size32" -lt 500000 ]
+
+      - name: Install DOS runtime test tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 mtools
+
+      - name: Cache pinned FreeDOS distribution
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/gwbasic-freedos
+          key: freedos-1.4-floppy-45b1fa7c52dd996c
+
+      - name: Run DOS16 and DOS32 under FreeDOS
+        run: |
+          python3 tests/run_dos_runtime.py \
+            --dos16 .ci-stash/gwbasic16.exe --dos32 .ci-stash/gwbasic.exe \
+            --dos4gw "$WATCOM/binw/dos4gw.exe" --output build/dos-runtime
+
+      - name: Upload DOS runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dos-runtime-evidence
+          path: build/dos-runtime/
+          if-no-files-found: warn
 
       - name: Upload DOS artifacts
         uses: actions/upload-artifact@v4

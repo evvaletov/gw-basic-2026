@@ -89,6 +89,12 @@ and synchronizes subsequent PRINT positioning, including wrapped answers.
 
 ## Near-Term Priorities
 
+DOS16 and DOS32 now execute in the CI job using a pinned FreeDOS boot fixture
+and disposable QEMU disks. Saved output, input/cursor behavior and Ctrl-C
+recovery are required checks (`b3de88c`). ASCII line labels through 65529 work
+across the editor, loader and compiler, including high targets and SAVE/RENUM
+round trips; expression INTEGER limits remain unchanged (`58ea19c`).
+
 The harness now fails on output mismatches and process errors, with separate
 limits for audio, timer, and compilation tests (git-bug `54f3aa6`).
 
@@ -116,15 +122,14 @@ Next priorities:
 1. Prepare Show HN and Lobsters posts and a FreeDOS package submission using the
    published release and clearly identified development changes
    (git-bug `dc24012`, `ab8188c`).
-2. Automate FreeDOS runtime smoke tests for both DOS builds in CI. The existing
-   CI cross-builds do not exercise keyboard, cursor, or saved-output behavior
-   (git-bug `b3de88c`).
-3. Extend gameplay coverage to random games and triage Awari/Checkers runtime
+2. Extend gameplay coverage to random games and triage Awari/Checkers runtime
    paths against original GW-BASIC (git-bug `51679f0`).
-4. Accept ASCII line labels through 65529 in the editor, loader, and CLI while
-   preserving expression integer limits (git-bug `58ea19c`).
-5. Preserve semicolon-input cursor behavior in native and file-launched runs
+3. Preserve semicolon-input cursor behavior in native and file-launched runs
    that use an echoing terminal outside the editor (git-bug `eb475bb`).
+4. Match original WHILE frame recovery after a trapped error and retry
+   (git-bug `7611b45`).
+5. Verify dotted variable names against original GW-BASIC and repair parsing
+   (git-bug `b036f08`).
 
 ## Longer-Term Plans
 
@@ -138,7 +143,6 @@ repository for design notes and current status.
 | input | Track canonical terminal echo outside the full-screen editor | `eb475bb` | P2 |
 | language | Match WHILE frame recovery after a trapped error and retry | `7611b45` | P2 |
 | compiler | Export individual BASIC routines as C-callable functions | `1b7d59c` | P2 |
-| language | Accept ASCII interpreter line labels above 32767 | `58ea19c` | P2 |
 | language | Original-reference triage and parsing of dotted names | `b036f08` | P2 |
 | testing | Tighten documentation-runner fence parsing and process/output cleanup | `a83cc1e` | P2 |
 | language | FORTRAN-style `WRITE` formatted I/O | `a6e99af` | P2 |
@@ -170,8 +174,6 @@ The corpus runtime checks cover only the cases listed in its fixture manifest.
   newline even with `INPUT ;` or `LINE INPUT ;`. Native and file-launched
   terminal runs need separate echo/cursor handling (git-bug `eb475bb`).
 - Most corpus games lack runtime fixtures; build success is separate evidence.
-- The interpreter rejects ASCII line labels above 32767; full GW-BASIC line
-  numbering through 65529 is tracked in `58ea19c`.
 - Dotted variable names currently raise a syntax error in the runtime parser;
   tokenizer/parser and original-GW-BASIC triage is tracked in `b036f08`.
 - The compiler reads ASCII source. Save tokenized files with `SAVE "file.bas",A`

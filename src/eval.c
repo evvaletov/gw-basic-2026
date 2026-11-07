@@ -871,8 +871,8 @@ static gw_value_t eval_atom(void)
     if (tok == TOK_ERL) {
         gw_chrget();
         gw_value_t v;
-        v.type = VT_INT;
-        v.ival = gw.err_line_num;
+        v.type = VT_SNG;
+        v.fval = gw.err_line_num;
         return v;
     }
     if (tok == TOK_ERR) {
@@ -1157,9 +1157,9 @@ uint16_t gw_eval_uint16(void)
     if (v.type == VT_INT)
         return (uint16_t)v.ival;
     double d = gw_to_dbl(&v);
-    if (d < -32768 || d > 65535)
+    if (!(d >= -32768 && d <= 65535))
         gw_error(ERR_FC);
-    return (uint16_t)(int16_t)d;
+    return (uint16_t)(int32_t)d;
 }
 
 void gw_expect_rparen(void)

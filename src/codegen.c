@@ -114,11 +114,9 @@ static bool line_exists(uint16_t num)
 
 static uint16_t read_int(void)
 {
-    uint8_t tok = *tp;
-    if (tok >= 0x11 && tok <= 0x1A) { tp++; return tok - 0x11; }
-    if (tok == TOK_INT1) { uint16_t v = tp[1]; tp += 2; return v; }
-    if (tok == TOK_INT2) { uint16_t v = tp[1] | (tp[2] << 8); tp += 3; return v; }
-    return 0;
+    uint16_t value;
+    if (!gw_read_line_number(&tp, &value)) codegen_error("invalid line number");
+    return value;
 }
 
 static bool is_const(uint8_t tok)
@@ -2576,7 +2574,7 @@ static void emit_stmt(void)
         uint16_t target = 0;
         if (next) {
             advance();
-        } else if ((cur() >= 0x11 && cur() <= 0x1A) || cur() == TOK_INT1 || cur() == TOK_INT2) {
+        } else if (is_const(cur())) {
             target = read_int();
         }
         skip_spaces();

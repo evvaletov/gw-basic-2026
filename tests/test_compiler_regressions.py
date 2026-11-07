@@ -9,6 +9,26 @@ import tempfile
 
 
 CASES = {
+    "high_line_branches": ('''0 GOSUB 40000
+10 IF 0 THEN 65529 ELSE 32768
+32768 PRINT "BRANCH":ON 2 GOTO 65529,50000
+40000 PRINT "SUB":RETURN
+50000 RESTORE 65520:READ A:PRINT A
+50010 PRINT 40000;65529;CVI(MKI$(-32768)):GOTO 65529
+65520 DATA 123
+65529 PRINT "DONE":END
+''', "", ["SUB", "BRANCH", "123", "40000 65529 -32768", "DONE"]),
+    "high_line_error_resume": ('''10 ON ERROR GOTO 65000:GOTO 40000
+40000 A%=32768:PRINT "RECOVERED"
+40010 ERROR 5
+40020 PRINT "BAD":END
+65000 PRINT ERR;ERL:IF ERR=6 THEN RESUME NEXT ELSE RESUME 65529
+65529 PRINT "DONE":END
+''', "", ["6 40000", "RECOVERED", "5 40010", "DONE"]),
+    "high_line_undefined": ('''10 ON ERROR GOTO 65000:GOTO 65528
+20 PRINT "DONE":END
+65000 PRINT ERR;ERL:RESUME NEXT
+''', "", ["8 10", "DONE"]),
     "native_resume_deep_if": ('''10 ON ERROR GOTO 100
 20 IF 1 THEN IF 1 THEN IF 1 THEN IF 1 THEN IF 1 THEN IF 1 THEN ERROR 5:PRINT "DONE"
 30 END
@@ -440,7 +460,7 @@ def main():
                 run([str(build / "gwbasic-compile"), str(bas), "-o", str(c),
                      "--max-output-size", "1", *flags], root)
                 code = c.read_text()
-                if name == "deftype_prefix" or name.startswith("native_resume_") or name in NATIVE_REFERENCES:
+                if name == "deftype_prefix" or name.startswith(("native_resume_", "high_line_")) or name in NATIVE_REFERENCES:
                     assert "gw_run_loop();" not in code, "native compilation was not exercised"
                 if name == "resume_text_only":
                     assert "_gw_stmt" not in code, "non-code RESUME enabled statement tracking"

@@ -37,6 +37,8 @@ bash tests/run_compiler_tests.sh        # native executables
 python3 tests/test_interactive.py        # terminal input and prompt behavior
 python3 tests/test_compiler_regressions.py  # compiler option combinations
 python3 tests/test_compiler_paths.py        # literal GCC paths and launch failures
+python3 tests/test_line_numbers.py          # labels, loading, editing and SAVE/RENUM
+python3 tests/test_dos_runtime.py           # DOS harness failure handling
 bash tests/run_corpus.sh --report corpus-matrix.json  # curated corpus
 python3 -m gwbasickernel.test_kernel     # Jupyter kernel
 ```
@@ -81,6 +83,54 @@ optimization, safety, and array-access modes. The four interactive games in
 `python3 tests/test_tokenizer.py --sanitize` checks every output-buffer boundary
 for representative token widths and rejects oversized lines through the
 interpreter, LOAD, and compiler. It builds a small ASan/UBSan test helper.
+
+### DOS runtime checks
+
+The DOS cross-build job executes both binaries under FreeDOS in QEMU before
+uploading them for release packaging. Run the same checks locally after building
+both targets:
+
+```bash
+./build_dos.sh 16
+./build_dos.sh 32
+python3 tests/run_dos_runtime.py --dos16 gwbasic16.exe --dos32 gwbasic.exe \
+  --dos4gw "$HOME/openwatcom-v2/binw/dos4gw.exe" --output build/dos-runtime
+```
+
+Install Python 3, `qemu-system-x86` (with PC floppy support), and `mtools`.
+`--qemu PATH` selects a different QEMU executable. The runner uses TCG software
+emulation, 32 MiB guest RAM, a private boot floppy and a disposable 64 MiB FAT
+disk for each target. It needs neither root, kernel disk devices nor KVM.
+The default deadline is 120 seconds per target; CI bounds the whole DOS build
+job to 15 minutes. Temporary guest disks are removed and QEMU is stopped on
+success or failure.
+
+The first run downloads the 23 MiB
+[FreeDOS 1.4 Floppy Edition](https://www.freedos.org/download/) from the project's
+ibiblio mirror. Every run verifies the archive against the pinned SHA256 from
+[upstream verify.txt](https://www.ibiblio.org/pub/micro/pc-stuff/freedos/files/distributions/1.4/verify.txt)
+and verifies the boot image member separately. `--cache DIR` selects the download
+cache; a corrupt cache fails rather than being accepted. FreeDOS sources and
+licenses are available through the upstream download page; no FreeDOS or
+Microsoft binaries are committed here. `DOS4GW.EXE` comes from the same
+OpenWatcom installation used to cross-build the interpreter.
+
+Checks cover arithmetic, strings, loops, file I/O, high line labels, nested
+IF/error recovery, editor input against an original-console reference, and
+Ctrl-C recovery from a compute loop. Saved output and cursor positions must
+match expectations. The high-line/error fixture also matches an unmodified
+run in a pinned Microsoft GW-BASIC source build (JWasm, 2023-10-03);
+`tests/compatibility/dos-runtime-reference.json`
+records its source and capture hashes. Missing tools or binaries return status 2 (unavailable);
+guest failures, timeouts, corrupt fixtures and output mismatches return status 1.
+Neither is a successful skip. `report.json`, text-screen captures, saved output,
+and QEMU logs are retained in the output directory and uploaded even on CI
+failure. The shell entry point `tests/run_freedos_qemu_auto.sh` forwards to this
+runner; it no longer attaches local disk images or uses sudo.
+
+This smoke suite does not establish physical graphics/audio fidelity or complete
+DOS/gameplay compatibility. The manual `tests/run_freedos_qemu.sh` checklist and
+the larger local semantic matrices remain useful release checks.
 
 ### Compatibility Testing
 
@@ -215,6 +265,6 @@ commit, binary hashes, host and libc version. Local packaging checks versions;
 it cannot prove that supplied binaries were built from the current source.
 CI builds both platforms from the same commit and records its run URL. Use its
 Linux archive for the Ubuntu 22.04 baseline.
-Review release notes and checksum verification before publication. DOS runtime
-checks and isolated audio measurements are local release evidence, separate
-from cross-compilation and text-output tests in CI.
+Review release notes and checksum verification before publication. CI now runs
+the DOS smoke suite described above. Broader DOS compatibility matrices and
+isolated audio measurements remain local release evidence.

@@ -73,6 +73,21 @@ class InteractiveTests(unittest.TestCase):
         self.command('LOCATE 5,7:PRINT "MARK";')
         self.wait_for(lambda: self.screen.display[4][6:10] == 'MARK')
 
+    def test_high_line_edit_delete_and_auto(self):
+        self.command('40000 PRINT "HIGH"')
+        self.command('65529 PRINT "LAST"')
+        self.command('EDIT 40000')
+        self.child.send('\x1b[F:PRINT "EDITED"\r')
+        self.command('65529')
+        self.command('RUN')
+        self.wait_for(lambda: "HIGH" in self.lines() and "EDITED" in self.lines())
+        self.assertNotIn("LAST", self.lines())
+        self.command('AUTO 65529,1')
+        self.command('PRINT "AUTO LAST"')
+        self.command('RUN')
+        self.wait_for(lambda: "AUTO LAST" in self.lines())
+        self.assertFalse(any("Syntax error" in line for line in self.lines()))
+
     def test_auto_does_not_duplicate_line_number(self):
         self.command("AUTO 10,10")
         self.command('PRINT "AUTO WORKS"')

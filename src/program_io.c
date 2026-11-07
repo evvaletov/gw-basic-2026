@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <limits.h>
 
 /*
  * GW-BASIC binary file format:
@@ -125,19 +126,24 @@ static void save_binary(FILE *fp)
     /* First pass: compute the offset base (1 byte for header) */
     uint16_t offset = 1;
 
-    uint8_t cvtbuf[300];
     program_line_t *p = gw.prog_head;
     while (p) {
+        if ((uint32_t)offset + p->len + 5 > 65535UL) {
+            fclose(fp);
+            gw_error(ERR_OM);
+        }
+        uint8_t *cvtbuf = malloc(p->len ? p->len : 1);
+        if (!cvtbuf) { fclose(fp); gw_error(ERR_OM); }
         /* next-ptr(2) + linenum(2) + tokens(len) + null(1) */
         uint16_t line_size = 2 + 2 + p->len + 1;
         offset += line_size;
         write16(fp, offset);      /* next-line pointer */
         write16(fp, p->num);      /* line number */
         /* Convert IEEE→MBF on a copy so in-memory tokens stay IEEE */
-        int clen = p->len < (int)sizeof(cvtbuf) ? p->len : (int)sizeof(cvtbuf);
-        memcpy(cvtbuf, p->tokens, clen);
-        convert_floats(cvtbuf, clen, 0);
+        memcpy(cvtbuf, p->tokens, p->len);
+        convert_floats(cvtbuf, p->len, 0);
         fwrite(cvtbuf, 1, p->len, fp);
+        free(cvtbuf);
         fputc(0x00, fp);          /* null terminator */
         p = p->next;
     }
@@ -209,14 +215,18 @@ static void load_binary(FILE *fp)
         uint16_t linenum = read16(fp);
 
         /* next-ptr(2) + linenum(2) + tokens(?) + null(1) = next_ptr - offset */
-        int tok_len = (int)next_ptr - (int)offset - 5;
-        if (tok_len < 0) tok_len = 0;
-        if (tok_len > 299) tok_len = 299;
-
-        uint8_t tokbuf[300];
-        if (tok_len > 0)
-            fread(tokbuf, 1, tok_len, fp);
-        fgetc(fp);  /* consume null terminator */
+        long tok_len = (long)next_ptr - (long)offset - 5;
+        if (tok_len < 0 || tok_len >= INT_MAX || linenum > GW_MAX_LINE) {
+            fclose(fp);
+            gw_error(ERR_SN);
+        }
+        uint8_t *tokbuf = malloc((size_t)tok_len + 1);
+        if (!tokbuf) { fclose(fp); gw_error(ERR_OM); }
+        if (fread(tokbuf, 1, (size_t)tok_len, fp) != (size_t)tok_len || fgetc(fp) != 0) {
+            free(tokbuf);
+            fclose(fp);
+            gw_error(ERR_SN);
+        }
 
         offset = next_ptr;
 
@@ -224,6 +234,7 @@ static void load_binary(FILE *fp)
             convert_floats(tokbuf, tok_len, 1);  /* MBF → IEEE */
             gw_store_line(linenum, tokbuf, tok_len);
         }
+        free(tokbuf);
     }
 }
 
@@ -238,34 +249,21 @@ static void load_ascii(FILE *fp)
             buf[--len] = '\0';
         if (buf[0] == '\0') continue;
 
-        int clen = gw_crunch(buf, tokbuf, sizeof(tokbuf));
+        uint16_t num;
+        int skip = gw_parse_line_number(buf, &num);
+        if (skip < 0) {
+            fclose(fp);
+            gw_error(ERR_SN);
+        }
+        if (!skip) continue;
+        int clen = gw_crunch(buf + skip, tokbuf, sizeof(tokbuf));
         if (clen < 0) {
             fclose(fp);
             gw_error(ERR_BO);
         }
 
-        /* Parse line number from tokenized form */
-        uint8_t *tp = tokbuf;
-        while (*tp == ' ') tp++;
-        uint8_t tok = *tp;
-        uint16_t num;
-        int skip = 0;
-
-        if (tok >= 0x11 && tok <= 0x1A) {
-            num = tok - 0x11;
-            skip = (tp - tokbuf) + 1;
-        } else if (tok == 0x0F) {
-            num = tp[1];
-            skip = (tp - tokbuf) + 2;
-        } else if (tok == 0x0E) {
-            num = (uint16_t)(tp[1] | (tp[2] << 8));
-            skip = (tp - tokbuf) + 3;
-        } else {
-            continue;
-        }
-
-        int data_len = clen - skip;
-        uint8_t *data = tokbuf + skip;
+        int data_len = clen;
+        uint8_t *data = tokbuf;
         while (*data == ' ' && data_len > 0) { data++; data_len--; }
 
         if (data_len > 0 && *data != 0)

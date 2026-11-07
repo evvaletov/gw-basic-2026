@@ -196,23 +196,25 @@ void gw_free_program(void)
 bool read_linenum(uint16_t *out)
 {
     gw_skip_spaces();
-    uint8_t tok = gw_chrgot();
-    if (tok >= 0x11 && tok <= 0x1A) {
-        *out = tok - 0x11;
-        gw_chrget();
-        return true;
-    }
-    if (tok == TOK_INT1) {
-        *out = gw.text_ptr[1];
-        gw.text_ptr += 2;
-        return true;
-    }
-    if (tok == TOK_INT2) {
-        *out = (uint16_t)(gw.text_ptr[1] | (gw.text_ptr[2] << 8));
-        gw.text_ptr += 3;
-        return true;
-    }
-    return false;
+    return gw_read_line_number(&gw.text_ptr, out);
+}
+
+/* RENUM returns to direct mode, including when invoked by a program.
+ * Execution anchors must not survive replacement of token storage.
+ * Variable/array values and defined functions remain available. */
+static void renum_stop_execution(void)
+{
+    gw.running = false;
+    gw.cur_line = NULL;
+    gw.cur_line_num = LINE_DIRECT;
+    gw.text_ptr = (uint8_t *)"";
+    gw.cont_text = gw.stmt_text = gw.err_resume_text = NULL;
+    gw.cont_line = gw.stmt_line = gw.err_resume_line = NULL;
+    gw.for_sp = gw.gosub_sp = gw.while_sp = 0;
+    gw.on_error_line = 0;
+    gw.in_error_handler = false;
+    memset(&gw.timer_trap, 0, sizeof(gw.timer_trap));
+    memset(gw.key_traps, 0, sizeof(gw.key_traps));
 }
 
 /* ================================================================
@@ -1900,7 +1902,10 @@ inline_statement:
         int count = 0;
         for (program_line_t *p = gw.prog_head; p; p = p->next)
             if (p->num >= old_start) count++;
-        if (count == 0) return;
+        if (count == 0) {
+            renum_stop_execution();
+            return;
+        }
 
         /* Check if new numbers would overflow */
         uint32_t last = (uint32_t)new_start + (uint32_t)(count - 1) * inc;
@@ -1922,129 +1927,97 @@ inline_statement:
             }
         }
 
-        /* Patch line number references in all program lines */
+        renum_stop_execution();
+
+        /* Patch numeric references without scanning constant payloads or text. */
         for (program_line_t *p = gw.prog_head; p; p = p->next) {
             uint8_t *t = p->tokens;
-            while (*t) {
-                uint8_t tok_b = *t;
-                /* Tokens that take a line number argument */
-                if (tok_b == TOK_GOTO || tok_b == TOK_GOSUB ||
-                    tok_b == TOK_THEN || tok_b == TOK_RESTORE ||
-                    tok_b == TOK_RUN || tok_b == TOK_RESUME) {
-                    t++;
-                    while (*t == ' ') t++;
-                    /* Read the encoded line number */
-                    uint16_t ref = 0;
-                    uint8_t *numpos = t;
-                    int numlen = 0;
-                    if (*t >= 0x11 && *t <= 0x1A) {
-                        ref = *t - 0x11;
-                        numlen = 1;
-                    } else if (*t == TOK_INT1) {
-                        ref = t[1];
-                        numlen = 2;
-                    } else if (*t == TOK_INT2) {
-                        ref = (uint16_t)(t[1] | (t[2] << 8));
-                        numlen = 3;
-                    } else {
-                        continue;
-                    }
-                    /* Look up in mapping */
-                    for (int i = 0; i < count; i++) {
-                        if (old_nums[i] == ref) {
-                            /* Rewrite the number in the token stream */
-                            uint16_t nv = new_nums[i];
-                            int new_numlen;
-                            uint8_t nbuf[3];
-                            if (nv <= 9) {
-                                nbuf[0] = 0x11 + nv;
-                                new_numlen = 1;
-                            } else if (nv <= 255) {
-                                nbuf[0] = TOK_INT1;
-                                nbuf[1] = nv;
-                                new_numlen = 2;
-                            } else {
-                                nbuf[0] = TOK_INT2;
-                                nbuf[1] = nv & 0xFF;
-                                nbuf[2] = (nv >> 8) & 0xFF;
-                                new_numlen = 3;
-                            }
-                            if (new_numlen == numlen) {
-                                memcpy(numpos, nbuf, new_numlen);
-                            } else {
-                                /* Need to resize the token buffer */
-                                int old_len = p->len;
-                                int diff = new_numlen - numlen;
-                                int offset = numpos - p->tokens;
-                                uint8_t *newbuf = malloc(old_len + diff + 1);
-                                if (!newbuf) { free(old_nums); free(new_nums); gw_error(ERR_OM); }
-                                memcpy(newbuf, p->tokens, offset);
-                                memcpy(newbuf + offset, nbuf, new_numlen);
-                                memcpy(newbuf + offset + new_numlen,
-                                       p->tokens + offset + numlen,
-                                       old_len - offset - numlen + 1);
-                                free(p->tokens);
-                                p->tokens = newbuf;
-                                p->len = old_len + diff;
-                                t = p->tokens + offset + new_numlen;
-                                continue;
-                            }
-                            break;
-                        }
-                    }
-                    t = numpos + numlen;
-                    /* ON x GOTO/GOSUB can have comma-separated line numbers */
-                    while (*t == ' ') t++;
-                    while (*t == ',') {
+            while (t < p->tokens + p->len && *t) {
+                uint8_t tok_b = *t++;
+                if (tok_b == TOK_REM || tok_b == TOK_SQUOTE) break;
+                if (tok_b == '"') {
+                    while (*t && *t != '"') t++;
+                    if (*t) t++;
+                    continue;
+                }
+                if (tok_b == TOK_DATA) {
+                    bool quoted = false;
+                    while (*t && (*t != ':' || quoted)) {
+                        if (*t == '"') quoted = !quoted;
                         t++;
-                        while (*t == ' ') t++;
-                        numpos = t;
-                        numlen = 0;
-                        ref = 0;
-                        if (*t >= 0x11 && *t <= 0x1A) {
-                            ref = *t - 0x11; numlen = 1;
-                        } else if (*t == TOK_INT1) {
-                            ref = t[1]; numlen = 2;
-                        } else if (*t == TOK_INT2) {
-                            ref = (uint16_t)(t[1] | (t[2] << 8)); numlen = 3;
-                        } else break;
-                        for (int i = 0; i < count; i++) {
-                            if (old_nums[i] == ref) {
-                                uint16_t nv = new_nums[i];
-                                int new_numlen;
-                                uint8_t nbuf[3];
-                                if (nv <= 9) { nbuf[0] = 0x11 + nv; new_numlen = 1; }
-                                else if (nv <= 255) { nbuf[0] = TOK_INT1; nbuf[1] = nv; new_numlen = 2; }
-                                else { nbuf[0] = TOK_INT2; nbuf[1] = nv & 0xFF; nbuf[2] = (nv >> 8) & 0xFF; new_numlen = 3; }
-                                if (new_numlen == numlen) {
-                                    memcpy(numpos, nbuf, new_numlen);
-                                } else {
-                                    int old_len = p->len;
-                                    int diff = new_numlen - numlen;
-                                    int offset = numpos - p->tokens;
-                                    uint8_t *newbuf = malloc(old_len + diff + 1);
-                                    if (!newbuf) { free(old_nums); free(new_nums); gw_error(ERR_OM); }
-                                    memcpy(newbuf, p->tokens, offset);
-                                    memcpy(newbuf + offset, nbuf, new_numlen);
-                                    memcpy(newbuf + offset + new_numlen,
-                                           p->tokens + offset + numlen,
-                                           old_len - offset - numlen + 1);
-                                    free(p->tokens);
-                                    p->tokens = newbuf;
-                                    p->len = old_len + diff;
-                                    t = p->tokens + offset + new_numlen;
-                                    numpos = t - new_numlen;
-                                    numlen = new_numlen;
-                                }
-                                break;
-                            }
-                        }
-                        t = numpos + numlen;
-                        while (*t == ' ') t++;
                     }
                     continue;
                 }
-                t++;
+                if (tok_b == TOK_GOTO || tok_b == TOK_GOSUB ||
+                    tok_b == TOK_THEN || tok_b == TOK_ELSE ||
+                    tok_b == TOK_RESTORE || tok_b == TOK_RUN || tok_b == TOK_RESUME) {
+                    do {
+                        while (*t == ' ') t++;
+                        uint8_t *numpos = t;
+                        uint16_t ref;
+                        if (!gw_read_line_number(&t, &ref)) break;
+                        int numlen = (int)(t - numpos);
+                        for (int i = 0; i < count; i++) {
+                            if (old_nums[i] != ref || (tok_b == TOK_RESUME && ref == 0))
+                                continue;
+                            uint16_t nv = new_nums[i];
+                            uint8_t nbuf[5];
+                            int new_numlen;
+                            if (nv <= 9) {
+                                nbuf[0] = 0x11 + nv; new_numlen = 1;
+                            } else if (nv <= 255) {
+                                nbuf[0] = TOK_INT1; nbuf[1] = nv; new_numlen = 2;
+                            } else if (nv <= 32767) {
+                                nbuf[0] = TOK_INT2;
+                                nbuf[1] = nv & 0xFF; nbuf[2] = nv >> 8; new_numlen = 3;
+                            } else {
+                                /* Preserve positive targets in LIST/SAVE and evaluation. */
+                                float value = nv;
+                                nbuf[0] = TOK_CONST_SNG;
+                                memcpy(nbuf + 1, &value, 4); new_numlen = 5;
+                            }
+                            int offset = (int)(numpos - p->tokens);
+                            int new_len = p->len + new_numlen - numlen;
+                            if (new_numlen == numlen) {
+                                memcpy(numpos, nbuf, new_numlen);
+                                break;
+                            }
+                            uint8_t *newbuf = malloc(new_len + 1);
+                            if (!newbuf) { free(old_nums); free(new_nums); gw_error(ERR_OM); }
+                            memcpy(newbuf, p->tokens, offset);
+                            memcpy(newbuf + offset, nbuf, new_numlen);
+                            memcpy(newbuf + offset + new_numlen, t,
+                                   p->len - offset - numlen + 1);
+                            for (int fn = 0; fn < 26; fn++) {
+                                if (gw.fn_defs[fn].defined && gw.fn_defs[fn].body_line == p) {
+                                    int pos = (int)(gw.fn_defs[fn].body_text - p->tokens);
+                                    if (pos >= offset + numlen) pos += new_numlen - numlen;
+                                    gw.fn_defs[fn].body_text = newbuf + pos;
+                                }
+                            }
+                            if (gw.data_ptr && gw.data_line_ptr == p) {
+                                int pos = (int)(gw.data_ptr - p->tokens);
+                                if (pos >= offset + numlen) pos += new_numlen - numlen;
+                                gw.data_ptr = newbuf + pos;
+                            }
+                            free(p->tokens);
+                            p->tokens = newbuf;
+                            p->len = new_len;
+                            t = newbuf + offset + new_numlen;
+                            break;
+                        }
+                        while (*t == ' ') t++;
+                        if (*t != ',') break;
+                        t++;
+                    } while (*t);
+                    continue;
+                }
+                /* Skip payloads even when they contain keyword or zero bytes. */
+                int extra = tok_b == TOK_INT1 ? 1 : tok_b == TOK_INT2 ? 2 :
+                    tok_b == TOK_CONST_SNG ? 4 : tok_b == TOK_CONST_DBL ? 8 :
+                    tok_b >= 0xFD ? 1 : 0;
+                if (extra > p->tokens + p->len - t) break;
+                t += extra;
             }
         }
 
@@ -2271,7 +2244,8 @@ inline_statement:
             gw_skip_spaces();
             /* Check for line number after THEN */
             uint8_t ch = gw_chrgot();
-            if ((ch >= 0x11 && ch <= 0x1A) || ch == TOK_INT1 || ch == TOK_INT2) {
+            if ((ch >= 0x11 && ch <= 0x1A) || ch == TOK_INT1 || ch == TOK_INT2
+                || ch == TOK_CONST_SNG || ch == TOK_CONST_DBL) {
                 uint16_t num = gw_eval_uint16();
                 program_line_t *target = gw_find_line(num);
                 if (!target) gw_error(ERR_UL);
@@ -2292,7 +2266,8 @@ inline_statement:
         /* We're at ELSE clause */
         gw_skip_spaces();
         uint8_t ch = gw_chrgot();
-        if ((ch >= 0x11 && ch <= 0x1A) || ch == TOK_INT1 || ch == TOK_INT2) {
+        if ((ch >= 0x11 && ch <= 0x1A) || ch == TOK_INT1 || ch == TOK_INT2
+                || ch == TOK_CONST_SNG || ch == TOK_CONST_DBL) {
             uint16_t num = gw_eval_uint16();
             program_line_t *target = gw_find_line(num);
             if (!target) gw_error(ERR_UL);
