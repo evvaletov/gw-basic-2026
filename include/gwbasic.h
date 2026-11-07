@@ -27,6 +27,8 @@ uint8_t *gw_statement_end(program_line_t *line, uint8_t *text);
 
 bool gw_for_exit(program_line_t *line, uint8_t *p,
                  program_line_t **exit_line, uint8_t **exit_text, uint8_t **next_var);
+bool gw_while_end(program_line_t *line, uint8_t *p,
+                  program_line_t **wend_line, uint8_t **wend_text);
 
 /* PRINT statement */
 void gw_stmt_print(void);

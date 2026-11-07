@@ -166,6 +166,52 @@ class CorpusTests(unittest.TestCase):
             with self.subTest(source=source), self.assertRaises(ValueError):
                 corpus_reference.adapt(source)
 
+    def test_input_checkpoint_requires_the_requested_prompt(self):
+        checkpoint = {'inputs': 1, 'prompt': 'MOVE?', 'occurrence': 2}
+        script = self.root / 'checkpoint'
+        self.executable(script, "import sys\nprint('MOVE?',flush=True)\ninput()\nprint('MOVE?',flush=True)\ninput()\n")
+        status, output = run_corpus.execute([str(script)], self.root, 'checkpoint', '1\n',
+                                            checkpoint=checkpoint)
+        self.assertEqual(status['status'], 'checkpoint')
+        self.assertEqual(output, 'MOVE?\nMOVE?\n')
+        self.assertEqual(run_corpus.compare(output, 'WRONG\n')['status'], 'mismatch')
+        self.executable(script, "import time\nprint('MOVE?MOVE?',flush=True)\ntime.sleep(.01)\nprint('UNEXPECTED',flush=True)\ninput()\n")
+        status, output = run_corpus.execute([str(script)], self.root, 'late-output',
+                                            checkpoint=checkpoint)
+        self.assertIn('UNEXPECTED', output)
+        self.assertEqual(run_corpus.compare(output, 'MOVE?MOVE?\n')['status'], 'mismatch')
+        status, _ = run_corpus.execute([str(script)], self.root, 'large-input', '1'*4097,
+                                      checkpoint=checkpoint)
+        self.assertEqual(status['status'], 'input-too-large')
+        self.executable(script, "print('MOVE?',flush=True)\n")
+        status, _ = run_corpus.execute([str(script)], self.root, 'early-exit', '1\n',
+                                      checkpoint=checkpoint)
+        self.assertEqual(status['status'], 'missing-checkpoint')
+        for code in (0, 7, 9):
+            self.executable(script, f"import os\nos.write(1,b'MOVE?MOVE?')\nos._exit({code})\n")
+            status, _ = run_corpus.execute([str(script)], self.root, f'prompt-exit-{code}',
+                                          checkpoint=checkpoint)
+            self.assertNotEqual(status['status'], 'checkpoint')
+        self.executable(script, "import signal,time\nsignal.signal(signal.SIGTERM,signal.SIG_IGN)\nprint('OTHER?',flush=True)\ntime.sleep(60)\n")
+        status, _ = run_corpus.execute([str(script)], self.root, 'wrong-prompt', '1\n',
+                                      timeout=.2, checkpoint=checkpoint)
+        self.assertEqual(status['status'], 'timeout')
+
+    def test_checkpoint_capture_counter_and_metadata(self):
+        source = '10 INPUT A:PRINT A:GOTO 10\n'
+        capture = corpus_reference.adapt(source, 2)
+        self.assertIn('GOSUB 65510:INPUT #8,A', capture)
+        self.assertIn('65510 IF C9=2 THEN PRINT #9,"__CORPUS_CHECKPOINT__"', capture)
+        self.assertIn('65520 C9=C9+1:RETURN', capture)
+        with self.assertRaises(ValueError):
+            corpus_reference.adapt('10 C9=1:INPUT A\n', 2)
+        manifest = self.corpus / 'fixtures.json'
+        data = json.loads(manifest.read_text())
+        data['cases'][0]['checkpoint'] = {'inputs': 2, 'prompt': '?', 'occurrence': 3}
+        manifest.write_text(json.dumps(data))
+        with self.assertRaisesRegex(ValueError, 'checkpoint differs'):
+            run_corpus.load_cases(self.corpus)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -960,6 +960,29 @@ static void stmt_gfx_put(void)
  * Statement Dispatcher
  * ================================================================ */
 
+/* Evaluate a saved WHILE condition without searching its body again at WEND.
+ * The caller owns the statement retry anchor and has already dropped any old
+ * frame. The frame becomes active only after a successful true condition. */
+static void while_condition(const while_entry_t *entry, program_line_t *wend_line)
+{
+    gw.text_ptr = entry->while_text;
+    gw.cur_line = entry->while_line;
+    gw.cur_line_num = entry->line_num;
+    gw_chrget();
+    gw_value_t cond = gw_eval_num();
+    if (gw_to_dbl(&cond) != 0.0) {
+        if (gw.while_sp >= MAX_WHILE_DEPTH) gw_error(ERR_OM);
+        gw.while_stack[gw.while_sp] = *entry;
+        gw.while_stack[gw.while_sp].gosub_depth = gw.gosub_sp;
+        gw.while_stack[gw.while_sp].for_depth = gw.for_sp;
+        gw.while_sp++;
+    } else {
+        gw.text_ptr = entry->wend_text + 1;
+        gw.cur_line = wend_line;
+        if (wend_line) gw.cur_line_num = wend_line->num;
+    }
+}
+
 void gw_exec_stmt(void)
 {
     gw_skip_spaces();
@@ -2077,6 +2100,8 @@ inline_statement:
         gw.gosub_sp--;
         while (gw.for_sp && gw.for_stack[gw.for_sp - 1].gosub_depth > gw.gosub_sp)
             gw.for_sp--;
+        while (gw.while_sp && gw.while_stack[gw.while_sp - 1].gosub_depth > gw.gosub_sp)
+            gw.while_sp--;
         gw.text_ptr = gw.gosub_stack[gw.gosub_sp].ret_text;
         gw.cur_line = gw.gosub_stack[gw.gosub_sp].ret_line;
         gw.cur_line_num = gw.gosub_stack[gw.gosub_sp].line_num;
@@ -2281,95 +2306,54 @@ inline_statement:
 
     /* WHILE */
     if (tok == TOK_WHILE) {
-        /* Save position AT the WHILE token for WEND to jump back to */
-        uint8_t *while_text = gw.text_ptr;
-        program_line_t *while_line = gw.cur_line;
+        uint8_t *while_text = gw.text_ptr, *wend_text;
+        program_line_t *while_line = gw.cur_line, *wend_line;
+        program_line_t direct = {0};
+        direct.tokens = while_text;
+        if (!gw_while_end(while_line ? while_line : &direct, while_text + 1,
+                          &wend_line, &wend_text))
+            gw_error(ERR_WH);
 
-        gw_chrget();
-
-        gw_value_t cond = gw_eval_num();
-        double cv = gw_to_dbl(&cond);
-
-        if (cv != 0.0) {
-            /* Push WHILE onto stack (pointing to condition) */
-            /* Check if we're already in this WHILE */
-            bool found = false;
-            for (int i = gw.while_sp - 1; i >= 0; i--) {
-                if (gw.while_stack[i].while_text == while_text) {
-                    found = true;
-                    break;
-                }
+        /* Re-entering the same WEND discards the old frame and any inner
+         * loops, but cannot cross a subroutine's return address. */
+        for (int i = gw.while_sp - 1; i >= 0; i--) {
+            while_entry_t *entry = &gw.while_stack[i];
+            if (entry->gosub_depth != gw.gosub_sp) break;
+            if (entry->wend_text == wend_text) {
+                if (gw.for_sp > entry->for_depth) gw.for_sp = entry->for_depth;
+                gw.while_sp = i;
+                break;
             }
-            if (!found) {
-                if (gw.while_sp >= MAX_WHILE_DEPTH)
-                    gw_error(ERR_OM);
-                gw.while_stack[gw.while_sp].while_text = while_text;
-                gw.while_stack[gw.while_sp].while_line = while_line;
-                gw.while_stack[gw.while_sp].line_num = gw.cur_line_num;
-                gw.while_sp++;
-            }
-            return;  /* continue executing statements after WHILE */
         }
-
-        /* Condition false: find matching WEND and skip */
-        int depth = 1;
-        for (;;) {
-            /* Advance to next statement/line */
-            while (*gw.text_ptr && *gw.text_ptr != ':') {
-                if (*gw.text_ptr == TOK_WHILE) depth++;
-                if (*gw.text_ptr == TOK_WEND) {
-                    depth--;
-                    if (depth == 0) {
-                        gw.text_ptr++;
-                        /* Remove from WHILE stack if present */
-                        for (int i = gw.while_sp - 1; i >= 0; i--) {
-                            if (gw.while_stack[i].while_text == while_text) {
-                                gw.while_sp = i;
-                                break;
-                            }
-                        }
-                        return;
-                    }
-                }
-                /* Skip embedded constants */
-                uint8_t ch2 = *gw.text_ptr;
-                if (ch2 == TOK_INT2)      { gw.text_ptr += 3; continue; }
-                if (ch2 == TOK_INT1)      { gw.text_ptr += 2; continue; }
-                if (ch2 >= 0x11 && ch2 <= 0x1A) { gw.text_ptr++; continue; }
-                if (ch2 == TOK_CONST_SNG) { gw.text_ptr += 5; continue; }
-                if (ch2 == TOK_CONST_DBL) { gw.text_ptr += 9; continue; }
-                if (ch2 == '"') {
-                    gw.text_ptr++;
-                    while (*gw.text_ptr && *gw.text_ptr != '"')
-                        gw.text_ptr++;
-                    if (*gw.text_ptr == '"') gw.text_ptr++;
-                    continue;
-                }
-                gw.text_ptr++;
-            }
-            if (*gw.text_ptr == ':') {
-                gw.text_ptr++;
-                continue;
-            }
-            /* End of line, advance to next program line */
-            if (!gw.cur_line || !gw.cur_line->next)
-                gw_error(ERR_WH);
-            gw.cur_line = gw.cur_line->next;
-            gw.text_ptr = gw.cur_line->tokens;
-            gw.cur_line_num = gw.cur_line->num;
-        }
+        while_entry_t entry = {0};
+        entry.while_text = while_text;
+        entry.wend_text = wend_text;
+        entry.while_line = while_line;
+        entry.line_num = gw.cur_line_num;
+        while_condition(&entry, wend_line == &direct ? NULL : wend_line);
+        return;
     }
 
     /* WEND */
     if (tok == TOK_WEND) {
+        uint8_t *wend_text = gw.text_ptr;
         gw_chrget();
-        if (gw.while_sp <= 0)
-            gw_error(ERR_WE);
-        /* Jump back to WHILE token to re-evaluate condition */
-        gw.while_sp--;
-        gw.text_ptr = gw.while_stack[gw.while_sp].while_text;
-        gw.cur_line = gw.while_stack[gw.while_sp].while_line;
-        gw.cur_line_num = gw.while_stack[gw.while_sp].line_num;
+        gw_skip_spaces();
+        if (*gw.text_ptr && *gw.text_ptr != ':' && *gw.text_ptr != TOK_ELSE &&
+            *gw.text_ptr != TOK_SQUOTE)
+            gw_error(ERR_SN);
+        int i;
+        for (i = gw.while_sp - 1; i >= 0; i--) {
+            if (gw.while_stack[i].gosub_depth != gw.gosub_sp) { i = -1; break; }
+            if (gw.while_stack[i].wend_text == wend_text) break;
+        }
+        if (i < 0) gw_error(ERR_WE);
+        while_entry_t entry = gw.while_stack[i];
+        gw.while_sp = i;
+        if (gw.for_sp > entry.for_depth) gw.for_sp = entry.for_depth;
+        /* Keep WEND's statement frame: ERL names WHILE, whereas RESUME
+         * retries WEND and RESUME NEXT continues after WEND. */
+        while_condition(&entry, gw.cur_line);
         return;
     }
 
@@ -2632,12 +2616,9 @@ inline_statement:
         gw_chrget();
         gw_skip_spaces();
         if (gw_chrgot() != 0 && gw_chrgot() != ':') {
-            gw_value_t v = gw_eval_num();
-            /* Seed the RNG - use the value as seed */
-            extern uint32_t gw_rnd_seed;
-            gw_rnd_seed = (uint32_t)gw_to_dbl(&v);
+            gw_randomize(gw_eval_int());
         }
-        /* Without argument: prompt in real GW-BASIC, we just seed from time */
+        /* The original no-argument seed prompt remains unimplemented. */
         return;
     }
 

@@ -1,0 +1,13 @@
+                                 AWARI
+              CREATIVE COMPUTING  MORRISTOWN, NEW JERSEY
+
+
+
+     3   3   3   3   3   3
+  0                         0
+     3   3   3   3   3   3
+
+YOUR MOVE? ILLEGAL MOVE
+AGAIN? ILLEGAL MOVE
+AGAIN? ILLEGAL MOVE
+AGAIN?

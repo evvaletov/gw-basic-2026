@@ -49,6 +49,14 @@ still contains 1.5. Arrays follow the same rule.
 -32768 through 32767. For example, `CINT(2.5)` is 3 and `CINT(32767.4)` is 32767.
 
 `RND` can be called with or without parentheses: `RND` is equivalent to `RND(1)`.
+Positive arguments advance the original 24-bit sequence; zero repeats the
+current value, including before the first advance. A negative argument restarts
+from its normalized single-precision mantissa. Interpreter and compiled code
+use the same argument behavior. `RANDOMIZE n` converts n to a signed 16-bit
+integer, replaces the upper two state bytes and advances once, matching the
+original. Repeating a seed can produce a different sequence because its low
+state byte is retained. The no-argument interactive seed prompt remains
+unimplemented; it does not have original-reference parity.
 
 ## String Functions
 
@@ -426,11 +434,20 @@ Numbered line edits and deletions do not print `Ok`. Direct commands and errors
 return to the `Ok` prompt. During `INPUT` and `LINE INPUT`, only the answer is
 returned to the program; prompt text is excluded even if the answer wraps.
 
-In the interactive editor, a leading semicolon in `INPUT ;` or `LINE INPUT ;`
+In the interactive editor and ordinary POSIX terminals, a leading semicolon
+in `INPUT ;` or `LINE INPUT ;`
 suppresses the newline after the answer. The cursor stays at its editing
 position, and subsequent `PRINT TAB(...)` and comma zones use that column.
 If Enter is pressed with the cursor inside the answer, the complete answer
-string is still returned. Ordinary input moves to the next line.
+string is still returned. Ordinary input moves to the next line. File-launched
+and native terminal programs support answer editing without entering the
+full-screen editor. Input restores the caller's terminal settings, including
+on typed Ctrl-C and EOF. Tabs printed before a prompt and modified ANSI arrow
+keys preserve the editing position. Piped stdin and file input keep their stdio
+behavior. The supported editing model is byte-oriented; very small or resized
+terminals, UTF-8 character editing and external-signal cleanup remain follow-ups
+listed in the [roadmap](roadmap.md). Native INPUT$ lowering is also separate work;
+interpreter INPUT$ followed by line input preserves queued terminal bytes.
 
 ## Event Trapping
 

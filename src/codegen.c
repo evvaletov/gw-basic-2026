@@ -462,15 +462,14 @@ static void emit_atom(void)
             return;
         }
         case FUNC_RND: {
-            /* RND([n]) — argument is ignored (controls seed behavior) */
+            EMIT("((float)gw_rnd(");
             if (cur() == '(') {
                 advance();
-                /* Consume but discard the argument */
-                char *discard = emit_to_buf(emit_prec_wrapper, 0);
-                free(discard);
-                if (cur() == ')') advance();
-            }
-            EMIT("((float)gw_rnd(1.0))");
+                emit_num_expr();
+                if (cur() != ')') codegen_error("expected ')' after RND argument");
+                advance();
+            } else EMIT("1.0");
+            EMIT("))");
             return;
         }
         case FUNC_CINT: {
@@ -538,8 +537,13 @@ static void emit_atom(void)
             return;
         }
         case FUNC_POS:
-            EMIT("(gw_hal ? gw_hal->get_cursor_col() + 1 : 1)");
-            if (cur() == '(') { advance(); emit_num_expr(); if (cur() == ')') advance(); }
+            if (cur() != '(') codegen_error("expected '(' after POS");
+            advance();
+            EMIT("((void)(");
+            if (peek_is_string_expr()) emit_str_expr(); else emit_num_expr();
+            if (cur() != ')') codegen_error("expected ')' after POS argument");
+            advance();
+            EMIT("), (gw_hal ? gw_hal->get_cursor_col() + 1 : 1))");
             return;
         case FUNC_FRE:
             /* In compiled code, GC can't find C-static variables.
@@ -1107,8 +1111,8 @@ static void emit_num_prec(int min_prec)
                 fprintf(cm, "((double)(%s) / (double)(%s))", left, right);
             else
                 /* GW-BASIC / always produces float; check for division by zero */
-                fprintf(cm, "({double _dv=(double)(%s); if(_dv==0.0) gw_error(11); (double)(%s)/_dv;})",
-                        right, left);
+                fprintf(cm, "({double _nv=(double)(%s); double _dv=(double)(%s); if(_dv==0.0) gw_error(11); _nv/_dv;})",
+                        left, right);
         } else if (safe_mode && left_type == VT_INT && right_type == VT_INT &&
                    (op == TOK_PLUS || op == TOK_MINUS || op == TOK_MUL)) {
             const char *fn = op == TOK_PLUS ? "gw_int_add"
@@ -2200,18 +2204,33 @@ static void emit_stmt(void)
         while_stack[while_stack_sp++] = wl;
         EMIT("while_top_%d: ;\n", wl);
         if (ana->has_resume) EMIT("  _gw_stmt = %d;\n", active_statement);
+        EMIT("  gwrt_while_drop(%d, false);\nwhile_test_%d: ;\n", wl, wl);
         EMIT("  gw.cur_line_num = %u;\n", emit_line);
         advance();
         EMIT("  if (!(");
         emit_num_expr();
         EMIT(")) goto while_done_%d;\n", wl);
+        EMIT("  gwrt_while_push(%d);\n", wl);
         return;
     }
     if (tok == TOK_WEND) {
         advance();
+        skip_spaces();
+        bool bad_tail = cur() && cur() != ':' && cur() != TOK_ELSE && cur() != TOK_SQUOTE;
+        if (bad_tail) {
+            EMIT("  gw_error(ERR_SN);\n");
+            skip_statement_tail();
+        }
         if (!while_stack_sp) codegen_error("WEND without WHILE");
         int wl = while_stack[--while_stack_sp];
-        EMIT("  goto while_top_%d;\nwhile_done_%d: ;\n", wl, wl);
+        EMIT("  gwrt_while_drop(%d, true);\n", wl);
+        EMIT("  goto while_test_%d;\nwhile_done_%d: ;\n", wl, wl);
+        if (bad_tail) {
+            /* An initially false WHILE also reaches the text after WEND. */
+            EMIT("  gw.cur_line_num = %u;\n", emit_line);
+            if (ana->has_resume) EMIT("  _gw_stmt = %d;\n", active_statement);
+            EMIT("  gw_error(ERR_SN);\n");
+        }
         return;
     }
 
@@ -2432,11 +2451,11 @@ static void emit_stmt(void)
         advance();
         skip_spaces();
         if (cur() && cur() != ':' && cur() != 0) {
-            EMIT("  { extern uint32_t gw_rnd_seed; gw_rnd_seed = (uint32_t)(");
+            EMIT("  gw_randomize(gw_cint(");
             emit_num_expr();
-            EMIT("); }\n");
+            EMIT("));\n");
         } else {
-            EMIT("  { extern uint32_t gw_rnd_seed; gw_rnd_seed = (uint32_t)time(NULL); }\n");
+            EMIT("  { extern uint32_t gw_rnd_seed; gw_rnd_seed = (uint32_t)time(NULL) & 0xFFFFFFu; }\n");
         }
         return;
     }

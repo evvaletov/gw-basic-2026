@@ -62,6 +62,7 @@ jobs:
         run: |
           python3 -m pip install -r tests/requirements.txt
           python3 tests/test_interactive.py
+          python3 tests/test_terminal_input.py
 
       - name: Codegen safety (termination / bounded output)
         run: bash tests/run_codegen_safety.sh

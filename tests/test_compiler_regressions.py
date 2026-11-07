@@ -406,6 +406,10 @@ CASES = {
 }
 
 
+# Range invariant only: no-argument RANDOMIZE is not original-compatible yet.
+CASES["randomize_time_range"] = ("10 RANDOMIZE:PRINT RND(0)>=0 AND RND(0)<1\n20 END\n", "", ["-1"])
+
+
 # Original Microsoft GW-BASIC captures supersede the former permissive FOR
 # expectations. Keep source and reference output together for reproduction.
 REFERENCE = json.loads((Path(__file__).parent / "compatibility/semantics.json").read_text())

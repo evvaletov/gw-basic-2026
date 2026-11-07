@@ -163,7 +163,107 @@
       "source_sha256": "43009256f3b4963a96082e5ce36acfbae3375681c3e71910740dfac799e71aa2",
       "input_sha256": "3622585499ad5a317ef97a2044ebaca5a059059ec10a8276811c04de6348947c",
       "capture_sha256": "95c8547861b838319ff691c4b329a49a692118224f3ce23ae91de0b21ea0bc6e"
+    },
+    {
+      "id": "hi-lo-replay",
+      "sha256": "bf27b24e252dd72f5e2bb658f520b7382c75f57b4d6e2a508be43be19304cbc0",
+      "source_sha256": "1ded92e1a6585e45417b0f9dc8c8f86cea7ea89d6e84bb16534dcea17c155a18",
+      "input_sha256": "54d53122c4f0710723f22f7a9b0bbf3bc88dd87825129ac5f224d082da70238e",
+      "capture_sha256": "8eb6d20a718c1cca12ea516467cfa8c55e9faa4c7473e56f2033d6f90920bae0",
+      "captured_on": "2026-11-07",
+      "adapter_sha256": "b7304f29de73a68ca4e2a144af160aeb1542780d35c10ecaa0a375941fb38015"
+    },
+    {
+      "id": "hi-lo-loss",
+      "sha256": "8078ebf2d034982808ebc169f2427736fa941a3e6e72e43a38b1adc334a2d36f",
+      "source_sha256": "1ded92e1a6585e45417b0f9dc8c8f86cea7ea89d6e84bb16534dcea17c155a18",
+      "input_sha256": "7a32fdd5aca6fffe84f6eb3665d9e2aabc03e5ec92028ad535ceb30f89164da7",
+      "capture_sha256": "8eb6d20a718c1cca12ea516467cfa8c55e9faa4c7473e56f2033d6f90920bae0",
+      "captured_on": "2026-11-07",
+      "adapter_sha256": "b7304f29de73a68ca4e2a144af160aeb1542780d35c10ecaa0a375941fb38015"
+    },
+    {
+      "id": "bagels-replay",
+      "sha256": "fc87c41e8a6aad74b50045d9425fa794ca3ae031c0c16b25a1522a071da4072a",
+      "source_sha256": "3c27f5ec877dc4c35f6da283e02a53833282a5ee3bd68310e8fecc9fb77a4001",
+      "input_sha256": "6e7800c84459ccffa117ea70b9b98bfc9d24f1591160261db95aa6bf57b2ab85",
+      "capture_sha256": "b9d35d0be4e994bf810401a988345abdc97c24c16475750ce834eeec039e825f",
+      "captured_on": "2026-11-07",
+      "adapter_sha256": "b7304f29de73a68ca4e2a144af160aeb1542780d35c10ecaa0a375941fb38015"
+    },
+    {
+      "id": "bagels-loss",
+      "sha256": "ad0ebcea29e39208989fda79c5c5db07ef8d6fe1541bda4381107e166b03603b",
+      "source_sha256": "3c27f5ec877dc4c35f6da283e02a53833282a5ee3bd68310e8fecc9fb77a4001",
+      "input_sha256": "6e15fb645d3faa1e732288084a2b2d1005cad5524a8aa0e92acc2d1532714d9b",
+      "capture_sha256": "b9d35d0be4e994bf810401a988345abdc97c24c16475750ce834eeec039e825f",
+      "captured_on": "2026-11-07",
+      "adapter_sha256": "b7304f29de73a68ca4e2a144af160aeb1542780d35c10ecaa0a375941fb38015"
+    },
+    {
+      "id": "craps-game",
+      "sha256": "fae8bd35407e90a1c1c09e77448f4c89f1199093a8d54c758c04a4052fd3a336",
+      "source_sha256": "9ee33069f4ad31817ab7f943cd4a9ccf8157c6a097c4ecf9d4c324a60ee8489d",
+      "input_sha256": "b42607bd68270f17c08239665f1a710b9df29fecf1b536ecdd1d99c750e6a50e",
+      "capture_sha256": "781085756e51d2a13da76211fa547e94cba68f9a9358f29b8134417b9283b8d7",
+      "captured_on": "2026-11-07",
+      "adapter_sha256": "b7304f29de73a68ca4e2a144af160aeb1542780d35c10ecaa0a375941fb38015"
+    },
+    {
+      "id": "awari-retry",
+      "sha256": "9b19c2a8ff8603013ef691276385aa3a3f9cc2728fd4e8e20a12861623bfc04d",
+      "source_sha256": "86bd53f7dd523da2db021c9e8bb7e7941b1d9862f543038fb26b0310f635a0db",
+      "input_sha256": "8551f4521ab51ba553cf1283e224a12b5420b40f578b2d6f9e325cd3283df016",
+      "capture_sha256": "64763f4bdc9670daab99b54f8e1269b17dfa58d3c8812ab80b542e931b5db22f",
+      "checkpoint": {
+        "inputs": 3,
+        "prompt": "AGAIN?",
+        "occurrence": 3
+      },
+      "captured_on": "2026-11-07",
+      "adapter_sha256": "b7304f29de73a68ca4e2a144af160aeb1542780d35c10ecaa0a375941fb38015"
+    },
+    {
+      "id": "awari-first-move",
+      "sha256": "e3cf1403f8c9f455ab266164435939a25c4b7c3603f8740b14710f525d3a0dec",
+      "source_sha256": "86bd53f7dd523da2db021c9e8bb7e7941b1d9862f543038fb26b0310f635a0db",
+      "input_sha256": "82c1315e6c757f33c4a77ca58b2a184f5a88614470c05ec77f3d28918db6b8ae",
+      "capture_sha256": "bdef513ec202c42a679e1d1165652039494b8be025a712e09f9010275ab1569f",
+      "expected_error": [
+        26,
+        230
+      ],
+      "captured_on": "2026-11-07",
+      "adapter_sha256": "b7304f29de73a68ca4e2a144af160aeb1542780d35c10ecaa0a375941fb38015"
+    },
+    {
+      "id": "checkers-opening",
+      "sha256": "89f656816f781ee78e5741993607ed3f884383c82d4cd3c2e46ee5aa57315cc9",
+      "source_sha256": "6fd724bd79e3a91c4b01ce5df2382472e07ca10867ff48d9dbaf5b44fd6cb250",
+      "input_sha256": "b7041d023d6bbf388fd0880ee475dff803396f96e1a359dee74197357167a5b9",
+      "capture_sha256": "80361f704d6dd41bd12a8962e1cf920e97968a2b85951bbb40f314d0a99b4414",
+      "checkpoint": {
+        "inputs": 4,
+        "prompt": "FROM?",
+        "occurrence": 3
+      },
+      "captured_on": "2026-11-07",
+      "adapter_sha256": "b7304f29de73a68ca4e2a144af160aeb1542780d35c10ecaa0a375941fb38015"
+    },
+    {
+      "id": "checkers-capture",
+      "sha256": "6085f9131a05d9f4cf943d84e44f261f5505d287af336ba3bda1fed49647ddff",
+      "source_sha256": "6fd724bd79e3a91c4b01ce5df2382472e07ca10867ff48d9dbaf5b44fd6cb250",
+      "input_sha256": "5cc4c22dbd2f536424cb1d63a83d2c8fd0505d2699560320be83534e7483443c",
+      "capture_sha256": "1b3a2399046390ced5f9e6e64ceb70e63724e2a56a7f3eaddbd97cb362740f3b",
+      "expected_error": [
+        26,
+        1340
+      ],
+      "captured_on": "2026-11-07",
+      "adapter_sha256": "b7304f29de73a68ca4e2a144af160aeb1542780d35c10ecaa0a375941fb38015"
     }
   ],
-  "captured_on": "2026-11-06"
+  "captured_on": "2026-11-06",
+  "reference_build": "Microsoft GW-BASIC source build, JWasm 2023-10-03; not retail 3.23"
 }
