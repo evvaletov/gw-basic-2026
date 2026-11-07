@@ -79,10 +79,12 @@ set(GWRT_SOURCES
     src/sound.c
     src/tui.c
     src/gwrt.c
+    src/gwrt_value.c
     platform/hal_posix.c
 )
 
 add_library(gwrt STATIC ${GWRT_SOURCES})
+target_compile_definitions(gwrt PRIVATE GW_NATIVE_RUNTIME)
 target_link_libraries(gwrt m)
 if(PULSEAUDIO_FOUND)
     target_compile_definitions(gwrt PRIVATE HAVE_PULSEAUDIO)

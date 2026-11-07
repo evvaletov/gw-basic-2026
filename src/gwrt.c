@@ -189,6 +189,7 @@ int gwrt_resume_label;
 
 void gwrt_init(void)
 {
+    gwrt_expr_unwind();
     extern int print_col;
     print_col = 0;
     gw_errno = 0;
@@ -220,6 +221,8 @@ void gwrt_init(void)
 
 void gwrt_shutdown(void)
 {
+    gwrt_expr_unwind();
+    gw.extern_eval = NULL;
     gw_lpt_close();
     snd_shutdown();
     gw_vars_clear();

@@ -35,6 +35,7 @@ python3 tests/test_corpus.py             # corpus harness failure checks
 bash tests/run_tests.sh                 # interpreter programs
 bash tests/run_compiler_tests.sh        # native executables
 python3 tests/test_interactive.py        # terminal input and prompt behavior
+python3 tests/test_runtime_types.py      # runtime DEFTYPE, FFI and hosted cleanup
 python3 tests/test_compiler_regressions.py  # compiler option combinations
 python3 tests/test_compiler_paths.py        # literal GCC paths and launch failures
 python3 tests/test_line_numbers.py          # labels, loading, editing and SAVE/RENUM
@@ -235,16 +236,23 @@ prototypes, catching ABI mismatches that separate-object linking can miss.
 A marker such as `<!-- docs-test: guide-pipe -->` immediately precedes the
 fenced example. IDs, languages, and expected outputs are registered in
 `tests/run_doc_examples.py`. To add coverage, add a marker and an example entry
-there. Missing, duplicate, malformed, or unused IDs fail the check. The runner
+there. Markers and fences must start at column zero; closing fences contain
+exactly three backticks and optional spaces/tabs. Bodies must contain non-whitespace
+text. Missing, duplicate, malformed, or unused IDs fail the check. The runner
 executes the marked Bash blocks exactly, with strict error/pipeline handling;
 installation commands and interactive transcripts are outside this smoke suite.
 These are ordinary commands in a temporary directory, not a security sandbox.
 
 The JSON report records snippet locations/hashes and per-workflow results,
 including failures, and CI uploads it as `documentation-example-results`.
-Commands have timeouts and timeout cleanup kills their process groups.
+Commands have timeouts and a live 1 MiB limit for each of stdout and stderr.
+The runner drains both streams while feeding stdin, and kills the owned process
+group after success, failure, timeout or excess output. The log limit does not
+cap generated artifacts. Children that deliberately create another session are
+outside this ownership boundary.
 `test_doc_examples.py` deliberately breaks paths, RUN, pipelines, C ABIs,
-Fortran symbols, and markers, and checks timeout cleanup.
+Fortran symbols and fences; it also checks timeout/success cleanup, duplex I/O,
+noisy processes and artifacts larger than the log cap.
 
 ## Release preparation
 

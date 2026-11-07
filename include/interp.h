@@ -100,6 +100,9 @@ typedef struct {
     timer_trap_t timer_trap;
     event_trap_t key_traps[10];  /* KEY(1)-KEY(10) */
 
+    /* Optional compiled FFI evaluator; false leaves text_ptr unchanged. */
+    bool (*extern_eval)(gw_value_t *result);
+
     /* DEF SEG segment (for PEEK/POKE/BSAVE/BLOAD) */
     uint16_t def_seg;
 } interp_state_t;

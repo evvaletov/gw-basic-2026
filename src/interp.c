@@ -594,6 +594,7 @@ gw_value_t gw_eval_fn_call(void)
     /* Set parameter if function has one */
     var_entry_t *param_var = NULL;
     gw_value_t saved_val = {0};
+    GW_TEMP_BEGIN(); GW_TEMP_ROOT(&saved_val);
     if (fn->param_name[0] && has_arg) {
         param_var = gw_var_find_or_create(fn->param_name, fn->param_type);
         saved_val = param_var->val;
@@ -618,6 +619,7 @@ gw_value_t gw_eval_fn_call(void)
     gw.text_ptr = save_text;
     gw.cur_line = save_line;
 
+    GW_TEMP_END();
     return result;
 }
 

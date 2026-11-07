@@ -1483,6 +1483,45 @@
       "native": true,
       "captured_on": "2026-11-07",
       "sixel_output": true
+    },
+    {
+      "id": "native_deftype_expression",
+      "source": "10 FOR I%=0 TO 2\n20 ON I%+1 GOSUB 100,200,300\n30 PRINT A+B;A=B;A<B\n40 NEXT I%\n50 PRINT A%;A$;A#:END\n100 DEFINT A-B:A=2.5:B=4.5:RETURN\n200 DEFSTR A-B:A=\"LEFT\":B=\"RIGHT\":RETURN\n300 DEFDBL A-B:A=1.25:B=2.5:RETURN\n",
+      "stdin": "",
+      "output": " 8  0 -1\nLEFTRIGHT 0 -1\n 3.75  0 -1\n 3 LEFT 1.25\n",
+      "capture_sha256": "16534f647d0e56f5033f5dab93a5dbba1f22af0b97ef613b8541d0d97834f2ce",
+      "source_sha256": "fbb98499ad75884705aa0776f9ddb6c94f355367019627ef291343e2b4450aff",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "863412edeff983b0a5af52ec990186c1ea99472897f3c4ce233b6bacf499a726",
+      "adapter_sha256": "9859d25a25d4a3943d4773c260ab48210e55dbb81bed7c2c46f1de4643f6fd61",
+      "native": true,
+      "captured_on": "2026-11-07"
+    },
+    {
+      "id": "native_deftype_read",
+      "source": "10 DATA 2.5,HELLO,3.25,4.5,TAIL\n20 DEFINT A:READ A\n30 DEFSTR A:READ A\n40 DEFDBL A:READ A\n50 DIM A(1):READ A(1)\n60 DEFSTR A:DIM A(1):READ A(1)\n70 PRINT A%;A$;A#;A#(1);A$(1):END\n",
+      "stdin": "",
+      "output": " 3 HELLO 3.25  4.5 TAIL\n",
+      "capture_sha256": "e9cc29ea22017dccfbfed6380af4e4a53978779819228bd58d7ff627beaed06d",
+      "source_sha256": "3382e2ed4860d3cf9e340da1012e642772b7baecd13e31576b276e6f6e9279db",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "1a865b8f1083d4cda912ba30f4412a45f455feeb6478b06fd152fef4c18d2a96",
+      "adapter_sha256": "9859d25a25d4a3943d4773c260ab48210e55dbb81bed7c2c46f1de4643f6fd61",
+      "native": true,
+      "captured_on": "2026-11-07"
+    },
+    {
+      "id": "native_deftype_error_gc",
+      "source": "10 ON ERROR GOTO 100\n20 IF 1 THEN DEFSTR A-B\n30 A=\"LEFT\":B=\"RIGHT\"\n40 FOR I%=1 TO 180\n50 C$=STRING$(200,65)+STR$(1/0)\n60 NEXT I%\n70 PRINT A+LEFT$(STR$(FRE(\"\")),0)+B;E%;ERR:END\n100 E%=E%+1:RESUME NEXT\n",
+      "stdin": "",
+      "output": "LEFTRIGHT 180  0\n",
+      "capture_sha256": "83e36d426e2981d7b277310b86aad477dbc252de1f6e7a861cced2f096ea7c1d",
+      "source_sha256": "f521f83b85b9f478cd7baee45cb297fa06b0c8afc4a2d5b2139310cb246be02a",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "d61e39d0fec3632c0119dd5a91d9b1e5e20cf810be4de7b21fc465741507d14a",
+      "adapter_sha256": "9859d25a25d4a3943d4773c260ab48210e55dbb81bed7c2c46f1de4643f6fd61",
+      "native": true,
+      "captured_on": "2026-11-07"
     }
   ],
   "reference_build": "Microsoft GW-BASIC source build, JWasm 2023-10-03; not retail 3.23"

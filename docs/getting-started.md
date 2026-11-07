@@ -169,16 +169,20 @@ path throughout.
 
 ### Runtime Type Declarations
 
-Put `DEFINT`, `DEFSNG`, `DEFDBL`, and `DEFSTR` declarations at the start of the
-program to retain native compilation. Comments and DATA can precede them.
-If a declaration occurs after executable code, including inside an IF or loop,
-the compiler embeds the program and executes it through the interpreter runtime
-inside the resulting executable. It prints a diagnostic identifying this path.
-Variables and arrays then follow the executed declarations, including switches
-between numeric and string defaults. Native optimization and performance flags
-do not apply to this execution path; sanitizer instrumentation still applies.
-Runtime type changes cannot currently be combined with `$EXTERN` calls. Such a
-combination fails compilation; move declarations into the entry prefix to use FFI.
+`DEFINT`, `DEFSNG`, `DEFDBL`, and `DEFSTR` take effect when execution reaches
+them, including inside branches, loops and subroutines. Entry-prefix declarations
+allow fixed-type native expressions. Programs with later declarations also
+compile natively: their expressions carry a runtime type and look up separate
+numeric/string scalar and array storage using the current defaults.
+
+Both paths support `$EXTERN` calls and renamed hosted entry points. Complex
+statements and DEF FN bodies continue to use shared runtime handlers, including
+foreign calls within their expressions. There is no whole-program interpreter
+fallback for DEFTYPE. Runtime-selected arrays use shared lookup even with
+`--inline-arrays`; `--safe` adds its usual bounds diagnostics. Tagged arithmetic
+keeps its checks under `--fast-math`. GCC optimization and sanitizer options
+still apply to the generated C. Hosted entries must run sequentially and cannot
+recursively call back into the same runtime.
 
 ### Performance Flags (`--no-gc-check` / `--fast-math`)
 

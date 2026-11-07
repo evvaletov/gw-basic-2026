@@ -45,6 +45,7 @@ jobs:
       - name: Compiler control flow, string and array regressions
         run: |
           python3 tests/test_compiler_regressions.py
+          python3 tests/test_runtime_types.py
           python3 tests/test_compiler_paths.py
 
       - name: Curated compatibility corpus

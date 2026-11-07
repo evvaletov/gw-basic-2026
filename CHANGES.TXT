@@ -2,6 +2,19 @@ GW-BASIC 2026 -- Change History
 ================================
 
 Unreleased
+  - Compile conditional and later DEFTYPE with native tagged expressions and
+    execution-order shared scalar/array storage. Support $EXTERN on this path,
+    including calls inside shared statement handlers and DEF FN bodies.
+    Track live expression strings during collection and clear their roots on
+    errors/shutdown, preserving FRE("") collection and hosted entry state.
+  - Reconcile ordinary POSIX input after terminal resize and bound answer
+    redraws on tiny viewports. Display high bytes as CP437 UTF-8 glyphs while
+    retaining byte editing. Restore termios for default termination signals
+    during input and preserve host handlers and repeated raw-mode settings.
+  - Enforce top-level documentation fences and nonempty bodies. Bound live
+    stdout/stderr, support duplex input and kill owned command process groups
+    after success as well as failures. Keep generated artifact sizes unrestricted.
+  - Avoid zero-length memory operations on empty string NULL descriptors.
   - Preserve case-insensitive variable names through 40 characters, including
     periods, across scalar/array storage, native code, delegates and FIELD.
     Correct the previous two-character aliasing and FOR/NEXT name comparison.
@@ -53,9 +66,8 @@ Unreleased
     counter; preserve header evaluation errors and BASIC error line numbers.
   - Keep FOR loops inside their GOSUB frame, preserving caller loops and
     discarding unfinished subroutine loops on RETURN.
-  - Execute conditional and later DEFTYPE declarations through the interpreter
-    runtime in compiled executables. Entry-prefix declarations still compile
-    natively; runtime DEFTYPE with $EXTERN produces an explicit diagnostic.
+  - Earlier development used an interpreter fallback for late DEFTYPE; the
+    native tagged-expression implementation above supersedes that path.
   - Preserve caller loop scope after an undefined GOSUB; retry the failing
     statement in the interpreter for RESUME and skip RESUME NEXT token payloads.
   - Reject spaces inside variable names or before their type suffixes.

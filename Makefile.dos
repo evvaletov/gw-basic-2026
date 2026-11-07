@@ -24,13 +24,13 @@ INTERP_OBJS = &
 
 # Runtime library (for compiled programs)
 GWRT_OBJS = &
-    src/tokens.obj src/tokenizer.obj src/error.obj &
-    src/eval.obj src/interp.obj src/vars.obj src/arrays.obj &
+    src/tokens.obj src/tokenizer.obj src/gwrt_error.obj &
+    src/gwrt_eval.obj src/gwrt_interp.obj src/vars.obj src/arrays.obj &
     src/input.obj src/math_int.obj src/math_float.obj &
     src/math_transcend.obj src/strings.obj src/print.obj &
     src/fileio.obj src/program_io.obj src/print_using.obj &
-    src/graphics.obj src/virmem.obj src/portio.obj src/strpool.obj &
-    src/sound.obj src/tui.obj src/gwrt.obj platform/hal_dos.obj
+    src/graphics.obj src/virmem.obj src/portio.obj src/gwrt_strpool.obj &
+    src/sound.obj src/tui.obj src/gwrt.obj src/gwrt_value.obj platform/hal_dos.obj
 
 # Compiler sources
 COMP_OBJS = &
@@ -41,6 +41,18 @@ COMP_OBJS = &
     $(CC) $(CFLAGS) -fo=$@ $<
 
 all: gwbasic.exe gwbascom.exe gwrt.lib
+
+src/codegen.obj: src/codegen_dynamic.inc
+
+# These shared handlers participate in native temporary-string tracking.
+src/gwrt_eval.obj: src/eval.c include/interp.h include/eval.h
+    $(CC) $(CFLAGS) -DGW_NATIVE_RUNTIME -fo=$@ src/eval.c
+src/gwrt_interp.obj: src/interp.c include/interp.h include/eval.h
+    $(CC) $(CFLAGS) -DGW_NATIVE_RUNTIME -fo=$@ src/interp.c
+src/gwrt_error.obj: src/error.c include/interp.h include/eval.h
+    $(CC) $(CFLAGS) -DGW_NATIVE_RUNTIME -fo=$@ src/error.c
+src/gwrt_strpool.obj: src/strpool.c include/strpool.h
+    $(CC) $(CFLAGS) -DGW_NATIVE_RUNTIME -fo=$@ src/strpool.c
 
 gwbasic.exe: $(INTERP_OBJS)
     $(LINKER) system dos4g name $@ file { $< }

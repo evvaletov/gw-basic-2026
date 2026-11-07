@@ -125,12 +125,27 @@ delimiters without treating quoted colons or numeric payload bytes as syntax.
 Programs without `RESUME` omit this tracking; dead-code removal remains enabled.
 
 Default types are static only when declarations appear in the straight-line
-entry prefix. Conditional or later DEFTYPE statements can select separate
-numeric/string variables and arrays at the same source location. For these
-programs, code generation embeds the tokenized source in C and uses the shared
-interpreter runtime. The compiler announces this path; it does not apply native
-expression or array optimizations. `$EXTERN` calls with runtime DEFTYPE changes
-are rejected instead of silently losing foreign-function behavior.
+entry prefix. Conditional or later DEFTYPE statements select separate numeric
+and string variables/arrays at the same source location. `codegen_dynamic.inc`
+emits tagged expressions, assignments, DIM, READ and FOR/NEXT storage access;
+the main generator retains native labels, branches and error continuations.
+`gwrt_value.c` supplies value conversions and builtins, while binary operations
+share the interpreter's value arithmetic. Operands and arguments are evaluated
+and checked in source order. Shared statement handlers use the same live storage
+without copying scalars to and from generated C globals.
+
+The runtime library enables the foreign-call bridge with `GW_NATIVE_RUNTIME`;
+the standalone interpreter has no foreign declarations and omits that bridge.
+An entry-local foreign-function callback makes `$EXTERN` available to delegated
+expressions and DEF FN bodies. Generated wrappers copy string arguments to
+bounded stack buffers and copy string results before those buffers expire.
+Expression frames register live string descriptors so collection, including
+`FRE("")`, relocates them with shared storage. Shared expression handlers and
+DEF FN saved parameters participate when linked into the runtime library. Error
+dispatch and shutdown discard roots whose C stack frames have unwound; host pool
+pins remain untouched. Shutdown clears the callback and shared state.
+Runtime-selected arrays use shared lookup even with `--inline-arrays`, and tagged
+arithmetic retains its checks under `--fast-math`.
 
 With `--inline-arrays`, eligible numeric arrays use cached pointers into the
 runtime's storage. The cache generation changes when arrays are cleared or
@@ -143,7 +158,7 @@ arithmetic (`gw_int_add/sub/mul` from `math_int.c`) instead of bare C
 operators, and enhanced-diagnostic array/GOSUB runtime functions that report
 variable names, subscript values, and BASIC line numbers on error.
 
-The runtime library (`gwrt.c` / `libgwrt.a`) provides initialization,
+The runtime library (`gwrt.c`, `gwrt_value.c` / `libgwrt.a`) provides initialization,
 DATA/READ support, GOSUB return-label stack, and wrappers around the existing
 interpreter modules, including the execution loop used for delegated program
 operations such as `CHAIN`. Compiled programs share the string pool, garbage

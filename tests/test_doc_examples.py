@@ -8,6 +8,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 from run_doc_examples import EXAMPLES, REPO, load_snippets, parse_snippets, run_command, run_example
 
@@ -67,6 +68,9 @@ class DocumentationChecks(unittest.TestCase):
             (valid.replace('```bash', '```python'), 'fenced block'),
             (valid.removesuffix('```\n'), 'unclosed'),
             (valid.replace('true\n', ''), 'empty'),
+            (valid.replace('true\n', ' \t\n'), 'empty'),
+            (valid.replace('\n```\n', '\n    ```\n'), 'closing fence'),
+            (valid.replace('\n```\n', '\n``` trailing\n'), 'closing fence'),
         ]:
             with self.subTest(diagnostic=diagnostic), self.assertRaisesRegex(ValueError, diagnostic):
                 parse_snippets(text, 'README.md')
@@ -94,6 +98,39 @@ class DocumentationChecks(unittest.TestCase):
                 run_command([sys.executable, '-c', parent], root, timeout=0.2)
             time.sleep(0.7)
             self.assertFalse((root / 'survived').exists())
+
+    def test_normal_exit_kills_descendants(self):
+        with tempfile.TemporaryDirectory(prefix='gw-doc-children-') as temporary:
+            root = Path(temporary)
+            # A handshake ensures the child is alive before its parent exits.
+            child = ('import pathlib,time; pathlib.Path("ready").touch(); '
+                     'time.sleep(0.6); pathlib.Path("survived").touch()')
+            parent = ('import pathlib,subprocess,sys,time; '
+                      f'subprocess.Popen([sys.executable,"-c",{child!r}]); '
+                      '\nwhile not pathlib.Path("ready").exists(): time.sleep(0.01)\n'
+                      'print("parent done",flush=True)')
+            self.assertEqual(run_command([sys.executable, '-c', parent], root), 'parent done\n')
+            time.sleep(0.7)
+            self.assertFalse((root / 'survived').exists())
+
+    def test_noisy_output_is_bounded_while_running(self):
+        with tempfile.TemporaryDirectory(prefix='gw-doc-noise-') as temporary:
+            for descriptor in (1, 2):
+                with self.subTest(descriptor=descriptor), patch('run_doc_examples.MAX_LOG_BYTES', 65536):
+                    source = f'import os\nwhile True: os.write({descriptor},b"x"*16384)'
+                    with self.assertRaisesRegex(AssertionError, 'output exceeds 65536') as error:
+                        run_command([sys.executable, '-c', source], Path(temporary), timeout=5)
+                    self.assertLess(len(str(error.exception)), 66000)
+
+    def test_duplex_input_and_large_artifacts(self):
+        with tempfile.TemporaryDirectory(prefix='gw-doc-stream-') as temporary:
+            root = Path(temporary)
+            source = ('import os,sys; os.write(2,b"x"*65536); '
+                      'data=sys.stdin.buffer.read(); open("artifact","wb").write(b"z"*2097152); '
+                      'print(len(data))')
+            self.assertEqual(run_command([sys.executable, '-c', source], root,
+                                          input_text='a'*262144), '262144\n')
+            self.assertEqual((root / 'artifact').stat().st_size, 2097152)
 
 
 if __name__ == '__main__':

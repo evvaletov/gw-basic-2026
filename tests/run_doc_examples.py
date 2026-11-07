@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import re
+import selectors
 import shutil
 import signal
 import subprocess
@@ -69,7 +70,7 @@ def parse_snippets(text, document):
     snippets = {}
     index = 0
     while index < len(lines):
-        line = lines[index].strip()
+        line = lines[index].rstrip('\r\n')
         if 'docs-test:' not in line:
             index += 1
             continue
@@ -88,9 +89,11 @@ def parse_snippets(text, document):
             raise ValueError(f'{location}: expected a bash/basic/c/fortran fenced block')
         index += 1
         start = index
-        while index < len(lines) and lines[index].strip() != '```':
+        while index < len(lines) and not re.fullmatch(r'```[ \t]*(?:\r?\n)?', lines[index]):
+            if lines[index].lstrip().startswith('```'):
+                raise ValueError(f'{location}: malformed closing fence in {name}')
             index += 1
-        if index == len(lines) or index == start:
+        if index == len(lines) or not ''.join(lines[start:index]).strip():
             raise ValueError(f'{location}: empty or unclosed snippet {name}')
         snippets[name] = Snippet(opening[1], ''.join(lines[start:index]), location)
         index += 1
@@ -113,35 +116,89 @@ def load_snippets(repo):
 
 
 def run_command(command, cwd, timeout=30, input_text=None):
-    """Bound runtime, retain diagnostics, and kill the process group on timeout."""
+    """Bound live logs/runtime and terminate owned descendants on every exit.
+
+    The process group is an ownership boundary, not a security sandbox: a child
+    that deliberately starts another session can escape it.
+    """
     environment = dict(os.environ, LC_ALL='C', PULSE_SERVER='unix:/tmp/gwbasic-docs-no-audio')
     environment.pop('BASH_ENV', None)
     environment.pop('ENV', None)
-    with tempfile.TemporaryFile() as stdout, tempfile.TemporaryFile() as stderr:
-        process = subprocess.Popen(command, cwd=cwd, env=environment, start_new_session=True,
-                                   stdin=subprocess.PIPE if input_text is not None else subprocess.DEVNULL,
-                                   stdout=stdout, stderr=stderr)
-        timed_out = False
+    process = subprocess.Popen(command, cwd=cwd, env=environment, start_new_session=True,
+                               stdin=subprocess.PIPE if input_text is not None else subprocess.DEVNULL,
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    output = [bytearray(), bytearray()]
+    reason = None
+    deadline = time.monotonic() + timeout
+    stopped = False
+
+    def stop_group():
         try:
-            process.communicate(input_text.encode() if input_text is not None else None, timeout=timeout)
-        except subprocess.TimeoutExpired:
-            timed_out = True
-            try:
-                os.killpg(process.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass  # The process group exited at the timeout boundary.
-            process.communicate()
-        output = []
-        for stream in (stdout, stderr):
-            stream.seek(0)
-            data = stream.read(MAX_LOG_BYTES + 1)
-            if len(data) > MAX_LOG_BYTES:
-                raise AssertionError(f'output exceeds {MAX_LOG_BYTES} bytes: {command}')
-            output.append(data.decode('utf-8', errors='replace'))
-        if timed_out or process.returncode:
-            reason = f'timeout after {timeout}s' if timed_out else f'exit {process.returncode}'
-            raise AssertionError(f'{reason}: {command}\nstdout:\n{output[0]}\nstderr:\n{output[1]}')
-        return output[0]
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+
+    try:
+        with selectors.DefaultSelector() as selector:
+            for index, stream in enumerate((process.stdout, process.stderr)):
+                os.set_blocking(stream.fileno(), False)
+                selector.register(stream, selectors.EVENT_READ, index)
+            pending = memoryview(input_text.encode()) if input_text is not None else memoryview(b'')
+            if process.stdin:
+                if pending:
+                    os.set_blocking(process.stdin.fileno(), False)
+                    selector.register(process.stdin, selectors.EVENT_WRITE, None)
+                else:
+                    process.stdin.close()
+            while selector.get_map() or process.poll() is None:
+                # A successful parent can leave children holding the output
+                # pipes. Terminate the group as soon as the parent has exited.
+                if process.poll() is not None and not stopped:
+                    stop_group()
+                    stopped = True
+                    deadline = min(deadline, time.monotonic() + 1)
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    reason = f'timeout after {timeout}s'
+                    break
+                for event, _ in selector.select(min(remaining, 0.05)):
+                    stream, index = event.fileobj, event.data
+                    if index is None:
+                        try:
+                            pending = pending[os.write(stream.fileno(), pending[:65536]):]
+                        except BlockingIOError:
+                            continue
+                        except BrokenPipeError:
+                            pending = memoryview(b'')
+                        if not pending:
+                            selector.unregister(stream)
+                            stream.close()
+                        continue
+                    try:
+                        chunk = os.read(stream.fileno(), 65536)
+                    except BlockingIOError:
+                        continue
+                    if not chunk:
+                        selector.unregister(stream)
+                        continue
+                    available = MAX_LOG_BYTES - len(output[index])
+                    output[index].extend(chunk[:available])
+                    if len(chunk) > available:
+                        reason = f'output exceeds {MAX_LOG_BYTES} bytes'
+                        break
+                if reason:
+                    break
+    finally:
+        stop_group()
+        for stream in (process.stdin, process.stdout, process.stderr):
+            if stream and not stream.closed:
+                stream.close()
+        process.wait()
+    decoded = [data.decode('utf-8', errors='replace') for data in output]
+    if reason or process.returncode:
+        reason = reason or f'exit {process.returncode}'
+        raise AssertionError(f'{reason}: {command}\nstdout:\n{decoded[0]}\nstderr:\n{decoded[1]}')
+    return decoded[0]
 
 
 def check_output(actual, expected):

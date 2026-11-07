@@ -1,6 +1,6 @@
 # Focused GW-BASIC semantics
 
-`semantics.json` contains 121 programs and output captured from Microsoft
+`semantics.json` contains 124 programs and output captured from Microsoft
 GW-BASIC source build (JWasm, 2023-10-03) on 2026-11-06 and 2026-11-07.
 This is the pinned source build, not a claim of retail 3.23 identity. It covers FOR-entry evaluation and errors, lexical NEXT
 matching, GOSUB loop scope, executed DEFTYPE changes, typed arrays, and integer
@@ -39,8 +39,9 @@ A case-level adapter hash overrides the manifest default when a later capture
 used a revised capture script. The first 20 cases marked `native` exercise RESUME
 continuations, retries, RESUME 0, handler state, and IF/ELSE boundaries. The
 regression runner verifies that these use native generated code in every
-compiler mode. Earlier RESUME cases with late DEFTYPE declarations still
-exercise the interpreter execution path.
+compiler mode. Correction, 2026-11-07: earlier RESUME cases with late DEFTYPE declarations now
+exercise tagged native expressions and control flow. No regression case may use
+the former whole-program interpreter fallback.
 
 `input-console.json` contains 16 independent FreeDOS/QEMU captures using real
 Microsoft GW-BASIC console input. It records source, typed answers, editing
@@ -105,3 +106,16 @@ original PMAP numeric parity. The POINT case marks
 compares the numeric result; it makes no pixel-rendering equivalence claim.
 The DOS CI smoke also replays all three byte-input console sources and the seed
 retry case, checking saved numbers, prompts and completion screens.
+
+Three additional independent captures cover one expression switching among
+integer/string/double values, READ selecting typed scalar and array storage,
+and 180 trapped expression errors followed by string collection. Native FFI and
+hosted-entry checks live in `test_runtime_types.py`; these are extension tests,
+not claims about Microsoft foreign-function support. `--runtime-types` on the
+compiler regression runner inserts an unexecuted type declaration at an unused
+line number to exercise tagged code against the same expected outputs.
+
+The ordinary terminal suite additionally covers 255-byte answers on tiny screens,
+resize before/during prompts, CP437 display with byte editing, default TERM/HUP
+cleanup, host signal dispositions and repeated raw-mode activation. These POSIX
+extension tests use real PTYs; they do not claim Microsoft terminal-resize behavior.
