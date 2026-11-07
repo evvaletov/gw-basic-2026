@@ -2,6 +2,20 @@ GW-BASIC 2026 -- Change History
 ================================
 
 Unreleased
+  - Preserve INPUT ; and LINE INPUT ; editing positions in file-launched and
+    native POSIX terminal runs. Restore terminal settings after input, Ctrl-C
+    and EOF; keep piped and file input on their stdio path. Compile POS arguments
+    correctly, including their evaluation side effects.
+  - Match WHILE/WEND trapped-error retry behavior, nested loop identity and
+    GOSUB boundaries. WEND condition errors report WHILE's line but retry WEND
+    after removing its frame; RESUME NEXT continues after WEND.
+  - Use the original 24-bit RND sequence and initial state; honor zero and
+    negative arguments in native code as well as the interpreter. Match explicit
+    RANDOMIZE seed conversion and state updates; recapture older seeded tests
+    from the original executable.
+  - Expand the corpus to 32 cases from seventeen listings, including random
+    Hi-Lo, Bagels and Craps games, Awari/Checkers checkpoints and their original
+    FOR without NEXT failures. Vendored listings remain unchanged.
   - Execute DOS16 and DOS32 runtime smoke tests in CI using a checksum-pinned
     FreeDOS boot image and disposable QEMU disks, without root or KVM.
     Check saved output, editor input/cursor behavior and compute-loop breaks;

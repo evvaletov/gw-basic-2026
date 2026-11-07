@@ -82,11 +82,39 @@ static struct {
     int label, gosub_depth;
 } compiled_for[MAX_FOR_DEPTH];
 static int compiled_for_sp;
+static struct {
+    int label, gosub_depth, for_depth;
+} compiled_while[MAX_WHILE_DEPTH];
+static int compiled_while_sp;
 
 void gwrt_control_clear(void)
 {
     compiled_for_sp = 0;
+    compiled_while_sp = 0;
     gosub_sp = 0;
+}
+
+void gwrt_while_drop(int label, bool required)
+{
+    for (int i = compiled_while_sp - 1; i >= 0; i--) {
+        if (compiled_while[i].gosub_depth != gosub_sp) break;
+        if (compiled_while[i].label == label) {
+            if (compiled_for_sp > compiled_while[i].for_depth)
+                compiled_for_sp = compiled_while[i].for_depth;
+            compiled_while_sp = i;
+            return;
+        }
+    }
+    if (required) gw_error(ERR_WE);
+}
+
+void gwrt_while_push(int label)
+{
+    if (compiled_while_sp >= MAX_WHILE_DEPTH) gw_error(ERR_OM);
+    int i = compiled_while_sp++;
+    compiled_while[i].label = label;
+    compiled_while[i].gosub_depth = gosub_sp;
+    compiled_while[i].for_depth = compiled_for_sp;
 }
 
 bool gwrt_for_push(void *var, gw_valtype_t type, double limit, double step, int label)
@@ -243,6 +271,8 @@ int gwrt_gosub_pop(void)
     gosub_sp--;
     while (compiled_for_sp && compiled_for[compiled_for_sp - 1].gosub_depth > gosub_sp)
         compiled_for_sp--;
+    while (compiled_while_sp && compiled_while[compiled_while_sp - 1].gosub_depth > gosub_sp)
+        compiled_while_sp--;
     return gosub_stack[gosub_sp];
 }
 

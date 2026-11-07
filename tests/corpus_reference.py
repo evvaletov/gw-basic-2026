@@ -18,6 +18,7 @@ import tempfile
 
 
 MARKER = "__CORPUS_DONE__"
+CHECKPOINT = "__CORPUS_CHECKPOINT__"
 
 
 def normalize(text):
@@ -36,7 +37,7 @@ def statements(text):
     yield text[start:]
 
 
-def adapt_statement(text):
+def adapt_statement(text, bounded=False):
     result = []
     pos = 0
     token = re.compile(r'"[^"\r\n]*"|[A-Za-z][A-Za-z0-9.$%!#]*')
@@ -71,7 +72,8 @@ def adapt_statement(text):
             # leaves the output file's column unchanged, which gives TAB after
             # a prompt the wrong layout. Reopening in append mode resets that
             # column without adding terminal echo to the captured transcript.
-            result.append(f'PRINT #9,{output};:INPUT #8,{tail}:CLOSE #9:OPEN "OUTPUT.TXT" FOR APPEND AS #9')
+            guard = 'GOSUB 65510:' if bounded else ''
+            result.append(f'PRINT #9,{output};:{guard}INPUT #8,{tail}:CLOSE #9:OPEN "OUTPUT.TXT" FOR APPEND AS #9')
             return "".join(result)
         elif upper == "END":
             result.append(f'PRINT #9,"{MARKER}":CLOSE:SYSTEM')
@@ -83,7 +85,13 @@ def adapt_statement(text):
     return "".join(result)
 
 
-def adapt(source):
+def adapt(source, input_limit=None):
+    if input_limit is not None:
+        if not isinstance(input_limit, int) or input_limit < 0:
+            raise ValueError('input limit must be a nonnegative integer')
+        # This private adapter counter must not alias a listing variable.
+        if re.search(r'\bC9[A-Za-z0-9.$%!#]*', source, re.I):
+            raise ValueError('bounded adapter counter C9 conflicts with source')
     lines = ['0 OPEN "OUTPUT.TXT" FOR OUTPUT AS #9:OPEN "INPUT.TXT" FOR INPUT AS #8:ON ERROR GOTO 65500']
     for line in source.splitlines():
         match = re.fullmatch(r'\s*(\d+)\s+(.*)', line)
@@ -94,8 +102,11 @@ def adapt(source):
         if body.upper().startswith("REM"):
             lines.append(line)
         else:
-            lines.append(match[1] + ' ' + ':'.join(adapt_statement(part) for part in statements(body)))
+            lines.append(match[1] + ' ' + ':'.join(adapt_statement(part, input_limit is not None) for part in statements(body)))
     lines.append('65500 PRINT #9,"__CORPUS_ERROR__";ERR;ERL:CLOSE:SYSTEM')
+    if input_limit is not None:
+        lines.append(f'65510 IF C9={input_limit} THEN PRINT #9,"{CHECKPOINT}":CLOSE:SYSTEM')
+        lines.append('65520 C9=C9+1:RETURN')
     return '\r\n'.join(lines) + '\r\n'
 
 
@@ -128,7 +139,8 @@ def main():
             shutil.copy2(args.reference_exe, drive / 'GWBASIC.EXE')
             source = (corpus / case['source']).read_text() if args.suite == 'corpus' else case['source']
             stdin = (corpus / case['input']).read_text() if args.suite == 'corpus' else case['stdin']
-            transformed = adapt(source)
+            checkpoint = case.get('checkpoint')
+            transformed = adapt(source, checkpoint['inputs'] if checkpoint else None)
             (drive / 'CASE.BAS').write_bytes(transformed.encode('ascii'))
             (drive / 'INPUT.TXT').write_bytes(stdin.replace('\n', '\r\n').encode('ascii'))
             command = ['flatpak', 'run', '--die-with-parent',
@@ -148,14 +160,28 @@ def main():
             (args.output / f"{case['id']}.raw").write_bytes(raw)
             # DOS text files can contain sector padding after the Ctrl-Z EOF.
             text = raw.split(b'\x1a', 1)[0].decode('ascii').replace('\r\n', '\n')
-            if status != 0 or not text.endswith(MARKER + '\n'):
+            marker = CHECKPOINT if checkpoint else MARKER
+            error = case.get('expected_error')
+            if error:
+                tail = re.search(r'__CORPUS_ERROR__\s+(\d+)\s+(\d+)\s*$', text)
+                complete = bool(tail and [int(tail[1]), int(tail[2])] == error)
+            else:
+                complete = text.endswith(marker + '\n')
+            if status != 0 or not complete:
                 raise RuntimeError(f"{case['id']}: reference did not complete (exit {status}); tail={text[-200:]!r}")
-            text = normalize(text[:-len(MARKER + '\n')])
+            text = normalize(text if error else text[:-len(marker + '\n')])
+            if checkpoint and (text.count(checkpoint['prompt']) != checkpoint['occurrence'] or
+                               not text.rstrip().endswith(checkpoint['prompt'].rstrip())):
+                raise RuntimeError(f"{case['id']}: reference stopped at the wrong input checkpoint")
             (args.output / f"{case['id']}.txt").write_text(text)
             metadata['cases'].append({'id': case['id'], 'sha256': hashlib.sha256(text.encode()).hexdigest(),
                                       'source_sha256': hashlib.sha256((corpus / case['source']).read_bytes() if args.suite == 'corpus' else source.encode('ascii')).hexdigest(),
                                       'input_sha256': hashlib.sha256((corpus / case['input']).read_bytes() if args.suite == 'corpus' else stdin.encode('ascii')).hexdigest(),
                                       'capture_sha256': hashlib.sha256(transformed.encode('ascii')).hexdigest()})
+            if checkpoint:
+                metadata['cases'][-1]['checkpoint'] = checkpoint
+            if error:
+                metadata['cases'][-1]['expected_error'] = error
             print('CAPTURED', case['id'], flush=True)
     (args.output / 'reference.json').write_text(json.dumps(metadata, indent=2) + '\n')
 

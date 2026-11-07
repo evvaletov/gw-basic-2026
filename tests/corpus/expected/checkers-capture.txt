@@ -1,0 +1,58 @@
+                               CHECKERS
+              CREATIVE COMPUTING  MORRISTOWN, NEW JERSEY
+
+
+
+THIS IS THE GAME OF CHECKERS.  THE COMPUTER IS X,
+AND YOU ARE O.  THE COMPUTER WILL MOVE FIRST.
+SQUARES ARE REFERRED TO BY A COORDINATE SYSTEM.
+(0,0) IS THE LOWER LEFT CORNER
+(0,7) IS THE UPPER LEFT CORNER
+(7,0) IS THE LOWER RIGHT CORNER
+(7,7) IS THE UPPER RIGHT CORNER
+THE COMPUTER WILL TYPE '+TO' WHEN YOU HAVE ANOTHER
+JUMP.  TYPE TWO NEGATIVE NUMBERS IF YOU CANNOT JUMP.
+
+
+
+FROM 1  5 TO 0  4
+
+
+.   X    .    X    .    X    .    X
+
+X   .    X    .    X    .    X    .
+
+.   .    .    X    .    X    .    X
+
+X   .    .    .    .    .    .    .
+
+.   .    .    .    .    .    .    .
+
+O   .    O    .    O    .    O    .
+
+.   O    .    O    .    O    .    O
+
+O   .    O    .    O    .    O    .
+
+
+FROM? TO? FROM 0  6 TO 1  5
+
+
+.   X    .    X    .    X    .    X
+
+.   .    X    .    X    .    X    .
+
+.   X    .    X    .    X    .    X
+
+X   .    .    .    .    .    .    .
+
+.   O    .    .    .    .    .    .
+
+.   .    O    .    O    .    O    .
+
+.   O    .    O    .    O    .    O
+
+O   .    O    .    O    .    O    .
+
+
+FROM? TO? FROM 0  4 TO 2  2 __CORPUS_ERROR__ 26  1340

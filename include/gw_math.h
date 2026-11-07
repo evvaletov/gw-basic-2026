@@ -36,6 +36,7 @@ double gw_sgn(double x);
 double gw_int_fn(double x);
 double gw_fix(double x);
 double gw_rnd(double x);
+void gw_randomize(int16_t seed);
 
 /* Conversion functions */
 int16_t  gw_cint(double x);

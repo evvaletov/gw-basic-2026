@@ -1,9 +1,11 @@
 # Focused GW-BASIC semantics
 
-`semantics.json` contains 74 programs and output captured from Microsoft
-GW-BASIC on 2026-11-06. It covers FOR-entry evaluation and errors, lexical NEXT
+`semantics.json` contains 92 programs and output captured from Microsoft
+GW-BASIC source build (JWasm, 2023-10-03) on 2026-11-06 and 2026-11-07.
+This is the pinned source build, not a claim of retail 3.23 identity. It covers FOR-entry evaluation and errors, lexical NEXT
 matching, GOSUB loop scope, executed DEFTYPE changes, typed arrays, and integer
-rounding, RESUME, and invalid variable-name whitespace. The executable, adapter, sources, inputs, adapted programs, and output
+rounding, RESUME, WHILE/WEND error recovery and loop scope, RND argument
+behavior, and invalid variable-name whitespace. The executable, adapter, sources, inputs, adapted programs, and output
 hashes record capture provenance. The proprietary executable is not distributed.
 
 The ordinary regression command runs these cases together with the existing
@@ -50,4 +52,22 @@ to files, and the screen rows come from BIOS text memory. Run the same sources
 and keys under the supplied reference executable to reproduce them.
 
 `python3 tests/test_interactive.py` compares the real PTY editor against these
-console references. File-I/O adaptation is unsuitable for this behavior.
+console references. `python3 tests/test_terminal_input.py` runs all sixteen in
+the file-launched interpreter and native O0/safe executables on an echoing PTY,
+and checks termios restoration, Ctrl-C/EOF, typeahead, fragmented escape keys,
+capacity limits, and unchanged pipe/file input. File-I/O adaptation is unsuitable
+for cursor behavior.
+
+The eighteen November 7 semantic cases also require native generated code in
+all sixteen compiler modes. They distinguish initial WHILE failures, WEND
+re-evaluation, body errors, bare RESUME, RESUME NEXT and explicit reentry, nested
+frames, FOR cleanup and GOSUB boundaries; RND cases check startup, zero and
+negative arguments, explicit RANDOMIZE (including repeated seeds, signed
+endpoints and integer rounding), trailing WEND comments and POS argument
+side effects. WEND removes its loop frame before evaluating the WHILE
+condition. An error reports WHILE's line, but retrying that WEND raises error 30.
+
+`random-games.json` records the independent captures used to update the existing
+Monte Carlo, binary-search guessing game and interactive issue-6 answer tests
+after correcting explicit RANDOMIZE. Their previous expectations used the old
+generator. END is appended only to close the two no-END reference captures.

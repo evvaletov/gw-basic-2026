@@ -460,6 +460,52 @@ uint8_t *gw_statement_end(program_line_t *line, uint8_t *text)
     return text;
 }
 
+/* Locate a WHILE's lexical WEND before evaluating its condition. Quoted
+ * strings, DATA and comments cannot contribute loop tokens. A zero-length
+ * synthetic line is used for direct commands, whose buffer is NUL-terminated. */
+bool gw_while_end(program_line_t *line, uint8_t *p,
+                  program_line_t **wend_line, uint8_t **wend_text)
+{
+    int depth = 0;
+    bool at_start = false, in_data = false;
+    for (; line; line = line->next, p = line ? line->tokens : NULL) {
+        uint8_t *end = line->len ? line->tokens + line->len : NULL;
+        while ((!end || p < end) && *p) {
+            uint8_t *start = p;
+            uint8_t tok = *p++;
+            if (tok == ' ') continue;
+            if (tok == ':' || (!in_data && (tok == TOK_THEN || tok == TOK_ELSE))) {
+                at_start = true;
+                in_data = false;
+                continue;
+            }
+            bool statement = at_start;
+            at_start = false;
+            if (!in_data && (tok == TOK_REM || tok == TOK_SQUOTE)) break;
+            if (tok == '"') {
+                while ((!end || p < end) && *p && *p != '"') p++;
+                if ((!end || p < end) && *p) p++;
+            } else if (!in_data) {
+                int payload = tok == TOK_INT1 ? 1 : tok == TOK_INT2 ? 2 :
+                    tok == TOK_CONST_SNG ? 4 : tok == TOK_CONST_DBL ? 8 :
+                    (tok == TOK_PREFIX_FD || tok == TOK_PREFIX_FE || tok == TOK_PREFIX_FF) ? 1 : 0;
+                if (end && end - p < payload) return false;
+                p += payload;
+                if (statement && tok == TOK_DATA) in_data = true;
+                else if (statement && tok == TOK_WHILE) depth++;
+                else if (statement && tok == TOK_WEND && depth-- == 0) {
+                    *wend_line = line;
+                    *wend_text = start;
+                    return true;
+                }
+            }
+        }
+        at_start = true;
+        in_data = false;
+    }
+    return false;
+}
+
 /* Locate a FOR's lexical NEXT without evaluating the header or loop body.
  * NEXT J,I closes two lexical levels; return just after the matching component
  * so the caller can still execute the remaining NEXT variables. */

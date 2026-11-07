@@ -255,7 +255,7 @@ class InteractiveTests(unittest.TestCase):
         self.command("100")
         self.wait_for(lambda: "Too high" in self.lines())
         self.assertIn("Too high", self.lines())
-        self.command("76")
+        self.command("41")  # Original capture: compatibility/random-games.json
         self.wait_for(lambda: "That's right!" in self.lines())
         self.assertIn("That's right!", self.lines())
 

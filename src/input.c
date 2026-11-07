@@ -27,6 +27,19 @@ static char *read_input_line(bool no_cr)
     }
 
     static char buf[256];
+    if (gw_hal && gw_hal->is_tty && gw_hal->read_input) {
+        int result = gw_hal->read_input(buf, sizeof(buf), no_cr);
+        if (result == -2) {
+            gw_hal->puts("\nBreak\n");
+            gw.running = false;
+            longjmp(gw_error_jmp, -1);
+        }
+        if (result == -1) return NULL;
+        if (result >= 0) {
+            print_col = gw_hal->get_cursor_col();
+            return buf;
+        }
+    }
     if (gw_hal) gw_hal->disable_raw();
     if (fgets(buf, sizeof(buf), stdin) == NULL) {
         if (gw_hal) gw_hal->enable_raw();
@@ -124,7 +137,7 @@ retry:;
                 int len = p - start;
                 val.type = VT_STR;
                 val.sval = gw_str_alloc(len);
-                memcpy(val.sval.data, start, len);
+                if (len) memcpy(val.sval.data, start, len);
                 if (*p == '"') p++;
             } else {
                 while (*p && *p != ',') p++;
@@ -133,7 +146,7 @@ retry:;
                 while (len > 0 && start[len - 1] == ' ') len--;
                 val.type = VT_STR;
                 val.sval = gw_str_alloc(len);
-                memcpy(val.sval.data, start, len);
+                if (len) memcpy(val.sval.data, start, len);
             }
         } else {
             char *end;

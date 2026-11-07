@@ -238,6 +238,125 @@
         "scripted gameplay",
         "game completion"
       ]
+    },
+    {
+      "id": "hi-lo-replay",
+      "source": "hi-lo.bas",
+      "input": "inputs/hi-lo-replay.txt",
+      "expected": "expected/hi-lo-replay.txt",
+      "features": [
+        "default RND sequence",
+        "two wins",
+        "replay"
+      ]
+    },
+    {
+      "id": "hi-lo-loss",
+      "source": "hi-lo.bas",
+      "input": "inputs/hi-lo-loss.txt",
+      "expected": "expected/hi-lo-loss.txt",
+      "features": [
+        "six guesses",
+        "loss",
+        "high and low feedback"
+      ]
+    },
+    {
+      "id": "bagels-replay",
+      "source": "bagels.bas",
+      "input": "inputs/bagels-replay.txt",
+      "expected": "expected/bagels-replay.txt",
+      "features": [
+        "random distinct digits",
+        "invalid guesses",
+        "PICO and FERMI",
+        "two wins",
+        "replay"
+      ]
+    },
+    {
+      "id": "bagels-loss",
+      "source": "bagels.bas",
+      "input": "inputs/bagels-loss.txt",
+      "expected": "expected/bagels-loss.txt",
+      "features": [
+        "twenty guesses",
+        "loss",
+        "answer reveal"
+      ]
+    },
+    {
+      "id": "craps-game",
+      "source": "craps.bas",
+      "input": "inputs/craps-game.txt",
+      "expected": "expected/craps-game.txt",
+      "features": [
+        "RND(0)",
+        "random dice",
+        "loss",
+        "replay win",
+        "running balance"
+      ]
+    },
+    {
+      "id": "awari-retry",
+      "source": "awari.bas",
+      "input": "inputs/awari-retry.txt",
+      "expected": "expected/awari-retry.txt",
+      "features": [
+        "invalid moves",
+        "bounded input checkpoint"
+      ],
+      "checkpoint": {
+        "inputs": 3,
+        "prompt": "AGAIN?",
+        "occurrence": 3
+      }
+    },
+    {
+      "id": "awari-first-move",
+      "source": "awari.bas",
+      "input": "inputs/awari-first-move.txt",
+      "expected": "expected/awari-first-move.txt",
+      "features": [
+        "legal first move",
+        "original FOR without NEXT at 230"
+      ],
+      "expected_error": [
+        26,
+        230
+      ]
+    },
+    {
+      "id": "checkers-opening",
+      "source": "checkers.bas",
+      "input": "inputs/checkers-opening.txt",
+      "expected": "expected/checkers-opening.txt",
+      "features": [
+        "computer and player moves",
+        "invalid origin and destination",
+        "bounded input checkpoint"
+      ],
+      "checkpoint": {
+        "inputs": 4,
+        "prompt": "FROM?",
+        "occurrence": 3
+      }
+    },
+    {
+      "id": "checkers-capture",
+      "source": "checkers.bas",
+      "input": "inputs/checkers-capture.txt",
+      "expected": "expected/checkers-capture.txt",
+      "features": [
+        "two player moves",
+        "computer capture",
+        "original FOR without NEXT at 1340"
+      ],
+      "expected_error": [
+        26,
+        1340
+      ]
     }
   ]
 }

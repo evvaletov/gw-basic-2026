@@ -3,8 +3,15 @@
 #include <stdlib.h>
 
 /* Random number state (compatible with GW-BASIC's LCG) */
-uint32_t gw_rnd_seed = 0x50000;  /* default seed */
-static int rnd_seeded = 0;
+uint32_t gw_rnd_seed = 0x4FC752;  /* initial 24-bit state from GW-BASIC */
+
+void gw_randomize(int16_t seed)
+{
+    /* GWMAIN.ASM STRNDS replaces the upper 16 bits, retains the low byte,
+     * and advances once before returning to the program. */
+    gw_rnd_seed = (gw_rnd_seed & 0xFF) | ((uint32_t)(uint16_t)seed << 8);
+    (void)gw_rnd(1.0);
+}
 
 double gw_sin(double x) { return sin(x); }
 double gw_cos(double x) { return cos(x); }
@@ -69,18 +76,20 @@ double gw_fix(double x)
 double gw_rnd(double x)
 {
     if (x < 0.0) {
-        /* Seed from argument */
+        /* The original uses the normalized single-precision mantissa,
+         * including its implicit leading bit, without sign or exponent. */
         union { float f; uint32_t u; } conv;
-        conv.f = (float)x;
-        gw_rnd_seed = conv.u;
-        rnd_seeded = 1;
+        int exponent;
+        conv.f = (float)fabs(x);
+        if (!isfinite(conv.f)) gw_error(ERR_OV);
+        conv.f = (float)frexp(conv.f, &exponent);
+        gw_rnd_seed = (conv.u & 0x7FFFFF) | 0x800000;
     }
 
-    if (x != 0.0 || !rnd_seeded) {
-        /* Linear congruential generator matching GW-BASIC */
-        gw_rnd_seed = gw_rnd_seed * 0x43FD43FD + 0xC39EC3;
+    if (x != 0.0) {
+        /* MATH1.ASM $RNDA/$RNDC and MATH2.ASM RND10, modulo 2^24. */
+        gw_rnd_seed = gw_rnd_seed * 214013UL + 2531011UL;
         gw_rnd_seed &= 0xFFFFFF;
-        rnd_seeded = 1;
     }
 
     return (double)gw_rnd_seed / 16777216.0;

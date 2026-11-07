@@ -38,6 +38,10 @@ void gwrt_control_clear(void);
 bool gwrt_for_push(void *var, gw_valtype_t type, double limit, double step, int label);
 int gwrt_for_next(void *var);   /* continuation label, or -1 when finished */
 
+/* WEND removes its active frame before reevaluating the WHILE condition. */
+void gwrt_while_drop(int label, bool required);
+void gwrt_while_push(int label);
+
 /* Event checking (ON TIMER, ON KEY, Ctrl+Break) + string pool GC */
 void gwrt_check_line(uint16_t line_num);
 

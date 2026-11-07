@@ -45,6 +45,11 @@ typedef struct hal_ops {
     /* Optional asynchronous keyboard break poll.  Consume only break keys;
      * preserve other queued input for INKEY$, INPUT and ON KEY. */
     bool (*check_break)(void);
+
+    /* Optional console line editor outside the TUI. Returns length, -1 EOF,
+     * -2 keyboard break, or -3 to use the stdio fallback. Restores terminal
+     * settings before returning. The caller owns the buffer. */
+    int (*read_input)(char *buf, int capacity, bool suppress_newline);
 } hal_ops_t;
 
 extern hal_ops_t *gw_hal;

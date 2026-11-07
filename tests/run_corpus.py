@@ -11,10 +11,12 @@ import json
 import os
 from pathlib import Path
 import resource
+import selectors
 import shlex
 import signal
 import subprocess
 import tempfile
+import time
 
 REPO = Path(__file__).resolve().parents[1]
 CORPUS = REPO / 'tests/corpus'
@@ -50,6 +52,16 @@ def load_cases(corpus, selected=None):
         if not case['id'] or any(c not in 'abcdefghijklmnopqrstuvwxyz0123456789-' for c in case['id']):
             raise ValueError('invalid fixture ID')
         ref = refs[case['id']]
+        for field in ('checkpoint', 'expected_error'):
+            if case.get(field) != ref.get(field):
+                raise ValueError(f"{case['id']}: {field} differs from its reference capture")
+        checkpoint = case.get('checkpoint')
+        if checkpoint and (not isinstance(checkpoint.get('prompt'), str) or not checkpoint['prompt'] or
+                           not isinstance(checkpoint.get('occurrence'), int) or checkpoint['occurrence'] < 1 or
+                           not isinstance(checkpoint.get('inputs'), int) or checkpoint['inputs'] < 0):
+            raise ValueError('invalid input checkpoint')
+        if checkpoint and case.get('expected_error'):
+            raise ValueError('a fixture cannot expect both a checkpoint and an error')
         for key, hash_key in [('source', 'source_sha256'), ('input', 'input_sha256'), ('expected', 'sha256')]:
             if digest(contained(corpus, case[key])) != ref[hash_key]:
                 raise ValueError(f"{case['id']}: {key} differs from its reviewed reference capture")
@@ -79,19 +91,59 @@ def stop_group(process, sig):
         pass
 
 
-def execute(command, work, name, stdin='', timeout=5):
+def execute(command, work, name, stdin='', timeout=5, checkpoint=None):
     work.mkdir(parents=True, exist_ok=True)
     out_path, err_path = work / f'{name}.out', work / f'{name}.err'
     timed_out = False
+    reached = False
     with out_path.open('wb') as out, err_path.open('wb') as err:
         try:
-            process = subprocess.Popen(command, cwd=work, stdin=subprocess.PIPE, stdout=out, stderr=err,
+            process = subprocess.Popen(command, cwd=work, stdin=subprocess.PIPE,
+                                       stdout=subprocess.PIPE if checkpoint else out, stderr=err,
                                        start_new_session=True, preexec_fn=limit_files,
                                        env=dict(os.environ, PULSE_SERVER='unix:/tmp/gwbasic-corpus-no-audio'))
         except OSError as error:
             return {'status': 'spawn-error', 'exit_code': None, 'stderr': str(error)}, ''
         try:
-            process.communicate(stdin.encode(), timeout=timeout)
+            if checkpoint:
+                # Keep stdin open: reaching the next documented prompt is a
+                # checkpoint, whereas EOF, a crash or a timeout is a failure.
+                process.stdin.write(stdin.encode())
+                process.stdin.flush()
+                data = b''
+                deadline = time.monotonic() + timeout
+                with selectors.DefaultSelector() as poll:
+                    poll.register(process.stdout, selectors.EVENT_READ)
+                    while time.monotonic() < deadline:
+                        if not poll.select(max(0, deadline - time.monotonic())):
+                            raise subprocess.TimeoutExpired(command, timeout)
+                        chunk = os.read(process.stdout.fileno(), 8192)
+                        if not chunk:
+                            break
+                        data += chunk
+                        out.write(chunk)
+                        if len(data) > 8 * 1024 * 1024:
+                            break
+                        if data.count(checkpoint['prompt'].encode()) >= checkpoint['occurrence']:
+                            reached = True
+                            break
+                    else:
+                        raise subprocess.TimeoutExpired(command, timeout)
+                if reached:
+                    # A prompt printed immediately before exiting/crashing is
+                    # not a waiting-input checkpoint. Allow pipe-exit delivery
+                    # to settle before terminating the still-live child.
+                    try:
+                        process.wait(timeout=.05)
+                        reached = False
+                    except subprocess.TimeoutExpired:
+                        stop_group(process, signal.SIGTERM)
+                process.wait(timeout=2)
+                reached = reached and process.returncode == -signal.SIGTERM
+            else:
+                process.communicate(stdin.encode(), timeout=timeout)
+        except BrokenPipeError:
+            process.wait(timeout=2)
         except subprocess.TimeoutExpired:
             timed_out = True
             stop_group(process, signal.SIGTERM)
@@ -104,9 +156,13 @@ def execute(command, work, name, stdin='', timeout=5):
             # Fixtures cannot leave background children behind, including when
             # the parent exits during the timeout grace period.
             stop_group(process, signal.SIGKILL)
+            process.wait()
+            if process.stdin: process.stdin.close()
+            if process.stdout: process.stdout.close()
     output = out_path.read_bytes().decode(errors='replace')
     errors = err_path.read_bytes().decode(errors='replace')
-    status = 'timeout' if timed_out else 'ok' if process.returncode == 0 else f'exit:{process.returncode}'
+    status = 'timeout' if timed_out else 'checkpoint' if reached else \
+        'missing-checkpoint' if checkpoint else 'ok' if process.returncode == 0 else f'exit:{process.returncode}'
     return {'status': status, 'exit_code': process.returncode, 'stderr': errors[-2000:]}, output
 
 
@@ -182,13 +238,22 @@ def main():
         else:
             for case in cases:
                 source = CORPUS / case['source']
+                if case.get('expected_error'):
+                    # Preserve the listing bytes on disk. A diagnostic-only
+                    # wrapper makes ERR/ERL comparable to the reference capture.
+                    original = source.read_text()
+                    source = root / (case['id'] + '.bas')
+                    source.write_text('0 ON ERROR GOTO 65500\n' + original +
+                                      '\n65500 PRINT "__CORPUS_ERROR__";ERR;ERL:END\n')
                 stdin = (CORPUS / case['input']).read_text()
                 expected = (CORPUS / case['expected']).read_bytes().decode()
                 row = {'case': case['id'], 'source': case['source'], 'compiled': {}}
                 process, interpreted = execute([str(build / 'gwbasic'), str(source)],
-                                                root / case['id'] / 'interpreter', 'run', stdin)
+                                                root / case['id'] / 'interpreter', 'run', stdin,
+                                                checkpoint=case.get('checkpoint'))
                 row['interpreter'] = {'process': process, 'reference': compare(interpreted, expected)}
-                ok = process['status'] == 'ok' and not process['stderr'] and row['interpreter']['reference']['status'] == 'match'
+                success_status = 'checkpoint' if case.get('checkpoint') else 'ok'
+                ok = process['status'] == success_status and not process['stderr'] and row['interpreter']['reference']['status'] == 'match'
                 labels = ['interpreter=' + ('match' if ok else 'FAIL')]
                 for mode in modes:
                     work = root / case['id'] / mode
@@ -196,10 +261,10 @@ def main():
                     row['compiled'][mode] = phases
                     passed = False
                     if exe:
-                        process, compiled = execute([str(exe)], work, 'run', stdin)
+                        process, compiled = execute([str(exe)], work, 'run', stdin, checkpoint=case.get('checkpoint'))
                         phases.update(run=process, reference=compare(compiled, expected),
                                       parity=compare(compiled, interpreted))
-                        passed = process['status'] == 'ok' and not process['stderr'] and \
+                        passed = process['status'] == success_status and not process['stderr'] and \
                             phases['reference']['status'] == 'match' and phases['parity']['status'] == 'match'
                     labels.append(mode + '=' + ('match' if passed else 'FAIL'))
                     ok = ok and passed

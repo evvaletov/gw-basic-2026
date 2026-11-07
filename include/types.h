@@ -94,8 +94,10 @@ typedef struct {
 /* WHILE stack entry */
 typedef struct {
     uint8_t *while_text;
+    uint8_t *wend_text;
     struct program_line *while_line;
     uint16_t line_num;
+    int gosub_depth, for_depth;
 } while_entry_t;
 
 /* DEF FN entry */

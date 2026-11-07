@@ -83,9 +83,12 @@ remains limited to successful `main` builds. See [local checks](development.md).
 
 Native error recovery now retains source-statement retry and continuation
 points, including same-line `RESUME NEXT` and original IF/ELSE behavior.
-Twenty new reference programs exercise native recovery. Sixteen original-console
-input cases verify that leading-semicolon input preserves the editing cursor
-and synchronizes subsequent PRINT positioning, including wrapped answers.
+Original-reference programs exercise native recovery, including WHILE conditions
+re-evaluated by WEND: ERL identifies WHILE, while RESUME retries WEND after its
+frame has been removed. Sixteen original-console input cases verify the editing
+cursor and subsequent PRINT positioning in the editor, file-launched interpreter,
+and native POSIX executables. Ordinary terminal runs temporarily manage echo and
+restore the caller's terminal settings after input.
 
 ## Near-Term Priorities
 
@@ -98,9 +101,14 @@ round trips; expression INTEGER limits remain unchanged (`58ea19c`).
 The harness now fails on output mismatches and process errors, with separate
 limits for audio, timer, and compilation tests (git-bug `54f3aa6`).
 
-The curated compatibility suite checks 23 scripted cases from twelve original
+The curated compatibility suite checks 32 scripted cases from seventeen original
 listings against Microsoft GW-BASIC output and across six compiler modes.
-Awari and Checkers now compile (`ca3a8b8`). The 98-listing build audit has
+Hi-Lo, Bagels and Craps include complete random games and replay. Awari and
+Checkers have input checkpoints and expected original-listing failures: FOR
+without NEXT at lines 230 and 1340, respectively. These are documented dialect
+limitations, not successful complete games. The interpreter and compiler now
+share the original RND initial state, sequence, argument behavior and explicit
+RANDOMIZE seeding. The 98-listing build audit has
 97 successes and one syntax rejection: Super Star Trek's unspaced `TO`, also
 rejected by Microsoft GW-BASIC. Broader gameplay coverage stays open (`51679f0`).
 
@@ -122,14 +130,15 @@ Next priorities:
 1. Prepare Show HN and Lobsters posts and a FreeDOS package submission using the
    published release and clearly identified development changes
    (git-bug `dc24012`, `ab8188c`).
-2. Extend gameplay coverage to random games and triage Awari/Checkers runtime
-   paths against original GW-BASIC (git-bug `51679f0`).
-3. Preserve semicolon-input cursor behavior in native and file-launched runs
-   that use an echoing terminal outside the editor (git-bug `eb475bb`).
-4. Match original WHILE frame recovery after a trapped error and retry
-   (git-bug `7611b45`).
-5. Verify dotted variable names against original GW-BASIC and repair parsing
+2. Verify dotted variable names against original GW-BASIC and repair parsing
    (git-bug `b036f08`).
+3. Extend the gameplay corpus to the interactive RANDOMIZE prompt and more games;
+   decide whether to provide separately labeled GW-BASIC ports of listings
+   with original dialect errors (git-bug `51679f0`).
+4. Compile runtime DEFTYPE changes natively and support FFI on that path
+   (git-bug `990569c`).
+5. Tighten documentation-runner fence parsing and process/output cleanup
+   (git-bug `a83cc1e`).
 
 ## Longer-Term Plans
 
@@ -140,8 +149,6 @@ repository for design notes and current status.
 |-------|------|---------|----------|
 | testing | Expand scripted gameplay and reference coverage beyond the curated corpus | `51679f0` | P2 |
 | compiler | Native runtime DEFTYPE storage and FFI support | `990569c` | P2 |
-| input | Track canonical terminal echo outside the full-screen editor | `eb475bb` | P2 |
-| language | Match WHILE frame recovery after a trapped error and retry | `7611b45` | P2 |
 | compiler | Export individual BASIC routines as C-callable functions | `1b7d59c` | P2 |
 | language | Original-reference triage and parsing of dotted names | `b036f08` | P2 |
 | testing | Tighten documentation-runner fence parsing and process/output cleanup | `a83cc1e` | P2 |
@@ -167,12 +174,9 @@ The corpus runtime checks cover only the cases listed in its fixture manifest.
 - Programs with runtime DEFTYPE changes use interpreter execution in the
   compiled executable, so native expression/array optimizations do not apply.
   Combining this path with `$EXTERN` calls is rejected with a diagnostic.
-- WHILE stack recovery after a trapped error and retry still differs from
-  original GW-BASIC; statement continuation does not resolve this separate
-  loop-frame behavior (git-bug `7611b45`).
-- Outside the full-screen editor, the operating system still echoes an input
-  newline even with `INPUT ;` or `LINE INPUT ;`. Native and file-launched
-  terminal runs need separate echo/cursor handling (git-bug `eb475bb`).
+- RANDOMIZE without an argument lacks the original interactive seed prompt.
+  Explicit seed values have reference coverage; the corpus games use the default
+  startup sequence.
 - Most corpus games lack runtime fixtures; build success is separate evidence.
 - Dotted variable names currently raise a syntax error in the runtime parser;
   tokenizer/parser and original-GW-BASIC triage is tracked in `b036f08`.

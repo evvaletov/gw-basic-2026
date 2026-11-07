@@ -1,0 +1,44 @@
+{
+  "reference_sha256": "3d83e8d2bbc71e8b79e20c6cfb7bceba36c4dd4bda2a7af4c415cab6b3f3203c",
+  "reference_build": "Microsoft GW-BASIC source build, JWasm 2023-10-03; not retail 3.23",
+  "method": "Microsoft GW-BASIC under DOSBox-X; only I/O redirected",
+  "note": "END appended to the two existing no-END listings solely to close reference capture; issue6_secret isolates the seed and answer formula.",
+  "cases": [
+    {
+      "id": "monte_carlo",
+      "source": "10 REM Monte Carlo pi estimation\n20 RANDOMIZE 42\n30 INSIDE% = 0\n40 N% = 10000\n50 FOR I = 1 TO N%\n60 X = RND(1) * 2 - 1\n70 Y = RND(1) * 2 - 1\n80 IF X*X + Y*Y <= 1 THEN INSIDE% = INSIDE% + 1\n90 NEXT I\n100 PE = 4 * INSIDE% / N%\n110 PRINT USING \"Pi estimate: #.####\"; PE\n120 PRINT USING \"Actual pi:   #.####\"; 3.14159265#\n130 PRINT \"Monte Carlo OK\"\n9000 END\n",
+      "stdin": "",
+      "output": "Pi estimate: 3.1376\nActual pi:   3.1416\nMonte Carlo OK\n",
+      "capture_sha256": "75bc2ca47f09d283093b0151b412a6fcc771535f72d39abba8d5f769bd8a45e8",
+      "source_sha256": "ecf4feb3f11d4d006dcc863a6f44ae1faf4d7e625dca00a205aa3446cd2d5c23",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "076770d2faf120217ee96a423f71fb7a80705dceb5254edd6df21e7f260bf8f8",
+      "captured_on": "2026-11-07",
+      "adapter_sha256": "b7304f29de73a68ca4e2a144af160aeb1542780d35c10ecaa0a375941fb38015"
+    },
+    {
+      "id": "number_guess",
+      "source": "10 REM Number guessing game (self-playing with fixed seed)\n20 RANDOMIZE 99\n30 SECRET% = INT(RND(1) * 100) + 1\n40 REM Play using binary search\n50 LO% = 1 : HI% = 100\n60 TRIES% = 0\n70 WHILE LO% <= HI%\n80 GUESS% = INT((LO% + HI%) / 2)\n90 TRIES% = TRIES% + 1\n100 IF GUESS% = SECRET% THEN PRINT \"Found\"; SECRET%; \"in\"; TRIES%; \"tries\" : GOTO 150\n110 IF GUESS% < SECRET% THEN LO% = GUESS% + 1 ELSE HI% = GUESS% - 1\n120 WEND\n150 IF TRIES% <= 7 THEN PRINT \"Number guess OK\" ELSE PRINT \"Too many tries\"\n9000 END\n",
+      "stdin": "",
+      "output": "Found 24 in 7 tries\nNumber guess OK\n",
+      "capture_sha256": "95f178287931334a5beb70d7737f59bb692492ddd42739ba4dd68b85dea4cefe",
+      "source_sha256": "f15f17ad570c137ce9bed68a0795f46382883548a7324622317b57b9c00efb6a",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "7658e8ee1c3a4a39587df1e573cf91f0b99be7404240889cc388e255473472ad",
+      "captured_on": "2026-11-07",
+      "adapter_sha256": "b7304f29de73a68ca4e2a144af160aeb1542780d35c10ecaa0a375941fb38015"
+    },
+    {
+      "id": "issue6_secret",
+      "source": "10 RANDOMIZE 1\n20 PRINT INT(RND(1)*100)+1\n30 END\n",
+      "stdin": "",
+      "output": " 41\n",
+      "capture_sha256": "00c49101b24c110cac13fdb1c256967ad181986158e5c9a74ad9136a5caae4ba",
+      "source_sha256": "ce5b90fdffd43fe87b358419d1b4744abfbbd7cf5a2fdc739bfa4d69fb983c9a",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "6bb2d8d26e05954201aea0e924cb09d071cce650b51fcb7443e478377782f453",
+      "captured_on": "2026-11-07",
+      "adapter_sha256": "b7304f29de73a68ca4e2a144af160aeb1542780d35c10ecaa0a375941fb38015"
+    }
+  ]
+}

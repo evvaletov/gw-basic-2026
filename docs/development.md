@@ -134,14 +134,14 @@ the larger local semantic matrices remain useful release checks.
 
 ### Compatibility Testing
 
-The curated corpus has 23 deterministic cases from twelve original *BASIC
+The curated corpus has 32 scripted cases from seventeen original *BASIC
 Computer Games* listings. Each interpreter run and each of six compiler modes
 must match a checked-in Microsoft GW-BASIC transcript. Compiled output must also
 match the interpreter. Normalization converts CRLF to LF and removes trailing
 spaces and tabs; leading spaces and blank lines remain significant.
 
 ```bash
-# Run one case, or leave off --case to run all 23.
+# Run one case, or leave off --case to run all 32.
 bash tests/run_corpus.sh --case plot --report corpus-matrix.json
 
 # Transpile and compile all 98 listings without executing them.
@@ -153,6 +153,11 @@ The corpus runner uses separate working directories, a five-second execution
 limit, 20 seconds for transpilation, and 60 seconds for C compilation. A timeout,
 nonzero status, missing build output, runtime stderr, or transcript mismatch fails
 the case. It checks source, input, and expected-output hashes before execution.
+Two fixtures end at explicit input checkpoints, keeping stdin open until the
+recorded prompt; they are marked as checkpoints, not completed games. Two
+others compare original-listing ERR/ERL through a diagnostic wrapper. Expected
+errors and checkpoint definitions are bound to the reference metadata. A
+timeout never counts as reaching a checkpoint.
 Its timeout settings are fixed and independent of the shell harness variables.
 
 Reference capture uses a user-supplied Microsoft executable under DOSBox-X.

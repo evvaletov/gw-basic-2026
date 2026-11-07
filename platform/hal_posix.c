@@ -5,6 +5,8 @@
 #include <unistd.h>
 #include <termios.h>
 #include <sys/ioctl.h>
+#include <errno.h>
+#include <poll.h>
 
 static struct termios orig_termios;
 static int raw_mode = 0;
@@ -12,6 +14,8 @@ static int termios_saved = 0;
 static int cursor_row = 0;
 static int cursor_col = 0;
 static int pending_char = -1;
+static int terminal_cols = 80, terminal_rows = 25;
+static bool output_tty;
 
 static void posix_putch(int ch)
 {
@@ -21,9 +25,19 @@ static void posix_putch(int ch)
         cursor_col = 0;
     } else if (ch == '\r') {
         cursor_col = 0;
-    } else {
+    } else if (ch == '\b') {
+        if (cursor_col) cursor_col--;
+    } else if (ch >= 32) {
         cursor_col++;
+        if (output_tty && cursor_col >= terminal_cols) {
+            /* Resolve ANSI's deferred wrap so following cursor moves and
+             * BASIC POS/CSRLIN agree with the screen immediately. */
+            fputs("\r\n", stdout);
+            cursor_col = 0;
+            cursor_row++;
+        }
     }
+    if (output_tty && cursor_row >= terminal_rows) cursor_row = terminal_rows - 1;
 }
 
 static void posix_puts(const char *s)
@@ -119,6 +133,122 @@ static void posix_disable_raw(void)
     raw_mode = 0;
 }
 
+static int input_byte(int timeout)
+{
+    if (pending_char >= 0) {
+        int ch = pending_char;
+        pending_char = -1;
+        return ch;
+    }
+    struct pollfd fd = {STDIN_FILENO, POLLIN, 0};
+    int ready;
+    do { ready = poll(&fd, 1, timeout); } while (ready < 0 && errno == EINTR);
+    if (ready <= 0) return -1;
+    unsigned char ch;
+    ssize_t count;
+    do { count = read(STDIN_FILENO, &ch, 1); } while (count < 0 && errno == EINTR);
+    return count == 1 ? ch : -1;
+}
+
+/* Move within the answer using relative rows, preserving the surrounding
+ * terminal and its scrollback. No alternate screen or absolute origin. */
+static void input_move(int from, int to, int origin_col)
+{
+    int rows = (origin_col + to) / terminal_cols - (origin_col + from) / terminal_cols;
+    if (rows) printf("\033[%d%c", abs(rows), rows < 0 ? 'A' : 'B');
+    cursor_row += rows;
+    if (cursor_row < 0) cursor_row = 0;
+    if (cursor_row >= terminal_rows) cursor_row = terminal_rows - 1;
+    cursor_col = (origin_col + to) % terminal_cols;
+    putchar('\r');
+    if (cursor_col) printf("\033[%dC", cursor_col);
+}
+
+static int posix_read_input(char *buf, int capacity, bool suppress_newline)
+{
+    struct termios saved, raw;
+    if (!output_tty || capacity < 1 || tcgetattr(STDIN_FILENO, &saved) != 0) return -3;
+    struct winsize ws;
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0) {
+        if (ws.ws_col) terminal_cols = ws.ws_col;
+        if (ws.ws_row) terminal_rows = ws.ws_row;
+    }
+    raw = saved;
+    cfmakeraw(&raw);
+    raw.c_oflag = saved.c_oflag;  /* retain the caller's newline processing */
+    raw.c_cc[VMIN] = 1;
+    raw.c_cc[VTIME] = 0;
+    if (tcsetattr(STDIN_FILENO, TCSANOW, &raw) != 0) return -3;
+    int len = 0, pos = 0, drawn = 0, shown = 0, result = -1;
+    int origin_col = cursor_col;
+    bool insert = false;
+    buf[0] = '\0';
+    for (;;) {
+        int key = input_byte(-1);
+        if (key < 0 || (key == 4 && !len)) break;
+        if (key == 3) { result = -2; break; }
+        if (key == '\r' || key == '\n' || key == 4) {
+            if (!suppress_newline) {
+                input_move(shown, len, origin_col);
+                posix_putch('\n');
+            }
+            result = len;
+            break;
+        }
+        if (key == 27) {
+            int lead = input_byte(100);
+            if (lead < 0) key = 21;  /* Escape clears the answer. */
+            else if (lead == '[' || lead == 'O') {
+                int ch = input_byte(100);
+                if (ch == 'D') key = 256;
+                else if (ch == 'C') key = 257;
+                else if (ch == 'H') key = 258;
+                else if (ch == 'F') key = 259;
+                else if (ch >= '1' && ch <= '4') {
+                    int end = input_byte(100);
+                    /* 1 home, 2 insert, 3 delete, 4 end */
+                    key = end == '~' ? 258 : 0;
+                    if (ch == '2') key = end == '~' ? 260 : 0;
+                    if (ch == '3') key = end == '~' ? 261 : 0;
+                    if (ch == '4') key = end == '~' ? 259 : 0;
+                } else key = 0;
+            } else {
+                /* A standalone Escape clears the answer; a queued ordinary
+                 * key (including Enter) still belongs to the next edit. */
+                pending_char = lead;
+                key = 21;
+            }
+        }
+        if (key == 256) { if (pos) pos--; }
+        else if (key == 257) { if (pos < len) pos++; }
+        else if (key == 258 || key == 1) pos = 0;
+        else if (key == 259 || key == 5) pos = len;
+        else if (key == 260) insert = !insert;
+        else if (key == 21) { pos = len = 0; buf[0] = '\0'; }
+        else if (key == 8 || key == 127) {
+            if (pos) { memmove(buf + pos - 1, buf + pos, len - pos + 1); pos--; len--; }
+        } else if (key == 261) {
+            if (pos < len) { memmove(buf + pos, buf + pos + 1, len - pos); len--; }
+        } else if (key >= 32 && key <= 255) {
+            if (pos < len && !insert) buf[pos++] = (char)key;
+            else if (len < capacity - 1) {
+                memmove(buf + pos + 1, buf + pos, len - pos + 1);
+                buf[pos++] = (char)key;
+                len++;
+            }
+        }
+        input_move(shown, 0, origin_col);
+        int extent = len > drawn ? len : drawn;
+        for (int i = 0; i < extent; i++) posix_putch(i < len ? (unsigned char)buf[i] : ' ');
+        input_move(extent, pos, origin_col);
+        drawn = len;
+        shown = pos;
+        fflush(stdout);
+    }
+    tcsetattr(STDIN_FILENO, TCSANOW, &saved);
+    return result;
+}
+
 static void posix_write_raw(const char *data, int len)
 {
     fflush(stdout);
@@ -203,6 +333,7 @@ static hal_ops_t posix_hal = {
     .is_tty = false,
     .init = posix_init,
     .shutdown = posix_shutdown,
+    .read_input = posix_read_input,
 };
 
 hal_ops_t *hal_posix_create(void)
@@ -213,5 +344,8 @@ hal_ops_t *hal_posix_create(void)
         if (ws.ws_row > 0) posix_hal.screen_height = ws.ws_row;
     }
     posix_hal.is_tty = isatty(STDIN_FILENO);
+    output_tty = isatty(STDOUT_FILENO);
+    terminal_cols = posix_hal.screen_width;
+    terminal_rows = posix_hal.screen_height;
     return &posix_hal;
 }
