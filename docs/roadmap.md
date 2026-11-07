@@ -124,23 +124,27 @@ Audio measurements validate the application stream; physical speaker fidelity
 remains unverified.
 
 Development since v0.18.1 adds FOR-entry validation, GOSUB-scoped loop
-stacks and execution-order DEFTYPE storage. Programs with conditional or later
-type declarations use interpreter execution inside the compiled executable;
-entry-prefix declarations retain native compilation. Gameplay fixtures now
-include complete Tic-Tac-Toe and Towers games, Chomp, and One Check sessions.
+stacks and native execution-order DEFTYPE storage. Conditional and later type
+declarations use tagged native expressions and shared variable/array storage;
+`$EXTERN` calls work on this path, including inside shared statement handlers.
+Ordinary POSIX input handles resize and tiny viewports, displays high bytes as
+CP437 glyphs, and restores terminal settings on default termination signals
+during input. The documentation runner enforces strict fences, bounds live logs,
+and cleans up its process groups after successful and failed commands.
 
 Next priorities:
 
 1. Prepare Show HN and Lobsters posts and a FreeDOS package submission using the
    published release and clearly identified development changes
    (git-bug `dc24012`, `ab8188c`).
-2. Harden ordinary terminal input for resizing, very small viewports, encoding
-   and signal-driven shutdown (git-bug `b1cdad6`).
-3. Expand gameplay beyond the twenty covered listings; assess separately labeled
+2. Expand gameplay beyond the twenty covered listings; assess separately labeled
    GW-BASIC ports of original-dialect failures (git-bug `51679f0`).
-4. Add native runtime DEFTYPE storage and FFI support (git-bug `990569c`).
-5. Tighten documentation-runner fence parsing and process/output cleanup
-   (git-bug `a83cc1e`).
+3. Add VS Code completion and debugging support after the packaged extension
+   milestone (git-bug `32a637c`).
+4. Add C-style `PRINTF` / `FPRINTF` with a shared formatter and HAL/file output
+   (git-bug `cd8750c`).
+5. Add FORTRAN-style formatted `WRITE` using that formatter while preserving
+   existing `WRITE` syntax (git-bug `a6e99af`).
 
 ## Longer-Term Plans
 
@@ -150,10 +154,7 @@ repository for design notes and current status.
 | Theme | Item | git-bug | Priority |
 |-------|------|---------|----------|
 | testing | Expand scripted gameplay and reference coverage beyond the curated corpus | `51679f0` | P2 |
-| input | Tiny/resized ordinary terminals, encoding and signal cleanup | `b1cdad6` | P2 |
-| compiler | Native runtime DEFTYPE storage and FFI support | `990569c` | P2 |
 | compiler | Export individual BASIC routines as C-callable functions | `1b7d59c` | P2 |
-| testing | Tighten documentation-runner fence parsing and process/output cleanup | `a83cc1e` | P2 |
 | language | FORTRAN-style `WRITE` formatted I/O | `a6e99af` | P2 |
 | language | C-style `PRINTF` / `FPRINTF` | `cd8750c` | P2 |
 | ide | Debugger/completion and JetBrains support after the packaged VS Code milestone | `32a637c` | P2 |
@@ -173,13 +174,13 @@ The corpus runtime checks cover only the cases listed in its fixture manifest.
   original implementation.
 - Compiled programs do not support timer or key event handlers; `TRON` and
   `TROFF` are ignored by the compiler.
-- Programs with runtime DEFTYPE changes use interpreter execution in the
-  compiled executable, so native expression/array optimizations do not apply.
-  Combining this path with `$EXTERN` calls is rejected with a diagnostic.
-- Ordinary-terminal input is tested with 80-column, 24/25-row byte-oriented
-  displays. Very small viewports, resize reconciliation, UTF-8 character editing
-  and restoration after external termination signals remain follow-up work
-  (`b1cdad6`). Typed Ctrl-C and EOF are covered.
+- Runtime DEFTYPE programs use tagged native operations and shared array lookup;
+  fixed-type expression folding and `--inline-arrays` caching do not apply.
+  `--fast-math` does not remove checks from tagged arithmetic.
+- POSIX terminal display assumes UTF-8 with single-cell CP437 glyphs. BASIC
+  strings and editing count bytes; Unicode character/grapheme editing is absent.
+  Termination cleanup covers default handlers during input. A host that installs
+  its own terminating handler owns cleanup if it bypasses normal process exit.
 - Most corpus games lack runtime fixtures; build success is separate evidence.
 - The compiler reads ASCII source. Save tokenized files with `SAVE "file.bas",A`
   before compiling them.

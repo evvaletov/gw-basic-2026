@@ -18,6 +18,7 @@
 
 static FILE *out;
 static analysis_t *ana;
+static int compiled_var_count;
 static bool safe_mode;
 static bool no_gc_check;
 static bool fast_math;
@@ -254,6 +255,7 @@ static gw_valtype_t parse_var(char name_out[GW_NAME_SIZE])
     if (suffix == '!') { advance(); return VT_SNG; }
     if (suffix == '#') { advance(); return VT_DBL; }
     skip_spaces();
+    if (ana->runtime_types) return 0;
     int idx = name_out[0] - 'A';
     return (idx >= 0 && idx < 26) ? ana->def_type[idx] : VT_SNG;
 }
@@ -272,6 +274,9 @@ static bool parsed_explicit_type(const uint8_t *start)
 /* Forward declarations */
 static void emit_str_expr(void);
 static void emit_num_expr(void);
+static void emit_dynamic_expr(void);
+static void emit_dynamic_assignment(void);
+static bool emit_dynamic_statement(uint8_t tok);
 static void emit_extern_call(const extern_func_t *ef);
 
 static int op_prec(uint8_t tok)
@@ -544,7 +549,7 @@ static void emit_atom(void)
              * Sync vars to interpreter table before GC for FRE(""). */
             if (cur() == '(' && tp[1] == '"') {
                 EMIT("({");
-                for (int vi = 0; vi < ana->var_count; vi++) {
+                for (int vi = 0; vi < compiled_var_count; vi++) {
                     var_info_t *v = &ana->vars[vi];
                     if (v->type != VT_STR) continue;
                     EMIT("gw_var_find_or_create(\"%s\",%d)->val.sval=", v->name, v->type);
@@ -671,7 +676,7 @@ static void emit_atom(void)
         int len = (int)(tp - start);
         /* Sync variables, embed tokens, call evaluator */
         EMIT("({");
-        for (int vi = 0; vi < ana->var_count; vi++) {
+        for (int vi = 0; vi < compiled_var_count; vi++) {
             var_info_t *v = &ana->vars[vi];
             EMIT(" gw_var_find_or_create(\"%s\",%d)->val=(gw_value_t){.type=%d,",
                      v->name, v->type, v->type);
@@ -1143,6 +1148,9 @@ static void emit_num_prec(int min_prec)
 
 static void emit_num_expr(void)
 {
+    if (ana->runtime_types) {
+        EMIT("gwrt_number("); emit_dynamic_expr(); EMIT(")"); return;
+    }
     emit_num_prec(0);
 }
 
@@ -1444,6 +1452,9 @@ static void emit_str_atom(void)
 /* Emit a string expression with concatenation (A$ + B$ + C$) */
 static void emit_str_expr(void)
 {
+    if (ana->runtime_types) {
+        EMIT("gwrt_string("); emit_dynamic_expr(); EMIT(")"); return;
+    }
     char *left;
     { FILE *orig = out; char *buf = NULL; size_t sz = 0;
       out = open_memstream(&buf, &sz);
@@ -1768,7 +1779,7 @@ static void emit_delegate_stmt_ex(uint8_t *stmt_start, bool read_back, bool sync
 
     EMIT("  {\n");
     /* Variable sync: selective (scan tokens for referenced names) or full */
-    for (int vi = 0; vi < ana->var_count; vi++) {
+    for (int vi = 0; vi < compiled_var_count; vi++) {
         var_info_t *v = &ana->vars[vi];
         /* A delegate that reads every variable back must first receive every
          * current value, including variables absent from the statement. */
@@ -1816,7 +1827,7 @@ static void emit_delegate_stmt_ex(uint8_t *stmt_start, bool read_back, bool sync
 
     /* Read back variables from interpreter table */
     if (read_back) {
-        for (int vi = 0; vi < ana->var_count; vi++) {
+        for (int vi = 0; vi < compiled_var_count; vi++) {
             var_info_t *v = &ana->vars[vi];
             EMIT("    ");
             emit_varname(v->name, v->type);
@@ -1857,7 +1868,10 @@ static void emit_print(void)
          * a string-returning '$EXTERN call). */
         bool is_str = peek_is_string_expr();
 
-        if (is_str) {
+        if (ana->runtime_types) {
+            EMIT("  {gw_value_t _pv="); emit_dynamic_expr();
+            EMIT(";gw_print_value(&_pv); if(_pv.type==VT_STR)gw_str_free(&_pv.sval);}\n");
+        } else if (is_str) {
             EMIT("  { gw_string_t _s = ");
             emit_str_expr();
             EMIT("; gwrt_print_str(_s); gw_str_free(&_s); }\n");
@@ -1890,6 +1904,7 @@ static void emit_print(void)
 
 static void emit_assignment(void)
 {
+    if (ana->runtime_types) { emit_dynamic_assignment(); return; }
     char name[GW_NAME_SIZE];
     gw_valtype_t type = parse_var(name);
     skip_spaces();
@@ -1973,6 +1988,7 @@ static void emit_stmt(void)
     uint8_t tok = cur();
 
     if (tok == 0 || tok == ':') return;
+    if (ana->runtime_types && emit_dynamic_statement(tok)) return;
 
     /* REM */
     if (tok == TOK_REM || tok == TOK_SQUOTE) {
@@ -2005,6 +2021,7 @@ static void emit_stmt(void)
         skip_spaces();
         /* PRINT USING — embed token bytes and call runtime */
         if (cur() == TOK_USING) {
+            if (ana->runtime_types) { emit_delegate_stmt(print_tok,false); return; }
             /* Skip past USING token, then embed remaining bytes */
             advance(); /* skip TOK_USING */
             uint8_t *start = tp;
@@ -2035,7 +2052,7 @@ static void emit_stmt(void)
             int len = (int)(tp - start);
             /* Sync compiled variables to interpreter table so gw_eval works */
             EMIT("  {\n");
-            for (int vi = 0; vi < ana->var_count; vi++) {
+            for (int vi = 0; vi < compiled_var_count; vi++) {
                 var_info_t *v = &ana->vars[vi];
                 EMIT("    gw_var_find_or_create(\"%s\", %d)->val = ", v->name, v->type);
                 EMIT("(gw_value_t){.type=%d,", v->type);
@@ -2184,8 +2201,8 @@ static void emit_stmt(void)
             if (is_letter(cur())) {
                 char name[GW_NAME_SIZE];
                 gw_valtype_t type = parse_var(name);
-                EMIT("&");
-                emit_varname(name, type);
+                if (ana->runtime_types) EMIT("&gwrt_var(\"%s\",%d)->ival",name,type);
+                else { EMIT("&"); emit_varname(name, type); }
             } else {
                 EMIT("NULL");
             }
@@ -2928,6 +2945,7 @@ static void emit_stmt(void)
 
     /* MID$ assignment: MID$(var$, start [,len]) = expr */
     if (tok == TOK_PREFIX_FF && tp[1] == FUNC_MID) {
+        if (ana->runtime_types) { emit_delegate_stmt(tp,true); return; }
         /* MID$ assignment: embed tokens and delegate to runtime */
         uint8_t *mid_start = tp;
         /* Find end of statement, skipping strings and constants */
@@ -2948,7 +2966,7 @@ static void emit_stmt(void)
         int slen = (int)(tp - mid_start);
         EMIT("  {\n");
         /* Sync string variables to interpreter table */
-        for (int vi = 0; vi < ana->var_count; vi++) {
+        for (int vi = 0; vi < compiled_var_count; vi++) {
             var_info_t *v = &ana->vars[vi];
             EMIT("    gw_var_find_or_create(\"%s\", %d)->val = ", v->name, v->type);
             EMIT("(gw_value_t){.type=%d,", v->type);
@@ -2970,7 +2988,7 @@ static void emit_stmt(void)
         /* gw_stmt_mid_assign expects text_ptr at '(' — it does gw_chrget to skip it */
         EMIT("    gw_stmt_mid_assign();\n");
         /* Read back string variables that may have been modified */
-        for (int vi = 0; vi < ana->var_count; vi++) {
+        for (int vi = 0; vi < compiled_var_count; vi++) {
             var_info_t *v = &ana->vars[vi];
             if (v->type != VT_STR) continue;
             EMIT("    ");
@@ -3020,33 +3038,7 @@ static void emit_stmt_guarded(bool new_statement)
 
 /* ---- Main code generation ---- */
 
-/* A runtime DEFTYPE can select numeric or string storage at the same source
- * location. Until native expressions support that union, embed the program and
- * use the shared runtime instead of guessing a type from source order. */
-static void emit_runtime_typed_program(void)
-{
-    if (ana->extern_count)
-        codegen_error("runtime DEFTYPE changes cannot be combined with $EXTERN; move type declarations to the entry prefix");
-    fprintf(stderr, "gwbasic-compile: runtime DEFTYPE changes use interpreter execution in the compiled executable\n");
-    EMIT("/* Runtime default types require execution-order variable lookup. */\n");
-    EMIT("int %s(int argc, char **argv) {\n", main_name);
-    EMIT("  (void)argc; (void)argv;\n  gwrt_init();\n");
-    EMIT("  if (setjmp(gw_error_jmp)) {\n");
-    EMIT("    gw_file_close_all(); gw_vars_clear(); gw_free_program();\n");
-    EMIT("    gwrt_shutdown(); return 1;\n  }\n");
-    for (program_line_t *line = gw.prog_head; line; line = line->next) {
-        EMIT("  { static const uint8_t tokens[] = {");
-        for (int i = 0; i < line->len; i++)
-            EMIT("%s%u", i ? "," : "", line->tokens[i]);
-        EMIT("%s0}; gw_store_line(%u, (uint8_t *)tokens, %u); }\n",
-             line->len ? "," : "", line->num, line->len);
-    }
-    EMIT("  gw.cur_line = gw.prog_head;\n");
-    EMIT("  gw.cur_line_num = gw.cur_line->num;\n");
-    EMIT("  gw.text_ptr = gw.cur_line->tokens;\n  gw_run_loop();\n");
-    EMIT("  gw_file_close_all(); gw_vars_clear(); gw_free_program();\n");
-    EMIT("  gwrt_shutdown(); return 0;\n}\n");
-}
+#include "codegen_dynamic.inc"
 
 void codegen_emit(FILE *f, analysis_t *a, const codegen_opts_t *opts)
 {
@@ -3056,9 +3048,10 @@ void codegen_emit(FILE *f, analysis_t *a, const codegen_opts_t *opts)
     g_emit_cap = opts ? opts->max_output_bytes : 0;
     g_emit_bytes = 0;
     ana = a;
+    compiled_var_count = a->runtime_types ? 0 : a->var_count;
     safe_mode = opts ? opts->safe_mode : false;
     no_gc_check = opts ? opts->no_gc_check : false;
-    inline_arrays = opts ? opts->inline_arrays : false;
+    inline_arrays = opts && !a->runtime_types ? opts->inline_arrays : false;
     cg_opt_level = opts ? opts->opt_level : 2;
     fast_math = opts ? opts->fast_math : false;
     main_name = (opts && opts->main_name) ? opts->main_name : "main";
@@ -3079,11 +3072,6 @@ void codegen_emit(FILE *f, analysis_t *a, const codegen_opts_t *opts)
     EMIT("#include <string.h>\n");
     EMIT("#include <time.h>\n\n");
 
-    if (a->runtime_types) {
-        emit_runtime_typed_program();
-        return;
-    }
-
     /* Foreign-function prototypes from '$EXTERN pragmas (Level 2
      * cross-language linking).  The host project supplies these symbols at
      * link time. */
@@ -3103,8 +3091,10 @@ void codegen_emit(FILE *f, analysis_t *a, const codegen_opts_t *opts)
     if (a->extern_count > 0)
         EMIT("\n");
 
+    if (a->runtime_types) emit_dynamic_ffi_wrappers();
+
     /* Variable declarations */
-    for (int i = 0; i < a->var_count; i++) {
+    for (int i = 0; i < compiled_var_count; i++) {
         EMIT("static %s ", c_type(a->vars[i].type));
         emit_varname(a->vars[i].name, a->vars[i].type);
         if (a->vars[i].type == VT_STR)
@@ -3155,6 +3145,10 @@ void codegen_emit(FILE *f, analysis_t *a, const codegen_opts_t *opts)
     if (a->has_resume)
         EMIT("  volatile int _gw_stmt = -1, _gw_error_stmt = -1;\n");
     EMIT("  gwrt_init();\n");
+    if (a->runtime_types) {
+        EMIT("  if(gw_hal)gw_hal->enable_raw();\n");
+        if(a->extern_count) EMIT("  gw.extern_eval=_gw_foreign_eval;\n");
+    }
     if (inline_arrays && !safe_mode) {
         for (int i = 0; i < a->array_count; i++) {
             array_info_t *ai = &a->arrays[i];
@@ -3175,6 +3169,7 @@ void codegen_emit(FILE *f, analysis_t *a, const codegen_opts_t *opts)
     EMIT("  static program_line_t _dummy_line = {0};\n");
     EMIT("  _err_entry:\n");
     EMIT("  if (setjmp(gw_run_jmp)) {\n");
+    if(a->runtime_types) EMIT("    gwrt_expr_unwind();\n");
     if (a->has_resume) EMIT("    _gw_error_stmt = _gw_stmt;\n");
     EMIT("    if (gw.on_error_line) {\n");
     EMIT("      int _tgt = gw.on_error_line;\n");

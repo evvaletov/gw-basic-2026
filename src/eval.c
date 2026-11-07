@@ -62,7 +62,7 @@ static int op_prec(uint8_t tok)
 }
 
 /* Apply a binary operator */
-static gw_value_t apply_binop(uint8_t op, gw_value_t left, gw_value_t right)
+gw_value_t gw_value_binary(uint8_t op, gw_value_t left, gw_value_t right)
 {
     gw_value_t result;
 
@@ -182,6 +182,7 @@ static gw_value_t apply_binop(uint8_t op, gw_value_t left, gw_value_t right)
 /* Combined relational: handle >=, <=, <> as combined tokens */
 static int try_combined_relational(uint8_t first, gw_value_t left, gw_value_t *result)
 {
+    GW_TEMP_BEGIN(); GW_TEMP_ROOT(&left);
     uint8_t *save = gw.text_ptr;
     gw_skip_spaces();
     uint8_t next = gw_chrgot();
@@ -190,26 +191,29 @@ static int try_combined_relational(uint8_t first, gw_value_t left, gw_value_t *r
         /* <> (not equal) */
         gw.text_ptr++;  /* consume '>' */
         gw_value_t right = eval_expr(65);
-        *result = apply_binop(TOK_EQ, left, right);
+        *result = gw_value_binary(TOK_EQ, left, right);
         result->ival = ~result->ival;
+        GW_TEMP_END();
         return 1;
     }
     if (first == TOK_LT && next == TOK_EQ) {
         /* <= */
         gw.text_ptr++;
         gw_value_t right = eval_expr(65);
-        gw_value_t gt_result = apply_binop(TOK_GT, left, right);
+        gw_value_t gt_result = gw_value_binary(TOK_GT, left, right);
         result->type = VT_INT;
         result->ival = ~gt_result.ival;
+        GW_TEMP_END();
         return 1;
     }
     if (first == TOK_GT && next == TOK_EQ) {
         /* >= */
         gw.text_ptr++;
         gw_value_t right = eval_expr(65);
-        gw_value_t lt_result = apply_binop(TOK_LT, left, right);
+        gw_value_t lt_result = gw_value_binary(TOK_LT, left, right);
         result->type = VT_INT;
         result->ival = ~lt_result.ival;
+        GW_TEMP_END();
         return 1;
     }
     if (first == TOK_EQ && (next == TOK_LT || next == TOK_GT)) {
@@ -217,19 +221,21 @@ static int try_combined_relational(uint8_t first, gw_value_t left, gw_value_t *r
         gw.text_ptr++;
         gw_value_t right = eval_expr(65);
         if (next == TOK_LT) {
-            gw_value_t gt_result = apply_binop(TOK_GT, left, right);
+            gw_value_t gt_result = gw_value_binary(TOK_GT, left, right);
             result->type = VT_INT;
             result->ival = ~gt_result.ival;
         } else {
-            gw_value_t lt_result = apply_binop(TOK_LT, left, right);
+            gw_value_t lt_result = gw_value_binary(TOK_LT, left, right);
             result->type = VT_INT;
             result->ival = ~lt_result.ival;
         }
+        GW_TEMP_END();
         return 1;
     }
 
     /* Not a combined relational, put back */
     gw.text_ptr = save;
+    GW_TEMP_END();
     return 0;
 }
 
@@ -257,8 +263,10 @@ static gw_value_t eval_expr(int min_prec)
             }
         }
 
+        GW_TEMP_BEGIN(); GW_TEMP_ROOT(&left);
         gw_value_t right = eval_expr(prec + 1);
-        left = apply_binop(tok, left, right);
+        left = gw_value_binary(tok, left, right);
+        GW_TEMP_END();
     }
 
     return left;
@@ -588,10 +596,12 @@ static gw_value_t eval_function(uint8_t prefix, uint8_t func_tok)
     {
         gw_expect('(');
         gw_value_t s = gw_eval_str();
+        GW_TEMP_BEGIN(); GW_TEMP_ROOT(&s);
         gw_skip_spaces();
         gw_expect(',');
         n = gw_eval_int();
         gw_expect_rparen();
+        GW_TEMP_END();
         return gw_fn_left(&s, n);
     }
 
@@ -599,10 +609,12 @@ static gw_value_t eval_function(uint8_t prefix, uint8_t func_tok)
     {
         gw_expect('(');
         gw_value_t s = gw_eval_str();
+        GW_TEMP_BEGIN(); GW_TEMP_ROOT(&s);
         gw_skip_spaces();
         gw_expect(',');
         n = gw_eval_int();
         gw_expect_rparen();
+        GW_TEMP_END();
         return gw_fn_right(&s, n);
     }
 
@@ -610,6 +622,7 @@ static gw_value_t eval_function(uint8_t prefix, uint8_t func_tok)
     {
         gw_expect('(');
         gw_value_t s = gw_eval_str();
+        GW_TEMP_BEGIN(); GW_TEMP_ROOT(&s);
         gw_skip_spaces();
         gw_expect(',');
         int start = gw_eval_int();
@@ -622,6 +635,7 @@ static gw_value_t eval_function(uint8_t prefix, uint8_t func_tok)
         gw_expect_rparen();
         if (len < 0)
             len = 255;  /* default: rest of string */
+        GW_TEMP_END();
         return gw_fn_mid(&s, start, len);
     }
 
@@ -853,17 +867,21 @@ static gw_value_t eval_atom(void)
         gw_value_t haystack, needle;
         gw_skip_spaces();
         gw_expect(',');
+        GW_TEMP_BEGIN();
         if (first.type != VT_STR) {
             start = gw_to_int(&first);
             haystack = gw_eval_str();
+            GW_TEMP_ROOT(&haystack);
             gw_skip_spaces();
             gw_expect(',');
             needle = gw_eval_str();
         } else {
             haystack = first;
+            GW_TEMP_ROOT(&haystack);
             needle = gw_eval_str();
         }
         gw_expect_rparen();
+        GW_TEMP_END();
         return gw_fn_instr(start, &haystack, &needle);
     }
 
@@ -1080,6 +1098,13 @@ not_xfunc:
 
     /* Variable or array element */
     if (gw_is_letter(tok)) {
+#ifdef GW_NATIVE_RUNTIME
+        /* Only compiled entries declare and register foreign functions. */
+        if (gw.extern_eval) {
+            gw_value_t result;
+            if (gw.extern_eval(&result)) return result;
+        }
+#endif
         char name[GW_NAME_SIZE];
         gw_valtype_t type = gw_parse_varname(name);
 

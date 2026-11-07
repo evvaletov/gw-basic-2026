@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import shlex
+import signal
 import subprocess
 import sys
 import tempfile
@@ -17,8 +18,12 @@ import pyte
 ROOT = Path(__file__).resolve().parents[1]
 BUILD = ROOT / "build"
 WRAPPER = '''import json,subprocess,sys,termios
+from pathlib import Path
 before=termios.tcgetattr(0)
-r=subprocess.run(sys.argv[1:])
+r=subprocess.Popen(sys.argv[1:])
+Path('child.tmp').write_text(str(r.pid))
+Path('child.tmp').replace('child.pid')
+r.wait()
 after=termios.tcgetattr(0)
 print("\\nTERMINAL_RESTORED="+str(before==after),flush=True)
 sys.exit(r.returncode if before==after else 99)
@@ -51,12 +56,17 @@ class TerminalInputTests(unittest.TestCase):
                        capture_output=True, check=True, timeout=30)
         return [str(exe)]
 
-    def spawn(self, command, rows=25):
+    def spawn(self, command, rows=25, cols=80):
+        (self.root / 'child.pid').unlink(missing_ok=True)
         child = pexpect.spawn(sys.executable, ["-c", WRAPPER, *command], cwd=str(self.root),
-                              encoding="utf-8", dimensions=(rows, 80), echo=True, timeout=5)
+                              encoding="utf-8", dimensions=(rows, cols), echo=True, timeout=5)
+        deadline = time.monotonic() + 5
+        while not (self.root / 'child.pid').exists():
+            if time.monotonic() > deadline: self.fail('child PID handshake timed out')
+            time.sleep(0.01)
         child.delaybeforesend = 0
         self.addCleanup(child.terminate, force=True)
-        screen = pyte.Screen(80, rows)
+        screen = pyte.Screen(cols, rows)
         stream = pyte.Stream(screen)
         return child, screen, stream
 
@@ -242,6 +252,159 @@ class TerminalInputTests(unittest.TestCase):
                     output = next(self.root.glob('R*.TXT'))
                     self.assertEqual([int(x) for x in output.read_text().split()], case["values"])
                     output.unlink()
+
+    def drain(self, child, stream):
+        while True:
+            try:
+                stream.feed(child.read_nonblocking(65536, timeout=0.15))
+            except pexpect.TIMEOUT:
+                return
+
+    def test_long_answer_in_tiny_viewports(self):
+        source = ('10 PRINT "ANSWER:";:LINE INPUT ;S$\n'
+                  '20 OPEN "CAP.TXT" FOR OUTPUT AS #1\n'
+                  '30 PRINT #1,LEN(S$);POS(0);CSRLIN:PRINT #1,S$:CLOSE:SYSTEM\n')
+        for mode in ("interpreter", "O0", "safe"):
+            command = self.command(source, mode)
+            for rows, cols in ((3, 12), (1, 8), (1, 1)):
+                with self.subTest(mode=mode, rows=rows, cols=cols):
+                    child, screen, stream = self.spawn(command, rows=rows, cols=cols)
+                    self.assertTrue(child.waitnoecho(timeout=5))
+                    child.send('A'*255)
+                    self.drain(child, stream)
+                    child.send(KEYS['home']+'X')
+                    self.drain(child, stream)
+                    if cols > 2:
+                        self.assertTrue(screen.display[-1].startswith('>X'), screen.display)
+                    child.send(KEYS['end']+KEYS['backspace']+'\r')
+                    self.finish(child, stream)
+                    saved = (self.root/'CAP.TXT').read_text().splitlines()
+                    length, col, row = map(int, saved[0].split())
+                    self.assertEqual(length, 254)
+                    self.assertTrue(1 <= col <= cols and 1 <= row <= rows, saved[0])
+                    self.assertEqual(saved[1], 'X'+'A'*253)
+
+    def test_resize_during_and_before_prompt(self):
+        source = ('10 PRINT "ANSWER:";:LINE INPUT ;S$\n'
+                  '20 OPEN "CAP.TXT" FOR OUTPUT AS #1\n'
+                  '30 PRINT #1,LEN(S$);POS(0);CSRLIN:PRINT #1,S$:CLOSE:SYSTEM\n')
+        for mode in ("interpreter", "O0", "safe"):
+            with self.subTest(mode=mode):
+                child, screen, stream = self.spawn(self.command(source, mode))
+                child.expect('ANSWER:'); stream.feed(child.before+child.after)
+                self.assertTrue(child.waitnoecho(timeout=5))
+                child.send('A'*200); self.drain(child, stream)
+                screen.resize(lines=3, columns=12); child.setwinsize(3, 12)
+                child.expect_exact('\x1b[3;1H'); stream.feed(child.before+child.after)
+                self.drain(child, stream)
+                child.send(KEYS['home']+'Z'); self.drain(child, stream)
+                self.assertTrue(screen.display[-1].startswith('>Z'), screen.display)
+                screen.resize(lines=5, columns=40); child.setwinsize(5, 40)
+                child.expect_exact('\x1b[5;1H'); stream.feed(child.before+child.after)
+                self.drain(child, stream)
+                child.send('\r'); self.finish(child, stream)
+                saved=(self.root/'CAP.TXT').read_text().splitlines()
+                self.assertEqual([int(x) for x in saved[0].split()], [200, 3, 5])
+                self.assertEqual(saved[1], 'Z'+'A'*199)
+            before = source.replace('10 PRINT', '5 A$=INPUT$(1)\n10 PRINT')
+            with self.subTest(mode=mode, before_prompt=True):
+                child, screen, stream = self.spawn(self.command(before, mode))
+                self.assertTrue(child.waitnoecho(timeout=5))
+                screen.resize(lines=3, columns=12); child.setwinsize(3, 12)
+                child.send('X'); child.expect('ANSWER:'); stream.feed(child.before+child.after)
+                child.send('BEFORE\r'); self.finish(child, stream)
+                self.assertEqual((self.root/'CAP.TXT').read_text().splitlines()[1], 'BEFORE')
+
+    def test_cp437_display_keeps_byte_editing(self):
+        source=('10 PRINT "ANSWER:";:LINE INPUT ;S$\n'
+                '20 OPEN "BYTES.TXT" FOR OUTPUT AS #1:PRINT #1,LEN(S$)\n'
+                '30 FOR I=1 TO LEN(S$):PRINT #1,ASC(MID$(S$,I,1)):NEXT I\n'
+                '40 CLOSE:SYSTEM\n')
+        for mode in ("interpreter", "O0", "safe"):
+            with self.subTest(mode=mode):
+                child, screen, stream=self.spawn(self.command(source, mode))
+                child.expect('ANSWER:');stream.feed(child.before+child.after)
+                self.assertTrue(child.waitnoecho(timeout=5))
+                child.send('é');self.drain(child,stream)
+                self.assertEqual(screen.display[0].rstrip(), 'ANSWER:'+b'\xc3\xa9'.decode('cp437'))
+                self.assertEqual(screen.cursor.x, 9)
+                child.send(KEYS['backspace']+'X\r');self.finish(child,stream)
+                self.assertEqual([int(x) for x in (self.root/'BYTES.TXT').read_text().split()], [2,195,88])
+
+    def test_redirected_high_bytes_are_unchanged(self):
+        for mode in ("interpreter", "O0", "safe"):
+            with self.subTest(mode=mode):
+                command=self.command('10 PRINT CHR$(195);CHR$(169)\n20 SYSTEM\n',mode)
+                result=subprocess.run(command,input=b'',capture_output=True,timeout=5,cwd=self.root)
+                self.assertEqual((result.returncode,result.stdout,result.stderr),(0,b'\xc3\xa9\n',b''))
+
+    def test_termination_signals_restore_terminal(self):
+        for mode in ("interpreter", "O0", "safe"):
+            for statement in ('LINE INPUT S$', 'S$=INPUT$(3)'):
+                command=self.command('10 PRINT "READY:";:'+statement+'\n20 SYSTEM\n',mode)
+                for number in (signal.SIGTERM, signal.SIGHUP):
+                    with self.subTest(mode=mode, statement=statement, signal=number):
+                        child, _, stream=self.spawn(command)
+                        child.expect('READY:');stream.feed(child.before+child.after)
+                        self.assertTrue(child.waitnoecho(timeout=5))
+                        os.kill(int((self.root/'child.pid').read_text()),number)
+                        self.finish(child,stream,expected_exit=256-number)
+
+    def test_embedding_host_signal_handlers_are_preserved(self):
+        host=self.root/'host.c';exe=self.root/'host'
+        host.write_text('''#include "hal.h"
+#include <signal.h>
+#include <stdio.h>
+static volatile sig_atomic_t count;
+static void caught(int sig) { (void)sig; count++; }
+int main(void) {
+ struct sigaction action={0}, after;
+ action.sa_handler=caught; sigemptyset(&action.sa_mask); sigaddset(&action.sa_mask,SIGUSR1);
+ sigaction(SIGHUP,&action,0); signal(SIGTERM,SIG_IGN);
+ hal_ops_t *h=hal_posix_create(); h->init(); char text[16];
+ printf("READY:"); fflush(stdout); int n=h->read_input(text,sizeof text,0);
+ sigaction(SIGHUP,0,&after);
+ int ok=n==2 && count==1 && after.sa_handler==caught && sigismember(&after.sa_mask,SIGUSR1);
+ sigaction(SIGTERM,0,&after);ok=ok && after.sa_handler==SIG_IGN;
+ h->shutdown();return ok?0:1;
+}
+''')
+        subprocess.run([*shlex.split(os.environ.get('CC','cc')),str(host),'-I'+str(ROOT/'include'),
+                        str(BUILD/'libgwrt.a'),'-o',str(exe)],check=True,capture_output=True)
+        child, _, stream=self.spawn([str(exe)])
+        child.expect('READY:');stream.feed(child.before+child.after)
+        self.assertTrue(child.waitnoecho(timeout=5))
+        os.kill(int((self.root/'child.pid').read_text()),signal.SIGHUP)
+        os.kill(int((self.root/'child.pid').read_text()),signal.SIGTERM)
+        child.send('OK\r');self.finish(child,stream)
+
+
+    def test_repeated_raw_activation_uses_current_host_settings(self):
+        host, exe = self.root/'raw.c', self.root/'raw'
+        host.write_text('''#include "hal.h"
+#include <stdio.h>
+#include <termios.h>
+#include <unistd.h>
+int main(void) {
+ struct termios original, expected, actual;
+ tcgetattr(0,&original);
+ hal_ops_t *h=hal_posix_create(); h->init();
+ h->enable_raw(); h->disable_raw();
+ expected=original; expected.c_iflag^=ICRNL;
+ tcsetattr(0,TCSANOW,&expected); h->enable_raw();
+ printf("READY:"); fflush(stdout); char byte;
+ int n=h->read_chars(&byte,1); h->disable_raw(); tcgetattr(0,&actual);
+ int ok=n==1 && byte=='X' && actual.c_iflag==expected.c_iflag &&
+        actual.c_lflag==expected.c_lflag;
+ tcsetattr(0,TCSANOW,&original); h->shutdown(); return ok?0:1;
+}
+''')
+        subprocess.run([*shlex.split(os.environ.get('CC','cc')),str(host),'-I'+str(ROOT/'include'),
+                        str(BUILD/'libgwrt.a'),'-o',str(exe)],check=True,capture_output=True)
+        child, _, stream=self.spawn([str(exe)])
+        child.expect('READY:');stream.feed(child.before+child.after)
+        self.assertTrue(child.waitnoecho(timeout=5))
+        child.send('X');self.finish(child,stream)
 
 
 

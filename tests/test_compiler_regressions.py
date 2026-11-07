@@ -407,6 +407,23 @@ CASES = {
 }
 
 
+# Empty descriptors use NULL data; native tagged operations must not pass those
+# pointers to memory functions even when the requested copy length is zero.
+CASES["runtime_empty_strings"] = ('10 IF 1 THEN DEFSTR A\n'
+    '20 A=LEFT$("",0)+RIGHT$("",0)+SPACE$(0)+STRING$(0,65)\n'
+    '30 PRINT LEN(A);LEN(A+"");LEN(""+A):END\n', "", ["0 0 0"])
+
+
+# FRE must collect discarded strings, including with native temporaries live.
+CASES["runtime_fre_collection"] = ('10 IF 1 THEN DEFINT Z\n'
+    '20 X=FRE("")\n30 A$=STRING$(100,65):A$=""\n'
+    '40 PRINT X-FRE(""):END\n', "", ["0"])
+CASES["runtime_fre_temporaries"] = ('10 IF 1 THEN DEFSTR A\n'
+    '20 A="KEEP":Z$=STRING$(200,88):Z$=""\n'
+    '30 PRINT LEFT$(A+"-LEFT",LEN(STR$(FRE("")))*0+9)\n'
+    '40 PRINT A+RIGHT$(STR$(FRE("")),0)+A:END\n', "", ["KEEP-LEFT", "KEEPKEEP"])
+
+
 # Interactive seed values must still produce a 24-bit state.
 CASES["randomize_prompt_range"] = ("10 RANDOMIZE:PRINT RND(0)>=0 AND RND(0)<1\n20 END\n", "1\n", ["Random number seed (-32768 to 32767)? -1"])
 
@@ -465,6 +482,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--build", type=Path, default=Path(__file__).resolve().parents[1] / "build")
     parser.add_argument("--sanitize", action="store_true")
+    parser.add_argument("--runtime-types", action="store_true",
+                        help="exercise tagged native expressions using an unreachable DEFTYPE")
     parser.add_argument("--case", action="append", help="run a named case (repeatable)")
     args = parser.parse_args()
     if args.case:
@@ -482,6 +501,10 @@ def main():
         root = Path(temp)
         for name, (source, stdin, expected) in selected.items():
             bas = root / f"{name}.bas"
+            if args.runtime_types:
+                used = {int(n) for n in re.findall(r"^(\d+)\s", source, re.M)}
+                marker = next(n for n in range(65530) if n not in used)
+                source = f"{marker} IF 0 THEN DEFINT Z\n" + source
             bas.write_text(source)
             want = normalized("\n".join(expected))
             for filename, data in FILE_FIXTURES.get(name, {}).items():
@@ -502,13 +525,10 @@ def main():
                 run([str(build / "gwbasic-compile"), str(bas), "-o", str(c),
                      "--max-output-size", "1", *flags], root)
                 code = c.read_text()
-                if name in {"deftype_prefix", "input_chars_pmap_order"} or name.startswith(("native_resume_", "high_line_")) or name in NATIVE_REFERENCES:
-                    assert "gw_run_loop();" not in code, "native compilation was not exercised"
+                assert "gw_run_loop();" not in code, "native compilation was not exercised"
                 if name == "resume_text_only":
                     assert "_gw_stmt" not in code, "non-code RESUME enabled statement tracking"
-                if name == "deftype_branch_else":
-                    assert "gw_run_loop();" in code, "runtime type selection was not exercised"
-                if name == "base_and_layout" and inline and not safe:
+                if name == "base_and_layout" and inline and not safe and not args.runtime_types:
                     assert "_generation == gw_array_generation" in code, "optimization was not exercised"
                 san = ["-fsanitize=address,undefined", "-fno-sanitize-recover=all"] if args.sanitize else []
                 run(["gcc", opt, *san, str(c), str(build / "libgwrt.a"),
@@ -527,7 +547,7 @@ def main():
                 count += 1
             print(f"PASS {name} (16 compiler modes)", flush=True)
 
-        # Embedded runtime programs must clean up between hosted entry calls.
+        # Runtime-typed native programs must clean up between hosted entry calls.
         bas = root / "hosted.bas"
         bas.write_text(CASES["compat_deftype_string"][0])
         c, exe, host = root / "hosted.c", root / "hosted", root / "host.c"
@@ -576,9 +596,11 @@ def main():
              "-I" + str(repo / "include"), "-lm", "-pthread", *libs, "-o", str(exe)], root)
         assert normalized(run([str(exe)], root)) == ["4"]
         bas.write_text(bas.read_text().replace("20 DEFINT A", "20 IF 1 THEN DEFINT A"))
-        result = subprocess.run([str(build / "gwbasic-compile"), str(bas), "-o", str(c)],
-                                capture_output=True, text=True, timeout=5)
-        assert result.returncode != 0 and not c.exists() and "$EXTERN" in result.stderr, result
+        run([str(build / "gwbasic-compile"), str(bas), "-o", str(c)], root)
+        assert "gw_run_loop();" not in c.read_text()
+        run(["gcc", "-O2", *san, str(c), str(host), str(build / "libgwrt.a"),
+             "-I" + str(repo / "include"), "-lm", "-pthread", *libs, "-o", str(exe)], root)
+        assert normalized(run([str(exe)], root)) == ["4"]
         # A long ordinary variable must not alias a shorter declared extern.
         external = "A" * 31
         variable = external + "B"

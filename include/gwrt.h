@@ -6,8 +6,7 @@
  *
  * Provides initialization, DATA/READ support, GOSUB return-label stack,
  * and convenience wrappers. Compiled programs link against libgwrt.a
- * which also contains the interpreter execution loop for programs with
- * runtime default-type changes.
+ * which also contains shared handlers for complex BASIC statements.
  */
 
 #include "gwbasic.h"
@@ -59,6 +58,25 @@ gw_value_t *gwrt_array_elem_safe(const char *name, int type, int ndims,
 
 /* DIM statement (wraps gw_stmt_dim via text_ptr) */
 gw_value_t *gwrt_dim(const char *name, int type, int ndims, int *dims);
+
+/* Tagged expressions and execution-order default types for native programs. */
+gw_value_t *gwrt_var(const char *name, int type);
+gw_value_t gwrt_copy(gw_value_t *value);
+gw_value_t gwrt_cast(int type, gw_value_t value);
+void gwrt_assign(gw_value_t *target, gw_value_t value);
+double gwrt_number(gw_value_t value);
+int gwrt_integer(gw_value_t value);
+gw_string_t gwrt_string(gw_value_t value);
+gw_value_t gwrt_unary(int op, gw_value_t value);
+gw_value_t gwrt_arg(int code, int index, gw_value_t value, gw_value_t *args);
+gw_value_t gwrt_function(int code, int argc, gw_value_t *args);
+gw_value_t gwrt_fn_tokens(const uint8_t *tokens);
+void gwrt_read_value(gw_value_t *target);
+void gwrt_expr_begin(void);
+void gwrt_expr_root(gw_value_t *value);
+void gwrt_collect_roots(char *pool, char *scratch, size_t *offset);
+void gwrt_expr_end(void);
+void gwrt_expr_unwind(void);
 
 /* Print helpers (wrappers around existing print.c) */
 void gwrt_print_sng(float v);

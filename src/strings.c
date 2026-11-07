@@ -67,7 +67,7 @@ gw_value_t gw_fn_left(gw_value_t *s, int n)
     gw_value_t r;
     r.type = VT_STR;
     r.sval = gw_str_alloc(n);
-    memcpy(r.sval.data, s->sval.data, n);
+    if (n > 0) memcpy(r.sval.data, s->sval.data, n);
     gw_str_free(&s->sval);
     return r;
 }
@@ -81,7 +81,7 @@ gw_value_t gw_fn_right(gw_value_t *s, int n)
     gw_value_t r;
     r.type = VT_STR;
     r.sval = gw_str_alloc(n);
-    memcpy(r.sval.data, s->sval.data + s->sval.len - n, n);
+    if (n > 0) memcpy(r.sval.data, s->sval.data + s->sval.len - n, n);
     gw_str_free(&s->sval);
     return r;
 }
@@ -164,7 +164,7 @@ gw_value_t gw_fn_space(int n)
     gw_value_t r;
     r.type = VT_STR;
     r.sval = gw_str_alloc(n);
-    memset(r.sval.data, ' ', n);
+    if (n > 0) memset(r.sval.data, ' ', n);
     return r;
 }
 
@@ -175,7 +175,7 @@ gw_value_t gw_fn_strings(int n, int code)
     gw_value_t r;
     r.type = VT_STR;
     r.sval = gw_str_alloc(n);
-    memset(r.sval.data, (char)code, n);
+    if (n > 0) memset(r.sval.data, (char)code, n);
     return r;
 }
 
@@ -241,8 +241,8 @@ gw_value_t gw_str_concat(gw_value_t *a, gw_value_t *b)
     gw_value_t r;
     r.type = VT_STR;
     r.sval = gw_str_alloc(newlen);
-    memcpy(r.sval.data, a->sval.data, a->sval.len);
-    memcpy(r.sval.data + a->sval.len, b->sval.data, b->sval.len);
+    if (a->sval.len > 0) memcpy(r.sval.data, a->sval.data, a->sval.len);
+    if (b->sval.len > 0) memcpy(r.sval.data + a->sval.len, b->sval.data, b->sval.len);
     gw_str_free(&a->sval);
     gw_str_free(&b->sval);
     return r;

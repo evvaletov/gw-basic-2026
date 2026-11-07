@@ -467,10 +467,27 @@ and native terminal programs support answer editing without entering the
 full-screen editor. Input restores the caller's terminal settings, including
 on typed Ctrl-C and EOF. Tabs printed before a prompt and modified ANSI arrow
 keys preserve the editing position. Piped stdin and file input keep their stdio
-behavior. The supported editing model is byte-oriented; very small or resized
-terminals, UTF-8 character editing and external-signal cleanup remain follow-ups
-listed in the [roadmap](roadmap.md). INPUT$ followed by line input preserves
-queued terminal bytes in both the interpreter and compiled programs.
+behavior. INPUT$ followed by line input preserves queued terminal bytes in
+both the interpreter and compiled programs.
+
+Ordinary POSIX input polls terminal dimensions while waiting. After a resize,
+it redraws the answer in a bounded window on the bottom row. The same window is
+used when a long answer would scroll its starting position out of view. `>`
+marks the start of the answer and `<` indicates hidden bytes to the left. Home,
+End, arrows and deletion still operate on the complete answer, up to 255 bytes;
+a one-column terminal retains the answer without displaying its characters.
+
+The POSIX display maps bytes 128–255 through CP437 to UTF-8 glyphs, assuming one
+terminal cell per glyph. Redirected output retains the original bytes.
+BASIC string length, indexing and editing remain byte
+based. For example, UTF-8 keyboard input can contribute several BASIC bytes;
+Backspace removes one byte. This does not provide Unicode character editing.
+
+During ordinary input, default SIGTERM, SIGHUP, SIGINT and SIGQUIT dispositions
+are temporarily guarded so termination first restores the caller's terminal
+settings. Custom or ignored host dispositions are preserved. Normal shutdown
+and `exit()` restore input state; a host handler that calls `_exit()` or otherwise
+bypasses normal cleanup must restore its own terminal. SIGKILL cannot be handled.
 
 ## Event Trapping
 
