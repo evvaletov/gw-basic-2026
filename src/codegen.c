@@ -28,6 +28,13 @@ static uint16_t emit_line;  /* current BASIC line number being emitted */
 static uint8_t *tp;  /* token pointer (mirrors gw.text_ptr) */
 static int ret_label_counter;
 static int for_label_counter;
+typedef struct {
+    program_line_t *line;
+    uint8_t *text;
+} resume_point_t;
+static resume_point_t *resume_points;
+static int resume_count, resume_capacity, active_statement;
+static program_line_t *emit_source_line;
 
 /* WHILE/WEND have lexical pairing; FOR/NEXT are matched at runtime. */
 #define WHILE_STACK_MAX 64
@@ -320,7 +327,7 @@ static void emit_prec_wrapper(int prec);
 static void emit_str_atom(void);
 static gw_valtype_t peek_expr_type(void);
 static bool peek_is_string_expr(void);
-static void emit_stmt_guarded(void);
+static void emit_stmt_guarded(bool new_statement);
 
 /* Emit a numeric atom */
 static void emit_atom(void)
@@ -2194,6 +2201,8 @@ static void emit_stmt(void)
         int wl = while_label_counter++;
         while_stack[while_stack_sp++] = wl;
         EMIT("while_top_%d: ;\n", wl);
+        if (ana->has_resume) EMIT("  _gw_stmt = %d;\n", active_statement);
+        EMIT("  gw.cur_line_num = %u;\n", emit_line);
         advance();
         EMIT("  if (!(");
         emit_num_expr();
@@ -2561,24 +2570,33 @@ static void emit_stmt(void)
     if (tok == TOK_RESUME) {
         advance();
         skip_spaces();
-        if (cur() == TOK_NEXT) {
+        EMIT("  if (!gw.in_error_handler) gw_error(ERR_RW);\n");
+        EMIT("  gw_errno = 0;\n");
+        bool next = cur() == TOK_NEXT;
+        uint16_t target = 0;
+        if (next) {
             advance();
+        } else if ((cur() >= 0x11 && cur() <= 0x1A) || cur() == TOK_INT1 || cur() == TOK_INT2) {
+            target = read_int();
+        }
+        skip_spaces();
+        if (cur() && cur() != ':' && cur() != TOK_ELSE) {
+            EMIT("  gw_error(ERR_SN);\n");
+            skip_statement_tail();
+            return;
+        }
+        if (next) {
             EMIT("  gw.in_error_handler = false;\n");
-            EMIT("  { uint16_t _el = gw.err_line_num;\n");
-            for (int i = 0; i < ana->line_count - 1; i++)
-                EMIT("    if (_el == %u) goto L_%u;\n",
-                     ana->lines[i].line_num, ana->lines[i+1].line_num);
-            EMIT("  }\n");
-        } else if (is_const(cur())) {
-            uint16_t target = read_int();
-            EMIT("  goto L_%u;\n", target);
+            EMIT("  goto _gw_resume_next;\n");
         } else {
-            /* RESUME (same line) */
-            EMIT("  { uint16_t _el = gw.err_line_num;\n");
-            for (int i = 0; i < ana->line_count; i++)
-                EMIT("    if (_el == %u) goto L_%u;\n",
-                     ana->lines[i].line_num, ana->lines[i].line_num);
-            EMIT("  }\n");
+            if (target && !line_exists(target)) {
+                /* Keep the handler active until the target is validated. */
+                EMIT("  gw_error(ERR_UL);\n");
+            } else {
+                EMIT("  gw.in_error_handler = false;\n");
+                if (target) EMIT("  goto L_%u;\n", target);
+                else EMIT("  goto _gw_resume_retry;\n");
+            }
         }
         return;
     }
@@ -2675,11 +2693,12 @@ static void emit_stmt(void)
             skip_spaces();
         } else {
             /* THEN followed by statements */
+            bool new_statement = false;
             for (;;) {
                 skip_spaces();
                 if (!cur() || cur() == TOK_ELSE) break;
-                if (cur() == ':') { advance(); continue; }
-                emit_stmt_guarded();
+                if (cur() == ':') { advance(); new_statement = true; continue; }
+                emit_stmt_guarded(new_statement);
             }
         }
         if (cur() == TOK_ELSE) {
@@ -2692,11 +2711,12 @@ static void emit_stmt(void)
                 skip_spaces();
             } else {
                 /* A further ELSE belongs to an enclosing IF. */
+                bool new_statement = false;
                 for (;;) {
                     skip_spaces();
                     if (!cur() || cur() == TOK_ELSE) break;
-                    if (cur() == ':') { advance(); continue; }
-                    emit_stmt_guarded();
+                    if (cur() == ':') { advance(); new_statement = true; continue; }
+                    emit_stmt_guarded(new_statement);
                 }
             }
         }
@@ -2960,10 +2980,26 @@ static void emit_stmt(void)
 /* Fail on a stalled statement. Silently dropping a token would produce a
  * successful compilation with changed program behavior. Inner emitters are
  * additionally bounded by the output and scratch-buffer size limits. */
-static void emit_stmt_guarded(void)
+static void emit_stmt_guarded(bool new_statement)
 {
+    skip_spaces();
     uint8_t *start = tp;
+    int parent_statement = active_statement;
+    if (new_statement && ana->has_resume) {
+        if (resume_count == resume_capacity) {
+            int capacity = resume_capacity ? resume_capacity * 2 : 64;
+            resume_point_t *points = realloc(resume_points, capacity * sizeof(*points));
+            if (!points) codegen_error("cannot allocate statement continuations");
+            resume_points = points;
+            resume_capacity = capacity;
+        }
+        active_statement = resume_count++;
+        resume_points[active_statement] = (resume_point_t){emit_source_line, start};
+        EMIT("stmt_%d: ;\n  _gw_stmt = %d; gw.cur_line_num = %u;\n",
+             active_statement, active_statement, emit_line);
+    }
     emit_stmt();
+    active_statement = parent_statement;
     if (tp <= start && *tp) codegen_error("statement made no progress");
 }
 
@@ -3015,6 +3051,10 @@ void codegen_emit(FILE *f, analysis_t *a, const codegen_opts_t *opts)
     for_label_counter = 0;
     while_stack_sp = 0;
     while_label_counter = 0;
+    free(resume_points);
+    resume_points = NULL;
+    resume_count = resume_capacity = 0;
+    active_statement = -1;
 
     /* Header */
     EMIT("/* Generated by gwbasic-compile */\n");
@@ -3096,6 +3136,9 @@ void codegen_emit(FILE *f, analysis_t *a, const codegen_opts_t *opts)
     EMIT("int %s(int argc, char **argv) {\n", main_name);
     EMIT("  (void)argc; (void)argv;\n");
     EMIT("  int _gw_loop, _gw_return;\n");
+    /* These locals change between setjmp and longjmp. */
+    if (a->has_resume)
+        EMIT("  volatile int _gw_stmt = -1, _gw_error_stmt = -1;\n");
     EMIT("  gwrt_init();\n");
     if (inline_arrays && !safe_mode) {
         for (int i = 0; i < a->array_count; i++) {
@@ -3117,6 +3160,7 @@ void codegen_emit(FILE *f, analysis_t *a, const codegen_opts_t *opts)
     EMIT("  static program_line_t _dummy_line = {0};\n");
     EMIT("  _err_entry:\n");
     EMIT("  if (setjmp(gw_run_jmp)) {\n");
+    if (a->has_resume) EMIT("    _gw_error_stmt = _gw_stmt;\n");
     EMIT("    if (gw.on_error_line) {\n");
     EMIT("      int _tgt = gw.on_error_line;\n");
     EMIT("      gw.in_error_handler = true;\n");
@@ -3131,6 +3175,7 @@ void codegen_emit(FILE *f, analysis_t *a, const codegen_opts_t *opts)
     /* Emit code for each program line */
     for (program_line_t *line = gw.prog_head; line; line = line->next) {
         emit_line = line->num;
+        emit_source_line = line;
         EMIT("L_%u:\n", line->num);
 
         /* Skip GC/break check for REM-only lines, and for the entire
@@ -3139,6 +3184,8 @@ void codegen_emit(FILE *f, analysis_t *a, const codegen_opts_t *opts)
         bool is_rem = (line->tokens[0] == TOK_REM || line->tokens[0] == TOK_SQUOTE);
         if (!is_rem && !no_gc_check)
             EMIT("  gwrt_check_line(%u);\n", line->num);
+        else
+            EMIT("  gw.cur_line_num = %u;\n", line->num);
 
         /* Walk statements on this line */
         tp = line->tokens;
@@ -3147,26 +3194,47 @@ void codegen_emit(FILE *f, analysis_t *a, const codegen_opts_t *opts)
             if (*tp == ':') { tp++; continue; }
             if (*tp == 0) break;
 
-            /* Check for dead code after unconditional transfers */
             uint8_t first = *tp;
-            emit_stmt_guarded();
-
-            /* Dead code elimination: skip remaining after GOTO/END/STOP/SYSTEM.
-             * -O0 keeps the unreachable statements (they compile to dead C the
-             * host compiler drops anyway) for a more literal translation. */
-            if (cg_opt_level >= 1 && for_label_counter == 0 &&
+            emit_stmt_guarded(true);
+            /* A failing transfer can RESUME NEXT into the remaining text. */
+            if (!a->has_resume && cg_opt_level >= 1 && for_label_counter == 0 &&
                 (first == TOK_GOTO || first == TOK_END || first == TOK_STOP))
                 break;
-            if (first == TOK_PREFIX_FE && tp > line->tokens) {
-                /* Check if it was SYSTEM (xstmt after FE prefix) */
-                /* Already emitted and consumed — just continue */
-            }
         }
+        if (a->has_resume) EMIT("line_end_%u: ;\n", line->num);
     }
 
     /* Implicit END at bottom */
     EMIT("  gwrt_shutdown();\n");
     EMIT("  return 0;\n");
+
+    if (a->has_resume) {
+        EMIT("_gw_resume_retry:\n  switch (_gw_error_stmt) {\n");
+        for (int i = 0; i < resume_count; i++)
+            EMIT("    case %d: goto stmt_%d;\n", i, i);
+        EMIT("  }\n  gw_error(ERR_RW); return 1;\n");
+        EMIT("_gw_resume_next:\n  switch (_gw_error_stmt) {\n");
+        for (int i = 0; i < resume_count; i++) {
+            resume_point_t point = resume_points[i];
+            uint8_t *next = gw_statement_end(point.line, point.text);
+            if (!next) codegen_error("truncated token in statement continuation");
+            while (*next == ':' || *next == ' ') next++;
+            if (!*next || *next == TOK_ELSE) {
+                EMIT("    case %d: goto line_end_%u;\n", i, point.line->num);
+            } else {
+                int target;
+                for (target = i + 1; target < resume_count; target++)
+                    if (resume_points[target].line == point.line && resume_points[target].text == next)
+                        break;
+                if (target == resume_count) codegen_error("missing statement continuation");
+                EMIT("    case %d: goto stmt_%d;\n", i, target);
+            }
+        }
+        EMIT("  }\n  gw_error(ERR_RW); return 1;\n");
+    }
+    free(resume_points);
+    resume_points = NULL;
+    resume_count = resume_capacity = 0;
 
     /* The complete target sets are known only after every line was emitted. */
     EMIT("_gw_for_dispatch:\n  switch (_gw_loop) {\n");

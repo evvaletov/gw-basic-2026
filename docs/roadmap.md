@@ -79,6 +79,14 @@ interpreter/compiler/FFI workflows from the Markdown itself. Failure checks
 cover paths, missing RUN, ABI mismatches, markers, and timeouts. Pages deployment
 remains limited to successful `main` builds. See [local checks](development.md).
 
+### Error recovery and input continuation
+
+Native error recovery now retains source-statement retry and continuation
+points, including same-line `RESUME NEXT` and original IF/ELSE behavior.
+Twenty new reference programs exercise native recovery. Sixteen original-console
+input cases verify that leading-semicolon input preserves the editing cursor
+and synchronizes subsequent PRINT positioning, including wrapped answers.
+
 ## Near-Term Priorities
 
 The harness now fails on output mismatches and process errors, with separate
@@ -113,10 +121,10 @@ Next priorities:
    (git-bug `b3de88c`).
 3. Extend gameplay coverage to random games and triage Awari/Checkers runtime
    paths against original GW-BASIC (git-bug `51679f0`).
-4. Fix native `RESUME NEXT` continuation within a source line, with original
-   GW-BASIC reference coverage (git-bug `b693412`).
-5. Compare semicolon INPUT cursor behavior with original GW-BASIC and synchronize
-   terminal/PRINT column state with regression coverage (git-bug `44ce26a`).
+4. Accept ASCII line labels through 65529 in the editor, loader, and CLI while
+   preserving expression integer limits (git-bug `58ea19c`).
+5. Match original WHILE stack recovery after a trapped error and retry, using
+   the new bounded reference capture (git-bug `7611b45`).
 
 ## Longer-Term Plans
 
@@ -127,8 +135,11 @@ repository for design notes and current status.
 |-------|------|---------|----------|
 | testing | Expand scripted gameplay and reference coverage beyond the curated corpus | `51679f0` | P2 |
 | compiler | Native runtime DEFTYPE storage and FFI support | `990569c` | P2 |
+| language | Match WHILE frame recovery after a trapped error and retry | `7611b45` | P2 |
 | compiler | Export individual BASIC routines as C-callable functions | `1b7d59c` | P2 |
 | language | Accept ASCII interpreter line labels above 32767 | `58ea19c` | P2 |
+| language | Original-reference triage and parsing of dotted names | `b036f08` | P2 |
+| testing | Tighten documentation-runner fence parsing and process/output cleanup | `a83cc1e` | P2 |
 | language | FORTRAN-style `WRITE` formatted I/O | `a6e99af` | P2 |
 | language | C-style `PRINTF` / `FPRINTF` | `cd8750c` | P2 |
 | ide | Debugger/completion and JetBrains support after the packaged VS Code milestone | `32a637c` | P2 |
@@ -151,10 +162,9 @@ The corpus runtime checks cover only the cases listed in its fixture manifest.
 - Programs with runtime DEFTYPE changes use interpreter execution in the
   compiled executable, so native expression/array optimizations do not apply.
   Combining this path with `$EXTERN` calls is rejected with a diagnostic.
-- Native `RESUME NEXT` skips the rest of the failing line instead of resuming
-  at the next statement (`b693412`). The interpreter path handles that boundary.
-- Semicolon INPUT forms can leave TUI cursor and PRINT column state inconsistent;
-  original-console comparison and correction are tracked in `44ce26a`.
+- WHILE stack recovery after a trapped error and retry still differs from
+  original GW-BASIC; statement continuation does not resolve this separate
+  loop-frame behavior (git-bug `7611b45`).
 - Most corpus games lack runtime fixtures; build success is separate evidence.
 - The interpreter rejects ASCII line labels above 32767; full GW-BASIC line
   numbering through 65529 is tracked in `58ea19c`.

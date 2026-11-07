@@ -102,7 +102,7 @@ void tui_update_cursor(void);
 int  tui_read_key(void);
 char *tui_read_line(void);
 /* Read an answer after a prompt, without including or editing the prompt. */
-char *tui_read_input(void);
+char *tui_read_input(bool suppress_newline);
 
 /* Function key bar */
 void tui_key_on(void);

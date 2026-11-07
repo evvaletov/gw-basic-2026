@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise the real terminal editor, including the two GitHub input reports."""
 import argparse
+import json
 from pathlib import Path
 import tempfile
 import time
@@ -112,6 +113,26 @@ class InteractiveTests(unittest.TestCase):
         # 124 -> move left, delete 4, insert 3 -> 123.
         self.child.send("124\x1b[D\x1b[3~3\r")
         self.wait_for(lambda: "RESULT= 123" in self.lines())
+
+    def test_input_cursor_matches_original_console(self):
+        references = json.loads((Path(__file__).parent / "compatibility/input-console.json").read_text())
+        for index, case in enumerate(references["cases"]):
+            with self.subTest(case=case["id"]):
+                self.load(case["source"])
+                self.command("RUN")
+                self.wait_for(lambda: any("PRE" in line for line in self.lines()))
+                self.child.send(case["answer"])
+                for key in case["keys"]:
+                    self.child.send({"left": "\x1b[D"}[key])
+                self.child.send("\r")
+                # DONE can arrive before the redraw reaches a lower screen row.
+                self.wait_for(lambda: f"DONE{index:02}" in self.lines() and all(
+                    self.lines()[int(row)] == expected for row, expected in case["rows"].items()))
+                saved = (self.root / f"O{index:02}.TXT").read_text().splitlines()
+                self.assertEqual([int(float(value)) for value in saved[0].split()], case["positions"])
+                self.assertEqual(saved[1], case["value"])
+                for row, expected in case["rows"].items():
+                    self.assertEqual(self.lines()[int(row)], expected)
 
     def test_input_break_returns_to_prompt(self):
         self.load('10 INPUT "N:",N\n20 PRINT "MUST NOT RUN"\n')

@@ -396,6 +396,26 @@ void gw_list_line(uint8_t *tokens, int len, char *out, int outsize)
     out[op] = '\0';
 }
 
+uint8_t *gw_statement_end(program_line_t *line, uint8_t *text)
+{
+    uint8_t *end = line->tokens + line->len;
+    while (text < end && *text && *text != ':' && *text != TOK_ELSE) {
+        uint8_t token = *text++;
+        if (token == TOK_REM || token == TOK_SQUOTE) return end;
+        if (token == '"') {
+            while (text < end && *text != '"') text++;
+            if (text < end) text++;
+        } else {
+            int payload = token == TOK_INT1 ? 1 : token == TOK_INT2 ? 2 :
+                token == TOK_CONST_SNG ? 4 : token == TOK_CONST_DBL ? 8 :
+                (token == TOK_PREFIX_FD || token == TOK_PREFIX_FE || token == TOK_PREFIX_FF) ? 1 : 0;
+            if (end - text < payload) return NULL;
+            text += payload;
+        }
+    }
+    return text;
+}
+
 /* Locate a FOR's lexical NEXT without evaluating the header or loop body.
  * NEXT J,I closes two lexical levels; return just after the matching component
  * so the caller can still execute the remaining NEXT variables. */

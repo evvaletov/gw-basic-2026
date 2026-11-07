@@ -17,6 +17,8 @@
 /* Returns token length, or -1 if the complete line and terminator do not fit. */
 int  gw_crunch(const char *text, uint8_t *out, int outsize);
 void gw_list_line(uint8_t *tokens, int len, char *out, int outsize);
+/* Find a statement delimiter; return NULL for a truncated token payload. */
+uint8_t *gw_statement_end(program_line_t *line, uint8_t *text);
 
 bool gw_for_exit(program_line_t *line, uint8_t *p,
                  program_line_t **exit_line, uint8_t **exit_text, uint8_t **next_var);

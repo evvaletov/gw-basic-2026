@@ -478,7 +478,7 @@ static void scan_tokens(analysis_t *a, uint8_t *tokens, int len, uint16_t line_n
             while (p < end && is_constant(*p)) {
                 uint8_t *save = p;
                 uint16_t target = read_encoded_int(&p);
-                if (p != save)
+                if (p != save && !(tok == TOK_RESUME && target == 0))
                     mark_target(a, target);
                 while (p < end && *p == ' ') p++;
                 if (p < end && *p == ',') {
@@ -614,7 +614,9 @@ void analysis_run(analysis_t *a)
     /* Only declarations in the straight-line entry prefix establish static
      * defaults. Later declarations can be skipped, repeated, or change storage
      * identity, so those programs need runtime type resolution. Token payloads,
-     * strings, DATA and comments must not masquerade as declarations. */
+     * strings, DATA and comments must not masquerade as declarations. This
+     * lexical pass also finds RESUME inside branches that later census helpers
+     * skip, such as ELSE after OPEN. */
     bool entry_prefix = true;
     for (program_line_t *line = gw.prog_head; line; line = line->next) {
         uint8_t *p = line->tokens;
@@ -632,6 +634,7 @@ void analysis_run(analysis_t *a)
                 }
                 continue;
             }
+            if (*p == TOK_RESUME) a->has_resume = true;
             if (*p == TOK_DEFINT || *p == TOK_DEFSNG ||
                 *p == TOK_DEFDBL || *p == TOK_DEFSTR) {
                 if (!entry_prefix) a->runtime_types = true;

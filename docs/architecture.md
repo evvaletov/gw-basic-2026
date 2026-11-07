@@ -90,6 +90,9 @@ Program entry and prompted input use separate editing paths. Program entry
 can read an existing screen row; prompted input keeps an answer buffer so
 `INPUT` and `LINE INPUT` exclude the displayed prompt, including when the
 answer wraps or scrolls.
+Leading-semicolon input preserves the editing cursor on Enter. The reader
+updates PRINT's column from the TUI cursor for both ordinary and semicolon
+input, including wrapped/scrolled answers.
 
 ## Ahead-of-Time Compiler
 
@@ -113,6 +116,13 @@ elimination and fast-path expression emission. Runtime stacks track active FOR
 loops and GOSUB return sites. FOR validates its lexical NEXT before entering the
 body; loop reentry and NEXT lookup stop at the current GOSUB frame, and RETURN
 discards that frame's unfinished loops.
+
+Programs containing `RESUME` also receive source-statement labels and retry/next
+dispatch tables. The saved statement ID survives `longjmp` and is preserved
+while the handler executes. Inline IF branches share their enclosing statement
+until a colon starts a new one. A token-aware scanner locates continuation
+delimiters without treating quoted colons or numeric payload bytes as syntax.
+Programs without `RESUME` omit this tracking; dead-code removal remains enabled.
 
 Default types are static only when declarations appear in the straight-line
 entry prefix. Conditional or later DEFTYPE statements can select separate

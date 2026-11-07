@@ -96,6 +96,14 @@ type suffixes (`%`, `!`, `#`)
 | Misc | `KEY`, `TRON`/`TROFF`, `OPTION BASE`, `MID$` assignment |
 | System | `SYSTEM` |
 
+`RESUME` and `RESUME 0` retry the statement that raised an error.
+`RESUME NEXT` continues after its next source delimiter, including within a
+line, and `RESUME n` transfers to line `n`. These forms require an active error
+handler. Resuming clears `ERR`; `ERL` retains the last error's line number.
+The first inline statement after `THEN` or `ELSE` shares the enclosing `IF`'s
+retry point. Reaching `ELSE` during a `RESUME NEXT` scan skips the remaining
+line. The interpreter and native compiler preserve these GW-BASIC boundaries.
+
 ## Program I/O (SAVE / LOAD)
 
 `SAVE` writes the current program to a file. The default format is tokenized
@@ -401,6 +409,12 @@ suitable for scripting and test harnesses.
 Numbered line edits and deletions do not print `Ok`. Direct commands and errors
 return to the `Ok` prompt. During `INPUT` and `LINE INPUT`, only the answer is
 returned to the program; prompt text is excluded even if the answer wraps.
+
+In the interactive editor, a leading semicolon in `INPUT ;` or `LINE INPUT ;`
+suppresses the newline after the answer. The cursor stays at its editing
+position, and subsequent `PRINT TAB(...)` and comma zones use that column.
+If Enter is pressed with the cursor inside the answer, the complete answer
+string is still returned. Ordinary input moves to the next line.
 
 ## Event Trapping
 

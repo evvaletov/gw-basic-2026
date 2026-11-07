@@ -13,15 +13,16 @@ extern int print_col;
  * LINE INPUT: read entire line as string.
  */
 
-static char *read_input_line(void)
+static char *read_input_line(bool no_cr)
 {
     /* Use TUI line editor when TUI is active */
     if (tui.active) {
-        char *line = tui_read_input();
+        char *line = tui_read_input(no_cr);
         if (!line) {
             tui.break_flag = true;
             tui_check_break();
         }
+        if (line) print_col = tui_get_cursor_col();
         return line;
     }
 
@@ -35,6 +36,8 @@ static char *read_input_line(void)
     int len = strlen(buf);
     while (len > 0 && (buf[len - 1] == '\n' || buf[len - 1] == '\r'))
         buf[--len] = '\0';
+    if (!no_cr) print_col = 0;
+    else if (gw_hal) print_col = gw_hal->get_cursor_col();
     return buf;
 }
 
@@ -42,7 +45,7 @@ void gw_stmt_input(void)
 {
     gw_skip_spaces();
 
-    /* Optional semicolon after INPUT (suppresses CR on prompt) */
+    /* Optional semicolon suppresses the newline after the answer. */
     /* INPUT [;]["prompt";] var, var, ... */
     bool no_cr = false;
     if (gw_chrgot() == ';') {
@@ -80,9 +83,8 @@ retry:;
     }
     fflush(stdout);
 
-    char *line = read_input_line();
+    char *line = read_input_line(no_cr);
     if (!line) return;
-    if (!no_cr) print_col = 0;
 
     const char *p = line;
 
@@ -214,8 +216,7 @@ void gw_stmt_line_input(void)
         gw_error(ERR_TM);
 
     fflush(stdout);
-    char *line = read_input_line();
-    if (line && !no_cr) print_col = 0;
+    char *line = read_input_line(no_cr);
     if (!line) line = "";
 
     gw_value_t val;

@@ -9,6 +9,18 @@ import tempfile
 
 
 CASES = {
+    "native_resume_after_open_else": ('''10 ON ERROR GOTO 100
+20 ERROR 5:PRINT "DONE":END
+100 IF 0 THEN OPEN "unused" FOR INPUT AS #1 ELSE RESUME NEXT
+''', "", ["DONE"]),
+    "native_resume_last_line": ('''10 ON ERROR GOTO 100:GOTO 200
+100 PRINT "TRAPPED":RESUME NEXT
+200 ERROR 5
+''', "", ["TRAPPED"]),
+    "resume_text_only": ('''10 PRINT "RESUME":DATA RESUME
+20 REM RESUME
+30 END
+''', "", ["RESUME"]),
     # Project port emulation, not an original-hardware reference transcript.
     "compiled_port_statements": ('''10 P=&H61:V=4
 20 OUT P,V
@@ -351,6 +363,7 @@ CASES = {
 # Original Microsoft GW-BASIC captures supersede the former permissive FOR
 # expectations. Keep source and reference output together for reproduction.
 REFERENCE = json.loads((Path(__file__).parent / "compatibility/semantics.json").read_text())
+NATIVE_REFERENCES = {case["id"] for case in REFERENCE["cases"] if case.get("native")}
 for case in REFERENCE["cases"]:
     CASES[case["id"]] = (case["source"], case["stdin"], case["output"].splitlines())
 
@@ -400,8 +413,10 @@ def main():
                 run([str(build / "gwbasic-compile"), str(bas), "-o", str(c),
                      "--max-output-size", "1", *flags], root)
                 code = c.read_text()
-                if name == "deftype_prefix":
-                    assert "gw_run_loop();" not in code, "entry declarations lost native compilation"
+                if name == "deftype_prefix" or name.startswith("native_resume_") or name in NATIVE_REFERENCES:
+                    assert "gw_run_loop();" not in code, "native compilation was not exercised"
+                if name == "resume_text_only":
+                    assert "_gw_stmt" not in code, "non-code RESUME enabled statement tracking"
                 if name == "deftype_branch_else":
                     assert "gw_run_loop();" in code, "runtime type selection was not exercised"
                 if name == "base_and_layout" and inline and not safe:
