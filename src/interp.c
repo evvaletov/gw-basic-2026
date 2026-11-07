@@ -963,6 +963,12 @@ void gw_exec_stmt(void)
     gw_skip_spaces();
     gw.stmt_text = gw.text_ptr;
     gw.stmt_line = gw.cur_line;
+
+inline_statement:
+    /* THEN/ELSE enter their first statement without passing NEWSTT in the
+     * original runtime. Keep its retry point and reuse this dispatcher frame:
+     * recursive inline IF calls can exhaust the 16-bit DOS stack. */
+    gw_skip_spaces();
     uint8_t tok = gw_chrgot();
 
     if (tok == 0 || tok == ':')
@@ -2275,8 +2281,7 @@ void gw_exec_stmt(void)
                 return;
             }
             /* Execute statement(s) after THEN */
-            gw_exec_stmt();
-            return;
+            goto inline_statement;
         }
 
         /* False: skip to ELSE or end of line */
@@ -2296,8 +2301,7 @@ void gw_exec_stmt(void)
             gw.cur_line_num = target->num;
             return;
         }
-        gw_exec_stmt();
-        return;
+        goto inline_statement;
     }
 
     /* WHILE */
@@ -2707,43 +2711,33 @@ void gw_exec_stmt(void)
         gw_chrget();
         if (!gw.in_error_handler)
             gw_error(ERR_RW);
-        gw.in_error_handler = false;
+        gw_errno = 0;
 
         gw_skip_spaces();
         if (gw_chrgot() == TOK_NEXT) {
             /* RESUME NEXT: continue at statement after the error */
             gw_chrget();
+            if (gw_chrgot() && gw_chrgot() != ':' && gw_chrgot() != TOK_ELSE)
+                gw_error(ERR_SN);
+            gw.in_error_handler = false;
             if (gw.err_resume_text && gw.err_resume_line) {
                 gw.text_ptr = gw.err_resume_text;
                 gw.cur_line = gw.err_resume_line;
                 gw.cur_line_num = gw.err_resume_line->num;
-                /* Token payloads and quoted colons are not delimiters. */
-                uint8_t *end = gw.cur_line->tokens + gw.cur_line->len;
-                while (gw.text_ptr < end && *gw.text_ptr &&
-                       *gw.text_ptr != ':' && *gw.text_ptr != TOK_ELSE) {
-                    uint8_t token = *gw.text_ptr++;
-                    if (token == TOK_REM || token == TOK_SQUOTE) {
-                        gw.text_ptr = end;
-                        break;
-                    }
-                    if (token == '"') {
-                        while (gw.text_ptr < end && *gw.text_ptr != '"') gw.text_ptr++;
-                        if (gw.text_ptr < end) gw.text_ptr++;
-                    } else {
-                        int payload = token == TOK_INT1 ? 1 : token == TOK_INT2 ? 2 :
-                            token == TOK_CONST_SNG ? 4 : token == TOK_CONST_DBL ? 8 :
-                            (token == TOK_PREFIX_FD || token == TOK_PREFIX_FE || token == TOK_PREFIX_FF) ? 1 : 0;
-                        if (end - gw.text_ptr < payload) gw_error(ERR_SN);
-                        gw.text_ptr += payload;
-                    }
-                }
+                gw.text_ptr = gw_statement_end(gw.cur_line, gw.text_ptr);
+                if (!gw.text_ptr) gw_error(ERR_SN);
             }
             return;
         }
 
         uint8_t ch2 = gw_chrgot();
-        if (ch2 == 0 || ch2 == ':') {
-            /* RESUME (no args): retry the statement that caused the error */
+        uint16_t num = (ch2 == 0 || ch2 == ':' || ch2 == TOK_ELSE) ? 0 : gw_eval_uint16();
+        gw_skip_spaces();
+        if (gw_chrgot() && gw_chrgot() != ':' && gw_chrgot() != TOK_ELSE)
+            gw_error(ERR_SN);
+        if (num == 0) {
+            /* RESUME and RESUME 0 retry the statement that caused the error. */
+            gw.in_error_handler = false;
             if (gw.err_resume_text && gw.err_resume_line) {
                 gw.text_ptr = gw.err_resume_text;
                 gw.cur_line = gw.err_resume_line;
@@ -2753,9 +2747,9 @@ void gw_exec_stmt(void)
         }
 
         /* RESUME <linenum> */
-        uint16_t num = gw_eval_uint16();
         program_line_t *target = gw_find_line(num);
         if (!target) gw_error(ERR_UL);
+        gw.in_error_handler = false;
         gw.cur_line = target;
         gw.text_ptr = target->tokens;
         gw.cur_line_num = target->num;

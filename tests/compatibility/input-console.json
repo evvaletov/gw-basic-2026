@@ -1,0 +1,311 @@
+{
+  "reference_sha256": "3d83e8d2bbc71e8b79e20c6cfb7bceba36c4dd4bda2a7af4c415cab6b3f3203c",
+  "method": "Microsoft GW-BASIC under FreeDOS/QEMU; real keyboard input and BIOS text-screen capture; console I/O unchanged",
+  "captured_on": "2026-11-06",
+  "cases": [
+    {
+      "id": "input_plain",
+      "source": "10 CLS\n20 LOCATE 5,7:PRINT \"PRE\";\n30 INPUT \"Q\";S$\n40 R=CSRLIN:C=POS(0)\n50 PRINT TAB(20);\"T\";:PRINT ,\"Z\";\n60 R2=CSRLIN:C2=POS(0)\n70 OPEN \"O00.TXT\" FOR OUTPUT AS #1\n80 PRINT #1,R;C;R2;C2:PRINT #1,S$\n90 CLOSE #1:LOCATE 18,1:PRINT \"DONE00\":END\n",
+      "answer": "ABC",
+      "keys": [],
+      "positions": [
+        6,
+        1,
+        6,
+        30
+      ],
+      "value": "ABC",
+      "source_sha256": "12ccaac16bf65739f2ce7e6f6a6e8f76539039f735511b2a5f39cb99ae26ec0c",
+      "raw_sha256": "4fff82376e3ffb269d671915825ee7343908afbf2e76245de6053991383d342b",
+      "rows": {
+        "4": "      PREQ? ABC",
+        "5": "                   T        Z"
+      }
+    },
+    {
+      "id": "input_semicolon",
+      "source": "10 CLS\n20 LOCATE 5,7:PRINT \"PRE\";\n30 INPUT ;\"Q\";S$\n40 R=CSRLIN:C=POS(0)\n50 PRINT TAB(20);\"T\";:PRINT ,\"Z\";\n60 R2=CSRLIN:C2=POS(0)\n70 OPEN \"O01.TXT\" FOR OUTPUT AS #1\n80 PRINT #1,R;C;R2;C2:PRINT #1,S$\n90 CLOSE #1:LOCATE 18,1:PRINT \"DONE01\":END\n",
+      "answer": "ABC",
+      "keys": [],
+      "positions": [
+        5,
+        16,
+        5,
+        30
+      ],
+      "value": "ABC",
+      "source_sha256": "b88405eb4b27c82ac40f868d6ec5b9070bd3b1795904f685af1c7806852c65fe",
+      "raw_sha256": "dc19183c07368b8d0aa79aa102cbf3bd45a5264244afd60f0be04df1c4d704e1",
+      "rows": {
+        "4": "      PREQ? ABC    T        Z"
+      }
+    },
+    {
+      "id": "input_comma_plain",
+      "source": "10 CLS\n20 LOCATE 5,7:PRINT \"PRE\";\n30 INPUT \"Q\",S$\n40 R=CSRLIN:C=POS(0)\n50 PRINT TAB(20);\"T\";:PRINT ,\"Z\";\n60 R2=CSRLIN:C2=POS(0)\n70 OPEN \"O02.TXT\" FOR OUTPUT AS #1\n80 PRINT #1,R;C;R2;C2:PRINT #1,S$\n90 CLOSE #1:LOCATE 18,1:PRINT \"DONE02\":END\n",
+      "answer": "ABC",
+      "keys": [],
+      "positions": [
+        6,
+        1,
+        6,
+        30
+      ],
+      "value": "ABC",
+      "source_sha256": "b0131834e2daac97e4a9139be6f1f2c828a9e133e8cbfa965f8eb3861c23c98c",
+      "raw_sha256": "4fff82376e3ffb269d671915825ee7343908afbf2e76245de6053991383d342b",
+      "rows": {
+        "4": "      PREQABC",
+        "5": "                   T        Z"
+      }
+    },
+    {
+      "id": "input_comma_semicolon",
+      "source": "10 CLS\n20 LOCATE 5,7:PRINT \"PRE\";\n30 INPUT ;\"Q\",S$\n40 R=CSRLIN:C=POS(0)\n50 PRINT TAB(20);\"T\";:PRINT ,\"Z\";\n60 R2=CSRLIN:C2=POS(0)\n70 OPEN \"O03.TXT\" FOR OUTPUT AS #1\n80 PRINT #1,R;C;R2;C2:PRINT #1,S$\n90 CLOSE #1:LOCATE 18,1:PRINT \"DONE03\":END\n",
+      "answer": "ABC",
+      "keys": [],
+      "positions": [
+        5,
+        14,
+        5,
+        30
+      ],
+      "value": "ABC",
+      "source_sha256": "4388b862cd521c0bc91780a827bae32e261f6a4a683dcf27bbfad47c1f7ddbbd",
+      "raw_sha256": "d87338c2c55d8b56eb44e7f216905a7089157fb2a7c261746f3c4ae86ebfe6ca",
+      "rows": {
+        "4": "      PREQABC      T        Z"
+      }
+    },
+    {
+      "id": "line_plain",
+      "source": "10 CLS\n20 LOCATE 5,7:PRINT \"PRE\";\n30 LINE INPUT \"Q\";S$\n40 R=CSRLIN:C=POS(0)\n50 PRINT TAB(20);\"T\";:PRINT ,\"Z\";\n60 R2=CSRLIN:C2=POS(0)\n70 OPEN \"O04.TXT\" FOR OUTPUT AS #1\n80 PRINT #1,R;C;R2;C2:PRINT #1,S$\n90 CLOSE #1:LOCATE 18,1:PRINT \"DONE04\":END\n",
+      "answer": "ABC",
+      "keys": [],
+      "positions": [
+        6,
+        1,
+        6,
+        30
+      ],
+      "value": "ABC",
+      "source_sha256": "35f983d9846a3a2809ac6cb2e93ddb10c903a060963fbeea6609a174e0a15534",
+      "raw_sha256": "4fff82376e3ffb269d671915825ee7343908afbf2e76245de6053991383d342b",
+      "rows": {
+        "4": "      PREQABC",
+        "5": "                   T        Z"
+      }
+    },
+    {
+      "id": "line_semicolon",
+      "source": "10 CLS\n20 LOCATE 5,7:PRINT \"PRE\";\n30 LINE INPUT ;\"Q\";S$\n40 R=CSRLIN:C=POS(0)\n50 PRINT TAB(20);\"T\";:PRINT ,\"Z\";\n60 R2=CSRLIN:C2=POS(0)\n70 OPEN \"O05.TXT\" FOR OUTPUT AS #1\n80 PRINT #1,R;C;R2;C2:PRINT #1,S$\n90 CLOSE #1:LOCATE 18,1:PRINT \"DONE05\":END\n",
+      "answer": "ABC",
+      "keys": [],
+      "positions": [
+        5,
+        14,
+        5,
+        30
+      ],
+      "value": "ABC",
+      "source_sha256": "cb765df743b70077513a057025f2cdec6cea8d7f15c677f08b51d65ce17edf2f",
+      "raw_sha256": "d87338c2c55d8b56eb44e7f216905a7089157fb2a7c261746f3c4ae86ebfe6ca",
+      "rows": {
+        "4": "      PREQABC      T        Z"
+      }
+    },
+    {
+      "id": "input_no_prompt",
+      "source": "10 CLS\n20 LOCATE 5,7:PRINT \"PRE\";\n30 INPUT ;S$\n40 R=CSRLIN:C=POS(0)\n50 PRINT TAB(20);\"T\";:PRINT ,\"Z\";\n60 R2=CSRLIN:C2=POS(0)\n70 OPEN \"O06.TXT\" FOR OUTPUT AS #1\n80 PRINT #1,R;C;R2;C2:PRINT #1,S$\n90 CLOSE #1:LOCATE 18,1:PRINT \"DONE06\":END\n",
+      "answer": "ABC",
+      "keys": [],
+      "positions": [
+        5,
+        15,
+        5,
+        30
+      ],
+      "value": "ABC",
+      "source_sha256": "9d3a2834aff40f0501c81945b7cc405696a7e5f9f3c98773488593edf7cb5c50",
+      "raw_sha256": "f03c018568ff6b21093de1a87d6cd788eca92ece08f2de9341cfbb61f43a993e",
+      "rows": {
+        "4": "      PRE? ABC     T        Z"
+      }
+    },
+    {
+      "id": "line_no_prompt",
+      "source": "10 CLS\n20 LOCATE 5,7:PRINT \"PRE\";\n30 LINE INPUT ;S$\n40 R=CSRLIN:C=POS(0)\n50 PRINT TAB(20);\"T\";:PRINT ,\"Z\";\n60 R2=CSRLIN:C2=POS(0)\n70 OPEN \"O07.TXT\" FOR OUTPUT AS #1\n80 PRINT #1,R;C;R2;C2:PRINT #1,S$\n90 CLOSE #1:LOCATE 18,1:PRINT \"DONE07\":END\n",
+      "answer": "ABC",
+      "keys": [],
+      "positions": [
+        5,
+        13,
+        5,
+        30
+      ],
+      "value": "ABC",
+      "source_sha256": "1020e55b5f9e0102d783d23c5b91e7baa9b00b6cbdb9ac037a4d2325d4136491",
+      "raw_sha256": "d955db0575ef0cf27d95075d15d5071a1774c259291d16a5f9c6b864e6eb7c4c",
+      "rows": {
+        "4": "      PREABC       T        Z"
+      }
+    },
+    {
+      "id": "input_numeric",
+      "source": "10 CLS\n20 LOCATE 5,7:PRINT \"PRE\";\n30 INPUT ;\"Q\";N\n40 R=CSRLIN:C=POS(0)\n50 PRINT TAB(20);\"T\";:PRINT ,\"Z\";\n60 R2=CSRLIN:C2=POS(0)\n70 OPEN \"O08.TXT\" FOR OUTPUT AS #1\n80 PRINT #1,R;C;R2;C2:PRINT #1,S$\n90 CLOSE #1:LOCATE 18,1:PRINT \"DONE08\":END\n",
+      "answer": "42",
+      "keys": [],
+      "positions": [
+        5,
+        15,
+        5,
+        30
+      ],
+      "value": "",
+      "source_sha256": "e880c454b0e61d3d6a8dbb9c0651ff52cd02e7efcdcac4260d2434bd042c0e74",
+      "raw_sha256": "40b1493683baa0b27809c2ab96e57d2cb36a2873f6855c169945cdf00947b791",
+      "rows": {
+        "4": "      PREQ? 42     T        Z"
+      }
+    },
+    {
+      "id": "input_empty",
+      "source": "10 CLS\n20 LOCATE 5,7:PRINT \"PRE\";\n30 INPUT ;\"Q\";S$\n40 R=CSRLIN:C=POS(0)\n50 PRINT TAB(20);\"T\";:PRINT ,\"Z\";\n60 R2=CSRLIN:C2=POS(0)\n70 OPEN \"O09.TXT\" FOR OUTPUT AS #1\n80 PRINT #1,R;C;R2;C2:PRINT #1,S$\n90 CLOSE #1:LOCATE 18,1:PRINT \"DONE09\":END\n",
+      "answer": "",
+      "keys": [],
+      "positions": [
+        5,
+        13,
+        5,
+        30
+      ],
+      "value": "",
+      "source_sha256": "a4b6a9f0991bb43eb7d11abd56d8e929f0f01f5c642dfcf7a010dffb00f46f56",
+      "raw_sha256": "9301d3f66a468074d02eb5f02290e8d036e457e4d6d1d8080f184b04003b4c41",
+      "rows": {
+        "4": "      PREQ?        T        Z"
+      }
+    },
+    {
+      "id": "line_plain_edited",
+      "source": "10 CLS\n20 LOCATE 5,7:PRINT \"PRE\";\n30 LINE INPUT \"Q\";S$\n40 R=CSRLIN:C=POS(0)\n50 PRINT TAB(20);\"T\";:PRINT ,\"Z\";\n60 R2=CSRLIN:C2=POS(0)\n70 OPEN \"O10.TXT\" FOR OUTPUT AS #1\n80 PRINT #1,R;C;R2;C2:PRINT #1,S$\n90 CLOSE #1:LOCATE 18,1:PRINT \"DONE10\":END\n",
+      "answer": "ABCDE",
+      "keys": [
+        "left",
+        "left"
+      ],
+      "positions": [
+        6,
+        1,
+        6,
+        30
+      ],
+      "value": "ABCDE",
+      "source_sha256": "ab6fb034b91d2726fe33b470a106840396c26ada32341e3075fed49e72114384",
+      "raw_sha256": "2da4b67843d78b7b275824bf8d7317c953dbbdfddd09be8dd23c7e4f0fc529fc",
+      "rows": {
+        "4": "      PREQABCDE",
+        "5": "                   T        Z"
+      }
+    },
+    {
+      "id": "input_edited",
+      "source": "10 CLS\n20 LOCATE 5,7:PRINT \"PRE\";\n30 INPUT ;\"Q\";S$\n40 R=CSRLIN:C=POS(0)\n50 PRINT TAB(20);\"T\";:PRINT ,\"Z\";\n60 R2=CSRLIN:C2=POS(0)\n70 OPEN \"O11.TXT\" FOR OUTPUT AS #1\n80 PRINT #1,R;C;R2;C2:PRINT #1,S$\n90 CLOSE #1:LOCATE 18,1:PRINT \"DONE11\":END\n",
+      "answer": "ABCDE",
+      "keys": [
+        "left",
+        "left"
+      ],
+      "positions": [
+        5,
+        16,
+        5,
+        30
+      ],
+      "value": "ABCDE",
+      "source_sha256": "06df547eaa825848dcda779a47a4fe6e2f02779663b8bef8387acbc1833040ec",
+      "raw_sha256": "33948c254e3cfef551ee4c5b89e0361b8dd0d89dcb526e7896b4fd3f8b58fb71",
+      "rows": {
+        "4": "      PREQ? ABC    T        Z"
+      }
+    },
+    {
+      "id": "line_edited",
+      "source": "10 CLS\n20 LOCATE 5,7:PRINT \"PRE\";\n30 LINE INPUT ;\"Q\";S$\n40 R=CSRLIN:C=POS(0)\n50 PRINT TAB(20);\"T\";:PRINT ,\"Z\";\n60 R2=CSRLIN:C2=POS(0)\n70 OPEN \"O12.TXT\" FOR OUTPUT AS #1\n80 PRINT #1,R;C;R2;C2:PRINT #1,S$\n90 CLOSE #1:LOCATE 18,1:PRINT \"DONE12\":END\n",
+      "answer": "ABCDE",
+      "keys": [
+        "left",
+        "left"
+      ],
+      "positions": [
+        5,
+        14,
+        5,
+        30
+      ],
+      "value": "ABCDE",
+      "source_sha256": "3a0cb62003e61ac0c45017a5a0c00bbe0180a9245c0df213333ba2424f2d99a4",
+      "raw_sha256": "11930620fa68d022980b50ee4ae9d7d563a1468148f89ac3089d6b24a5a00c76",
+      "rows": {
+        "4": "      PREQABC      T        Z"
+      }
+    },
+    {
+      "id": "input_wrapped",
+      "source": "10 CLS\n20 LOCATE 5,70:PRINT \"PRE\";\n30 INPUT ;\"Q\";S$\n40 R=CSRLIN:C=POS(0)\n50 PRINT TAB(20);\"T\";:PRINT ,\"Z\";\n60 R2=CSRLIN:C2=POS(0)\n70 OPEN \"O13.TXT\" FOR OUTPUT AS #1\n80 PRINT #1,R;C;R2;C2:PRINT #1,S$\n90 CLOSE #1:LOCATE 18,1:PRINT \"DONE13\":END\n",
+      "answer": "ABCDEFGHIJKLMNO",
+      "keys": [],
+      "positions": [
+        6,
+        11,
+        6,
+        30
+      ],
+      "value": "ABCDEFGHIJKLMNO",
+      "source_sha256": "09163ba0635e50ecaecb0682de0ee6a84bc2e26267b98008baf983076fa98266",
+      "raw_sha256": "b821543536565330253fb3e2c6273b90c222b8475beb5febfca52f051a55dcb1",
+      "rows": {
+        "4": "                                                                     PREQ? ABCDE",
+        "5": "FGHIJKLMNO         T        Z"
+      }
+    },
+    {
+      "id": "line_wrapped",
+      "source": "10 CLS\n20 LOCATE 5,70:PRINT \"PRE\";\n30 LINE INPUT ;\"Q\";S$\n40 R=CSRLIN:C=POS(0)\n50 PRINT TAB(20);\"T\";:PRINT ,\"Z\";\n60 R2=CSRLIN:C2=POS(0)\n70 OPEN \"O14.TXT\" FOR OUTPUT AS #1\n80 PRINT #1,R;C;R2;C2:PRINT #1,S$\n90 CLOSE #1:LOCATE 18,1:PRINT \"DONE14\":END\n",
+      "answer": "ABCDEFGHIJKLMNO",
+      "keys": [],
+      "positions": [
+        6,
+        9,
+        6,
+        30
+      ],
+      "value": "ABCDEFGHIJKLMNO",
+      "source_sha256": "e0281e2129d9ad299f34bff51404555791cdd5214cb7e311ef30757577c5bbf9",
+      "raw_sha256": "a8199e12cb40b38a7a8bc8bc81ca57dfbe1774ac1425f4a3129d1d9d4432d5a6",
+      "rows": {
+        "4": "                                                                     PREQABCDEFG",
+        "5": "HIJKLMNO           T        Z"
+      }
+    },
+    {
+      "id": "line_scrolled",
+      "source": "10 CLS\n20 LOCATE 24,70:PRINT \"PRE\";\n30 LINE INPUT ;\"Q\";S$\n40 R=CSRLIN:C=POS(0)\n50 PRINT TAB(20);\"T\";:PRINT ,\"Z\";\n60 R2=CSRLIN:C2=POS(0)\n70 OPEN \"O15.TXT\" FOR OUTPUT AS #1\n80 PRINT #1,R;C;R2;C2:PRINT #1,S$\n90 CLOSE #1:LOCATE 18,1:PRINT \"DONE15\":END\n",
+      "answer": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+      "keys": [],
+      "positions": [
+        24,
+        20,
+        24,
+        30
+      ],
+      "value": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+      "source_sha256": "eac3d64c3f60c997e5aed8b529b5000816e354b79c3e29ecb4b10aa85718aa6d",
+      "raw_sha256": "2dd38d2f8631263d699fd1df9cccd9086c96463c67c7f6b52d170601f5f5692c",
+      "rows": {
+        "22": "                                                                     PREQABCDEFG",
+        "23": "HIJKLMNOPQRSTUVWXYZT        Z"
+      }
+    }
+  ]
+}

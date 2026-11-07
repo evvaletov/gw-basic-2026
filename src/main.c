@@ -300,7 +300,7 @@ int main(int argc, char **argv)
                      exists ? "*" : " ");
             gw_hal->puts(prompt);
 
-            char *line = tui.active ? tui_read_input() : read_line();
+            char *line = tui.active ? tui_read_input(false) : read_line();
             if (!line || tui.break_flag) {
                 gw.auto_mode = false;
                 tui.break_flag = false;

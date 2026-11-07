@@ -9,6 +9,44 @@ import tempfile
 
 
 CASES = {
+    "native_resume_deep_if": ('''10 ON ERROR GOTO 100
+20 IF 1 THEN IF 1 THEN IF 1 THEN IF 1 THEN IF 1 THEN IF 1 THEN ERROR 5:PRINT "DONE"
+30 END
+100 RESUME NEXT
+''', "", ["DONE"]),
+    "native_resume_open_else_target": ('''10 ON ERROR GOTO 100
+20 GOTO 30:IF 0 THEN OPEN "unused" FOR INPUT AS #1 ELSE GOTO 999
+30 ERROR 5:IF 0 THEN OPEN "unused" FOR INPUT AS #1 ELSE GOTO 999
+40 END
+100 PRINT ERR;ERL:RESUME NEXT
+''', "", ["5 30", "8 30"]),
+    "native_resume_open_payload_target": ('''10 ON ERROR GOTO 100
+20 IF 0 THEN OPEN "unused:RESUME" FOR INPUT AS #256 ELSE GOTO 999
+30 PRINT "DONE":END
+100 PRINT ERR;ERL:RESUME NEXT
+''', "", ["8 20", "DONE"]),
+    "native_resume_bad_target": ('''10 ON ERROR GOTO 100
+20 ERROR 5
+30 END
+100 PRINT "HANDLER":RESUME 999
+''', "", ["HANDLER", "Undefined line number in 100"]),
+    "native_resume_bad_syntax": ('''10 ON ERROR GOTO 100
+20 ERROR 5
+30 END
+100 PRINT "HANDLER":RESUME NEXT 10
+''', "", ["HANDLER", "Syntax error in 100"]),
+    "native_resume_after_open_else": ('''10 ON ERROR GOTO 100
+20 ERROR 5:PRINT "DONE":END
+100 IF 0 THEN OPEN "unused" FOR INPUT AS #1 ELSE RESUME NEXT
+''', "", ["DONE"]),
+    "native_resume_last_line": ('''10 ON ERROR GOTO 100:GOTO 200
+100 PRINT "TRAPPED":RESUME NEXT
+200 ERROR 5
+''', "", ["TRAPPED"]),
+    "resume_text_only": ('''10 PRINT "RESUME":DATA RESUME
+20 REM RESUME
+30 END
+''', "", ["RESUME"]),
     # Project port emulation, not an original-hardware reference transcript.
     "compiled_port_statements": ('''10 P=&H61:V=4
 20 OUT P,V
@@ -351,6 +389,8 @@ CASES = {
 # Original Microsoft GW-BASIC captures supersede the former permissive FOR
 # expectations. Keep source and reference output together for reproduction.
 REFERENCE = json.loads((Path(__file__).parent / "compatibility/semantics.json").read_text())
+NATIVE_REFERENCES = {case["id"] for case in REFERENCE["cases"] if case.get("native")}
+NATIVE_ERROR_EXITS = {"native_resume_bad_target", "native_resume_bad_syntax"}
 for case in REFERENCE["cases"]:
     CASES[case["id"]] = (case["source"], case["stdin"], case["output"].splitlines())
 
@@ -359,10 +399,10 @@ def normalized(text):
     return [" ".join(line.split()) for line in text.splitlines() if line.strip()]
 
 
-def run(args, cwd, stdin="", timeout=15):
+def run(args, cwd, stdin="", timeout=15, expected_exit=0):
     result = subprocess.run(args, cwd=cwd, input=stdin, text=True,
                             capture_output=True, timeout=timeout)
-    if result.returncode:
+    if result.returncode != expected_exit:
         raise AssertionError(f"{args}: exit {result.returncode}\n{result.stdout}\n{result.stderr}")
     return result.stdout
 
@@ -400,8 +440,10 @@ def main():
                 run([str(build / "gwbasic-compile"), str(bas), "-o", str(c),
                      "--max-output-size", "1", *flags], root)
                 code = c.read_text()
-                if name == "deftype_prefix":
-                    assert "gw_run_loop();" not in code, "entry declarations lost native compilation"
+                if name == "deftype_prefix" or name.startswith("native_resume_") or name in NATIVE_REFERENCES:
+                    assert "gw_run_loop();" not in code, "native compilation was not exercised"
+                if name == "resume_text_only":
+                    assert "_gw_stmt" not in code, "non-code RESUME enabled statement tracking"
                 if name == "deftype_branch_else":
                     assert "gw_run_loop();" in code, "runtime type selection was not exercised"
                 if name == "base_and_layout" and inline and not safe:
@@ -409,7 +451,8 @@ def main():
                 san = ["-fsanitize=address,undefined", "-fno-sanitize-recover=all"] if args.sanitize else []
                 run(["gcc", opt, *san, str(c), str(build / "libgwrt.a"),
                      "-I" + str(repo / "include"), "-lm", "-pthread", *libs, "-o", str(exe)], root)
-                actual = normalized(run([str(exe)], root, stdin))
+                actual = normalized(run([str(exe)], root, stdin,
+                                        expected_exit=1 if name in NATIVE_ERROR_EXITS else 0))
                 assert actual == want, (name, flags, actual, want)
                 if name == "backward_tab":
                     assert (root / "LPT1.TXT").read_bytes() == b"ABCDE\n  X\nABC\n"

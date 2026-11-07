@@ -534,7 +534,7 @@ char *tui_read_line(void)
 /* Prompted input owns a logical buffer. Screen-line extraction is appropriate
  * for editing listed BASIC, but would include the prompt in INPUT's value and
  * lose text when an answer wraps or scrolls. */
-char *tui_read_input(void)
+char *tui_read_input(bool suppress_newline)
 {
     static char buf[TUI_MAX_LINE + 1];
     int len = 0, pos = 0, drawn = 0;
@@ -577,12 +577,16 @@ char *tui_read_input(void)
             continue;
         }
         if (key == TK_ENTER) {
-            tui.cursor_row = row + (col + len) / tui.cols;
-            tui.cursor_col = (col + len) % tui.cols;
-            /* A scrolled answer can be shortened above the visible screen. */
-            if (tui.cursor_row < 0) tui.cursor_row = 0;
-            if (tui.cursor_row > tui.view_bottom) tui.cursor_row = tui.view_bottom;
-            tui_puts("\n");
+            /* With INPUT ; the original keeps the editing cursor, even when
+             * it is inside the answer; the returned string is still complete. */
+            if (!suppress_newline) {
+                tui.cursor_row = row + (col + len) / tui.cols;
+                tui.cursor_col = (col + len) % tui.cols;
+                /* A scrolled answer can be shortened above the visible screen. */
+                if (tui.cursor_row < 0) tui.cursor_row = 0;
+                if (tui.cursor_row > tui.view_bottom) tui.cursor_row = tui.view_bottom;
+                tui_puts("\n");
+            }
             return buf;
         }
         switch (key) {

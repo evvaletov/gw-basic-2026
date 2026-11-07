@@ -80,6 +80,7 @@ typedef struct {
 
     gw_valtype_t def_type[26];  /* from DEFINT/DEFSNG/DEFDBL/DEFSTR */
     bool runtime_types;        /* defaults can change after executable code */
+    bool has_resume;           /* statement continuations are needed */
 
     extern_func_t externs[MAX_EXTERNS];  /* '$EXTERN FFI declarations */
     int extern_count;

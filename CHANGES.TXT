@@ -2,6 +2,14 @@ GW-BASIC 2026 -- Change History
 ================================
 
 Unreleased
+  - Reuse the statement dispatcher frame for inline IF branches to avoid
+    exhausting the 16-bit DOS stack during nested error recovery.
+  - Resume native error handling at source statement boundaries, including
+    same-line continuations, retries, RESUME 0, and IF/ELSE entry points.
+    Clear ERR on RESUME and preserve handler protection for invalid targets.
+  - Keep the interactive INPUT ; and LINE INPUT ; editing cursor on Enter,
+    synchronize PRINT positioning, and retain the complete answer string.
+  - Add 20 native error-recovery references and 16 original-console input cases.
   - Validate FOR headers and lexical NEXT names/types before assigning the
     counter; preserve header evaluation errors and BASIC error line numbers.
   - Keep FOR loops inside their GOSUB frame, preserving caller loops and
