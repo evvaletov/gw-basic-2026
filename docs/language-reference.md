@@ -442,7 +442,12 @@ If Enter is pressed with the cursor inside the answer, the complete answer
 string is still returned. Ordinary input moves to the next line. File-launched
 and native terminal programs support answer editing without entering the
 full-screen editor. Input restores the caller's terminal settings, including
-on Ctrl-C and EOF. Piped stdin and file input keep their stdio behavior.
+on typed Ctrl-C and EOF. Tabs printed before a prompt and modified ANSI arrow
+keys preserve the editing position. Piped stdin and file input keep their stdio
+behavior. The supported editing model is byte-oriented; very small or resized
+terminals, UTF-8 character editing and external-signal cleanup remain follow-ups
+listed in the [roadmap](roadmap.md). Native INPUT$ lowering is also separate work;
+interpreter INPUT$ followed by line input preserves queued terminal bytes.
 
 ## Event Trapping
 

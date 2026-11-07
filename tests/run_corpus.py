@@ -92,6 +92,8 @@ def stop_group(process, sig):
 
 
 def execute(command, work, name, stdin='', timeout=5, checkpoint=None):
+    if checkpoint and len(stdin.encode()) > 4096:
+        return {'status': 'input-too-large', 'exit_code': None, 'stderr': 'checkpoint input exceeds 4 KiB'}, ''
     work.mkdir(parents=True, exist_ok=True)
     out_path, err_path = work / f'{name}.out', work / f'{name}.err'
     timed_out = False
@@ -131,7 +133,7 @@ def execute(command, work, name, stdin='', timeout=5, checkpoint=None):
                         raise subprocess.TimeoutExpired(command, timeout)
                 if reached:
                     # A prompt printed immediately before exiting/crashing is
-                    # not a waiting-input checkpoint. Allow pipe-exit delivery
+                    # not a valid checkpoint. Allow pipe-exit delivery
                     # to settle before terminating the still-live child.
                     try:
                         process.wait(timeout=.05)
@@ -158,7 +160,18 @@ def execute(command, work, name, stdin='', timeout=5, checkpoint=None):
             stop_group(process, signal.SIGKILL)
             process.wait()
             if process.stdin: process.stdin.close()
-            if process.stdout: process.stdout.close()
+            if process.stdout:
+                if checkpoint and not process.stdout.closed:
+                    # Include output produced after the matching read, through
+                    # termination. A late error or extra prompt must not vanish.
+                    os.set_blocking(process.stdout.fileno(), False)
+                    while out.tell() <= 8 * 1024 * 1024:
+                        try: chunk = os.read(process.stdout.fileno(), 8192)
+                        except BlockingIOError: break
+                        if not chunk: break
+                        out.write(chunk)
+                    if out.tell() > 8 * 1024 * 1024: reached = False
+                process.stdout.close()
     output = out_path.read_bytes().decode(errors='replace')
     errors = err_path.read_bytes().decode(errors='replace')
     status = 'timeout' if timed_out else 'checkpoint' if reached else \

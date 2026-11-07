@@ -56,7 +56,10 @@ stderr, nonzero exit status, missing output, and mismatched hashes also fail.
 Checkpoint fixtures deliberately terminate the owned child only after the
 recorded prompt occurrence; the report labels that status `checkpoint`. Stdin
 stays open, so EOF cannot silently advance a game. Early exit, a missing prompt,
-a timeout and wrong output all fail. Expected-error fixtures add only an ON ERROR
+a timeout and wrong output all fail. Output queued through termination is also
+compared. Checkpoints assert this bounded transcript, not a blocked read syscall
+or behavior beyond the final prompt. Their scripts are capped at 4 KiB so writing
+stdin cannot block before the execution deadline. Expected-error fixtures add only an ON ERROR
 diagnostic wrapper to both execution paths; they compare the reference ERR/ERL
 and preceding transcript. An error fixture is not a completed game.
 Each run uses its own temporary working directory. Set `CC` to choose the native

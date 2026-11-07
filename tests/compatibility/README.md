@@ -1,6 +1,6 @@
 # Focused GW-BASIC semantics
 
-`semantics.json` contains 92 programs and output captured from Microsoft
+`semantics.json` contains 97 programs and output captured from Microsoft
 GW-BASIC source build (JWasm, 2023-10-03) on 2026-11-06 and 2026-11-07.
 This is the pinned source build, not a claim of retail 3.23 identity. It covers FOR-entry evaluation and errors, lexical NEXT
 matching, GOSUB loop scope, executed DEFTYPE changes, typed arrays, and integer
@@ -58,13 +58,14 @@ and checks termios restoration, Ctrl-C/EOF, typeahead, fragmented escape keys,
 capacity limits, and unchanged pipe/file input. File-I/O adaptation is unsuitable
 for cursor behavior.
 
-The eighteen November 7 semantic cases also require native generated code in
+The twenty-three November 7 semantic cases also require native generated code in
 all sixteen compiler modes. They distinguish initial WHILE failures, WEND
 re-evaluation, body errors, bare RESUME, RESUME NEXT and explicit reentry, nested
 frames, FOR cleanup and GOSUB boundaries; RND cases check startup, zero and
 negative arguments, explicit RANDOMIZE (including repeated seeds, signed
 endpoints and integer rounding), trailing WEND comments and POS argument
-side effects. WEND removes its loop frame before evaluating the WHILE
+side effects, malformed WEND tails (true/false/recovery), division evaluation
+order and negative RND underflow. WEND removes its loop frame before evaluating the WHILE
 condition. An error reports WHILE's line, but retrying that WEND raises error 30.
 
 `random-games.json` records the independent captures used to update the existing

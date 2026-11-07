@@ -82,6 +82,7 @@ double gw_rnd(double x)
         int exponent;
         conv.f = (float)fabs(x);
         if (!isfinite(conv.f)) gw_error(ERR_OV);
+        if (conv.f == 0.0f) return (double)gw_rnd_seed / 16777216.0;
         conv.f = (float)frexp(conv.f, &exponent);
         gw_rnd_seed = (conv.u & 0x7FFFFF) | 0x800000;
     }

@@ -27,6 +27,9 @@ static void posix_putch(int ch)
         cursor_col = 0;
     } else if (ch == '\b') {
         if (cursor_col) cursor_col--;
+    } else if (ch == '\t') {
+        cursor_col = (cursor_col / 8 + 1) * 8;
+        if (output_tty && cursor_col >= terminal_cols) cursor_col = terminal_cols - 1;
     } else if (ch >= 32) {
         cursor_col++;
         if (output_tty && cursor_col >= terminal_cols) {
@@ -199,19 +202,20 @@ static int posix_read_input(char *buf, int capacity, bool suppress_newline)
             int lead = input_byte(100);
             if (lead < 0) key = 21;  /* Escape clears the answer. */
             else if (lead == '[' || lead == 'O') {
-                int ch = input_byte(100);
-                if (ch == 'D') key = 256;
-                else if (ch == 'C') key = 257;
-                else if (ch == 'H') key = 258;
-                else if (ch == 'F') key = 259;
-                else if (ch >= '1' && ch <= '4') {
-                    int end = input_byte(100);
-                    /* 1 home, 2 insert, 3 delete, 4 end */
-                    key = end == '~' ? 258 : 0;
-                    if (ch == '2') key = end == '~' ? 260 : 0;
-                    if (ch == '3') key = end == '~' ? 261 : 0;
-                    if (ch == '4') key = end == '~' ? 259 : 0;
-                } else key = 0;
+                /* Consume the entire CSI/SS3 sequence, including modifiers,
+                 * so an unsupported key cannot insert its suffix as text. */
+                int first = -1, count = 0, ch;
+                do {
+                    ch = input_byte(100);
+                    if (!count) first = ch;
+                    if (count < 3) count++;
+                } while (ch >= 0 && (ch < 0x40 || ch > 0x7e));
+                key = ch == 'D' ? 256 : ch == 'C' ? 257 :
+                      ch == 'H' ? 258 : ch == 'F' ? 259 : 0;
+                if (ch == '~' && count == 2 && first >= '1' && first <= '4') {
+                    static const int tilde_keys[] = {258, 260, 261, 259};
+                    key = tilde_keys[first - '1'];
+                }
             } else {
                 /* A standalone Escape clears the answer; a queued ordinary
                  * key (including Enter) still belongs to the next edit. */
@@ -301,6 +305,9 @@ static void posix_set_cursor_shape(int shape)
 static void posix_init(void)
 {
     setbuf(stdout, NULL);
+    /* INPUT$ can use getchar before the terminal editor reads the descriptor.
+     * Do not let stdio prefetch and hide queued terminal bytes from that path. */
+    if (isatty(STDIN_FILENO)) setbuf(stdin, NULL);
 }
 
 static void posix_shutdown(void)

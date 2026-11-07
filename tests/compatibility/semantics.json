@@ -1039,6 +1039,71 @@
       "captured_on": "2026-11-07",
       "adapter_sha256": "b7304f29de73a68ca4e2a144af160aeb1542780d35c10ecaa0a375941fb38015",
       "native": true
+    },
+    {
+      "id": "wend_tail_true",
+      "source": "10 ON ERROR GOTO 100\n20 WHILE 1\n30 WEND 123:PRINT \"TAIL\"\n40 END\n100 PRINT ERR;ERL:END\n",
+      "stdin": "",
+      "output": " 2  30\n",
+      "capture_sha256": "5748fa6975f76d99921367b533138c9904ad90195013f01dc16216e6ee0f2d70",
+      "source_sha256": "d92996e4e03bee7d69e2498e0e48414f986aceaf9e80f7d567a3201d54916660",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "21d6943d5cee9f59caf48138dd0552b643890f6e7d5dbc485c93b38c5b16efac",
+      "captured_on": "2026-11-07",
+      "native": true,
+      "adapter_sha256": "b7304f29de73a68ca4e2a144af160aeb1542780d35c10ecaa0a375941fb38015"
+    },
+    {
+      "id": "wend_tail_false",
+      "source": "10 ON ERROR GOTO 100\n20 WHILE 0\n30 WEND 123:PRINT \"TAIL\"\n40 END\n100 PRINT ERR;ERL:END\n",
+      "stdin": "",
+      "output": " 2  30\n",
+      "capture_sha256": "240940d5436f52d2625d96a65f54b6435678288231eb1e86739b6b19595c276d",
+      "source_sha256": "839f5bc1627d9803da1666a040ff61f0f4a35ade3d6a4eded76f283f127aa8bf",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "21d6943d5cee9f59caf48138dd0552b643890f6e7d5dbc485c93b38c5b16efac",
+      "captured_on": "2026-11-07",
+      "native": true,
+      "adapter_sha256": "b7304f29de73a68ca4e2a144af160aeb1542780d35c10ecaa0a375941fb38015"
+    },
+    {
+      "id": "wend_tail_next",
+      "source": "10 ON ERROR GOTO 100\n20 WHILE 1\n30 WEND 123:PRINT \"TAIL\"\n40 END\n100 PRINT ERR;ERL:RESUME NEXT\n",
+      "stdin": "",
+      "output": " 2  30\nTAIL\n",
+      "capture_sha256": "8602bcd6554ca3c1385c63150091dc193e7a3374bd1364c7f303e8a81f8faa0a",
+      "source_sha256": "af8aefe743434f3e8a7eb2b3875174404e77a9890152201c85fea09fa4bdb3c4",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "9a36e16406b949144d8ae325e8788eca959a8bd1780d1c43debc32974dd3b51a",
+      "captured_on": "2026-11-07",
+      "native": true,
+      "adapter_sha256": "b7304f29de73a68ca4e2a144af160aeb1542780d35c10ecaa0a375941fb38015"
+    },
+    {
+      "id": "rnd_division_order",
+      "source": "10 A=RND(-1)/RND(1):PRINT INT(A*1000000);INT(RND(0)*1000000)\n20 ON ERROR GOTO 100\n30 A=RND(-1)/0\n40 END\n100 PRINT ERR;ERL;INT(RND(0)*1000000):END\n",
+      "stdin": "",
+      "output": " 994411  654517\n 11  30  650860\n",
+      "capture_sha256": "2c913004c7abd62d079a4a9f90b680b28567fb2f3e93b409b766cb30e4309f40",
+      "source_sha256": "c4604536357721c22d5651dd9c547fb232fa6beebc7ccc40c2156c9e70d4a11e",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "2062df0f6db1701135311f9e94a1fb4720ae6eaac374feb2596e2747026e17b2",
+      "captured_on": "2026-11-07",
+      "native": true,
+      "adapter_sha256": "b7304f29de73a68ca4e2a144af160aeb1542780d35c10ecaa0a375941fb38015"
+    },
+    {
+      "id": "rnd_negative_underflow",
+      "source": "10 A=RND(-1):B=RND(-1D-300)\n20 PRINT INT(A*1000000);INT(B*1000000);INT(RND(1)*1000000)\n30 END\n",
+      "stdin": "",
+      "output": " 650860  650860  654517\n",
+      "capture_sha256": "3bdcf67869710b1f7800488664746497db78e757b0e4a931f3846fe83dda24e0",
+      "source_sha256": "ba5826850d87f9537a0ad28b93b8bc9a13c1ef17fc251cf7deed4812f7089fed",
+      "input_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha256": "a0db59e16561d2295cc977d0798e2e14f5424a851439099fbd6358c904d233fb",
+      "captured_on": "2026-11-07",
+      "native": true,
+      "adapter_sha256": "b7304f29de73a68ca4e2a144af160aeb1542780d35c10ecaa0a375941fb38015"
     }
   ],
   "reference_build": "Microsoft GW-BASIC source build, JWasm 2023-10-03; not retail 3.23"

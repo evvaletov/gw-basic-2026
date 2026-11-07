@@ -135,10 +135,9 @@ Next priorities:
 3. Extend the gameplay corpus to the interactive RANDOMIZE prompt and more games;
    decide whether to provide separately labeled GW-BASIC ports of listings
    with original dialect errors (git-bug `51679f0`).
-4. Compile runtime DEFTYPE changes natively and support FFI on that path
-   (git-bug `990569c`).
-5. Tighten documentation-runner fence parsing and process/output cleanup
-   (git-bug `a83cc1e`).
+4. Harden ordinary terminal input for resizing, very small viewports and
+   signal-driven shutdown (git-bug `b1cdad6`).
+5. Implement native INPUT$ for terminal and file reads (git-bug `c4b8db7`).
 
 ## Longer-Term Plans
 
@@ -148,6 +147,8 @@ repository for design notes and current status.
 | Theme | Item | git-bug | Priority |
 |-------|------|---------|----------|
 | testing | Expand scripted gameplay and reference coverage beyond the curated corpus | `51679f0` | P2 |
+| compiler | Native INPUT$ function lowering | `c4b8db7` | P2 |
+| input | Tiny/resized ordinary terminals, encoding and signal cleanup | `b1cdad6` | P2 |
 | compiler | Native runtime DEFTYPE storage and FFI support | `990569c` | P2 |
 | compiler | Export individual BASIC routines as C-callable functions | `1b7d59c` | P2 |
 | language | Original-reference triage and parsing of dotted names | `b036f08` | P2 |
@@ -177,6 +178,12 @@ The corpus runtime checks cover only the cases listed in its fixture manifest.
 - RANDOMIZE without an argument lacks the original interactive seed prompt.
   Explicit seed values have reference coverage; the corpus games use the default
   startup sequence.
+- Ordinary-terminal input is tested with 80-column, 24/25-row byte-oriented
+  displays. Very small viewports, resize reconciliation, UTF-8 character editing
+  and restoration after external termination signals remain follow-up work
+  (`b1cdad6`). Typed Ctrl-C and EOF are covered.
+- Native INPUT$ currently lacks lowering; use the interpreter for this function
+  until `c4b8db7` is implemented.
 - Most corpus games lack runtime fixtures; build success is separate evidence.
 - Dotted variable names currently raise a syntax error in the runtime parser;
   tokenizer/parser and original-GW-BASIC triage is tracked in `b036f08`.

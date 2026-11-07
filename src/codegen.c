@@ -1111,8 +1111,8 @@ static void emit_num_prec(int min_prec)
                 fprintf(cm, "((double)(%s) / (double)(%s))", left, right);
             else
                 /* GW-BASIC / always produces float; check for division by zero */
-                fprintf(cm, "({double _dv=(double)(%s); if(_dv==0.0) gw_error(11); (double)(%s)/_dv;})",
-                        right, left);
+                fprintf(cm, "({double _nv=(double)(%s); double _dv=(double)(%s); if(_dv==0.0) gw_error(11); _nv/_dv;})",
+                        left, right);
         } else if (safe_mode && left_type == VT_INT && right_type == VT_INT &&
                    (op == TOK_PLUS || op == TOK_MINUS || op == TOK_MUL)) {
             const char *fn = op == TOK_PLUS ? "gw_int_add"
@@ -2215,10 +2215,22 @@ static void emit_stmt(void)
     }
     if (tok == TOK_WEND) {
         advance();
+        skip_spaces();
+        bool bad_tail = cur() && cur() != ':' && cur() != TOK_ELSE && cur() != TOK_SQUOTE;
+        if (bad_tail) {
+            EMIT("  gw_error(ERR_SN);\n");
+            skip_statement_tail();
+        }
         if (!while_stack_sp) codegen_error("WEND without WHILE");
         int wl = while_stack[--while_stack_sp];
         EMIT("  gwrt_while_drop(%d, true);\n", wl);
         EMIT("  goto while_test_%d;\nwhile_done_%d: ;\n", wl, wl);
+        if (bad_tail) {
+            /* An initially false WHILE also reaches the text after WEND. */
+            EMIT("  gw.cur_line_num = %u;\n", emit_line);
+            if (ana->has_resume) EMIT("  _gw_stmt = %d;\n", active_statement);
+            EMIT("  gw_error(ERR_SN);\n");
+        }
         return;
     }
 
@@ -2443,7 +2455,7 @@ static void emit_stmt(void)
             emit_num_expr();
             EMIT("));\n");
         } else {
-            EMIT("  { extern uint32_t gw_rnd_seed; gw_rnd_seed = (uint32_t)time(NULL); }\n");
+            EMIT("  { extern uint32_t gw_rnd_seed; gw_rnd_seed = (uint32_t)time(NULL) & 0xFFFFFFu; }\n");
         }
         return;
     }

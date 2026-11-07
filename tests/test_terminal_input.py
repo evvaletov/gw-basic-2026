@@ -167,6 +167,26 @@ class TerminalInputTests(unittest.TestCase):
                     self.finish(child, stream)
                     self.assertTrue(any(f"VALUE=[{value}]" in line for line in screen.display))
 
+    def test_tabs_modified_keys_and_mixed_readers(self):
+        source = '10 PRINT "A";CHR$(9);"Q:";:LINE INPUT ;S$\n20 PRINT "VALUE=[";S$;"]":SYSTEM\n'
+        for mode in ("interpreter", "O0", "safe"):
+            with self.subTest(mode=mode):
+                child, screen, stream = self.spawn(self.command(source, mode))
+                child.expect('Q:'); stream.feed(child.before + child.after)
+                self.assertTrue(child.waitnoecho(timeout=5))
+                child.send('ABC\x1b[1;2DX\x1b[3;2~\r')
+                self.finish(child, stream)
+                self.assertTrue(screen.display[0].startswith('A       Q:ABXVALUE=[ABX]'))
+
+        # INPUT$ is currently an interpreter function; native lowering remains
+        # separate work. Its stdio read must not hide queued bytes from INPUT.
+        source = 'PRINT "READ:";:A$=INPUT$(1)\nLINE INPUT ;S$\nPRINT "VALUE=[";A$;":";S$;"]":SYSTEM\n'
+        child, screen, stream = self.spawn(self.command(source, "interpreter"))
+        child.expect('READ:'); stream.feed(child.before + child.after)
+        child.send('ABC\r')
+        self.finish(child, stream)
+        self.assertTrue(any('VALUE=[A:BC]' in line for line in screen.display))
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

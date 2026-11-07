@@ -5,14 +5,18 @@ Unreleased
   - Preserve INPUT ; and LINE INPUT ; editing positions in file-launched and
     native POSIX terminal runs. Restore terminal settings after input, Ctrl-C
     and EOF; keep piped and file input on their stdio path. Compile POS arguments
-    correctly, including their evaluation side effects.
+    correctly, including their evaluation side effects. Handle printed tabs,
+    complete modified CSI keys and queued interpreter INPUT$ bytes. Empty INPUT
+    strings avoid zero-length copies through NULL pointers.
   - Match WHILE/WEND trapped-error retry behavior, nested loop identity and
     GOSUB boundaries. WEND condition errors report WHILE's line but retry WEND
-    after removing its frame; RESUME NEXT continues after WEND.
+    after removing its frame; RESUME NEXT continues after WEND. Reuse the saved
+    match during WEND evaluation and reject malformed WEND tails in native code.
   - Use the original 24-bit RND sequence and initial state; honor zero and
     negative arguments in native code as well as the interpreter. Match explicit
     RANDOMIZE seed conversion and state updates; recapture older seeded tests
-    from the original executable.
+    from the original executable. Preserve checked division operand order and
+    repeat RND state when a negative argument underflows to zero.
   - Expand the corpus to 32 cases from seventeen listings, including random
     Hi-Lo, Bagels and Craps games, Awari/Checkers checkpoints and their original
     FOR without NEXT failures. Vendored listings remain unchanged.

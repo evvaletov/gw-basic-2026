@@ -175,6 +175,14 @@ class CorpusTests(unittest.TestCase):
         self.assertEqual(status['status'], 'checkpoint')
         self.assertEqual(output, 'MOVE?\nMOVE?\n')
         self.assertEqual(run_corpus.compare(output, 'WRONG\n')['status'], 'mismatch')
+        self.executable(script, "import time\nprint('MOVE?MOVE?',flush=True)\ntime.sleep(.01)\nprint('UNEXPECTED',flush=True)\ninput()\n")
+        status, output = run_corpus.execute([str(script)], self.root, 'late-output',
+                                            checkpoint=checkpoint)
+        self.assertIn('UNEXPECTED', output)
+        self.assertEqual(run_corpus.compare(output, 'MOVE?MOVE?\n')['status'], 'mismatch')
+        status, _ = run_corpus.execute([str(script)], self.root, 'large-input', '1'*4097,
+                                      checkpoint=checkpoint)
+        self.assertEqual(status['status'], 'input-too-large')
         self.executable(script, "print('MOVE?',flush=True)\n")
         status, _ = run_corpus.execute([str(script)], self.root, 'early-exit', '1\n',
                                       checkpoint=checkpoint)

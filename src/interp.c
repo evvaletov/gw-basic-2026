@@ -960,6 +960,29 @@ static void stmt_gfx_put(void)
  * Statement Dispatcher
  * ================================================================ */
 
+/* Evaluate a saved WHILE condition without searching its body again at WEND.
+ * The caller owns the statement retry anchor and has already dropped any old
+ * frame. The frame becomes active only after a successful true condition. */
+static void while_condition(const while_entry_t *entry, program_line_t *wend_line)
+{
+    gw.text_ptr = entry->while_text;
+    gw.cur_line = entry->while_line;
+    gw.cur_line_num = entry->line_num;
+    gw_chrget();
+    gw_value_t cond = gw_eval_num();
+    if (gw_to_dbl(&cond) != 0.0) {
+        if (gw.while_sp >= MAX_WHILE_DEPTH) gw_error(ERR_OM);
+        gw.while_stack[gw.while_sp] = *entry;
+        gw.while_stack[gw.while_sp].gosub_depth = gw.gosub_sp;
+        gw.while_stack[gw.while_sp].for_depth = gw.for_sp;
+        gw.while_sp++;
+    } else {
+        gw.text_ptr = entry->wend_text + 1;
+        gw.cur_line = wend_line;
+        if (wend_line) gw.cur_line_num = wend_line->num;
+    }
+}
+
 void gw_exec_stmt(void)
 {
     gw_skip_spaces();
@@ -2302,22 +2325,12 @@ inline_statement:
                 break;
             }
         }
-        gw_chrget();
-        gw_value_t cond = gw_eval_num();
-        if (gw_to_dbl(&cond) != 0.0) {
-            if (gw.while_sp >= MAX_WHILE_DEPTH) gw_error(ERR_OM);
-            while_entry_t *entry = &gw.while_stack[gw.while_sp++];
-            entry->while_text = while_text;
-            entry->wend_text = wend_text;
-            entry->while_line = while_line;
-            entry->line_num = gw.cur_line_num;
-            entry->gosub_depth = gw.gosub_sp;
-            entry->for_depth = gw.for_sp;
-        } else {
-            gw.text_ptr = wend_text + 1;
-            gw.cur_line = wend_line == &direct ? NULL : wend_line;
-            if (gw.cur_line) gw.cur_line_num = gw.cur_line->num;
-        }
+        while_entry_t entry = {0};
+        entry.while_text = while_text;
+        entry.wend_text = wend_text;
+        entry.while_line = while_line;
+        entry.line_num = gw.cur_line_num;
+        while_condition(&entry, wend_line == &direct ? NULL : wend_line);
         return;
     }
 
@@ -2338,12 +2351,10 @@ inline_statement:
         while_entry_t entry = gw.while_stack[i];
         gw.while_sp = i;
         if (gw.for_sp > entry.for_depth) gw.for_sp = entry.for_depth;
-        gw.text_ptr = entry.while_text;
-        gw.cur_line = entry.while_line;
-        gw.cur_line_num = entry.line_num;
         /* Keep WEND's statement frame: ERL names WHILE, whereas RESUME
          * retries WEND and RESUME NEXT continues after WEND. */
-        goto inline_statement;
+        while_condition(&entry, gw.cur_line);
+        return;
     }
 
     /* ON ... GOTO / GOSUB */
