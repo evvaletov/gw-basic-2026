@@ -116,20 +116,6 @@ static void store_line(uint16_t num, uint8_t *tokens, int len)
     }
 }
 
-/* Parse a line number from the start of a text line */
-static int parse_line_num(const char *text, uint16_t *num)
-{
-    const char *p = text;
-    while (*p == ' ') p++;
-    if (*p < '0' || *p > '9') return 0;
-    *num = 0;
-    while (*p >= '0' && *p <= '9') {
-        *num = *num * 10 + (*p - '0');
-        p++;
-    }
-    return (int)(p - text);
-}
-
 /* Load a .bas file (ASCII format).  Lines that don't begin with a number
  * are treated as direct-mode statements and given auto-assigned numbers
  * (10, 20, ...) so the compiler can handle scratchpad-style programs the
@@ -152,7 +138,12 @@ static int load_file(const char *filename)
         if (buf[0] == '\0') continue;
 
         uint16_t num;
-        int skip = parse_line_num(buf, &num);
+        int skip = gw_parse_line_number(buf, &num);
+        if (skip < 0) {
+            fprintf(stderr, "Line number out of range (0..65529) in %s\n", filename);
+            fclose(f);
+            return 1;
+        }
         const char *content;
         if (skip == 0) {
             /* Unnumbered direct-mode line: auto-assign next number. */

@@ -64,48 +64,25 @@ void gw_expect(uint8_t tok)
     gw_chrget();
 }
 
-/* Check if tokenized data starts with a line number */
-static int parse_line_number(uint8_t *tokens, uint16_t *num)
-{
-    uint8_t *p = tokens;
-    while (*p == ' ') p++;
-
-    uint8_t tok = *p;
-
-    /* Literal 0-9 */
-    if (tok >= 0x11 && tok <= 0x1A) {
-        *num = tok - 0x11;
-        return (p - tokens) + 1;
-    }
-    /* One-byte int */
-    if (tok == TOK_INT1) {
-        *num = p[1];
-        return (p - tokens) + 2;
-    }
-    /* Two-byte int */
-    if (tok == TOK_INT2) {
-        *num = (uint16_t)(p[1] | (p[2] << 8));
-        return (p - tokens) + 3;
-    }
-
-    return 0;
-}
-
 /* Return true only when a direct command ran (and needs an Ok prompt). */
 static bool exec_direct_line(const char *line)
 {
     gw.cur_line_num = LINE_DIRECT;
     gw.cur_line = NULL;
-    int len = gw_crunch(line, gw.kbuf, sizeof(gw.kbuf));
+    uint16_t num;
+    int skip = gw_parse_line_number(line, &num);
+    if (skip < 0) gw_error(ERR_SN);
+    /* EDIT stores a line while its direct command still occupies gw.kbuf. */
+    uint8_t numbered[sizeof(gw.kbuf)];
+    uint8_t *tokens = skip ? numbered : gw.kbuf;
+    int len = gw_crunch(line + skip, tokens, sizeof(gw.kbuf));
     if (len < 0) gw_error(ERR_BO);
 
     /* Check for line number -> program storage */
-    uint16_t num;
-    int skip = parse_line_number(gw.kbuf, &num);
     if (skip > 0) {
-        int data_len = len - skip;
+        int data_len = len;
         /* Skip spaces after line number */
-        uint8_t *data = gw.kbuf + skip;
+        uint8_t *data = tokens;
         while (*data == ' ' && data_len > 0) { data++; data_len--; }
 
         /* Invalidate CONT when editing program */

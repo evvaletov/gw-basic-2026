@@ -479,7 +479,8 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
             /* Read line number(s) */
             while (p < end && is_constant(*p)) {
                 uint8_t *save = p;
-                uint16_t target = read_encoded_int(&p);
+                uint16_t target;
+                if (!gw_read_line_number(&p, &target)) break;
                 if (p != save && !(tok == TOK_RESUME && target == 0))
                     mark_target(a, target);
                 while (p < end && *p == ' ') p++;

@@ -1,0 +1,10 @@
+{
+  "method": "Unmodified tests/dos_runtime.bas run with user-supplied Microsoft GW-BASIC source build (JWasm, 2023-10-03) under DOSBox-X. File HIGH.TXT captured after SYSTEM.",
+  "reference_executable_sha256": "3d83e8d2bbc71e8b79e20c6cfb7bceba36c4dd4bda2a7af4c415cab6b3f3203c",
+  "source": "tests/dos_runtime.bas",
+  "source_sha256": "7709e81837dbf4e3e7722e6c1217b063c3e44b2a52daddb432188d3f6605c75a",
+  "raw_capture_sha256": "c44b09a1bfd01cd9588e3baebb365ac73b16765f1391807fd4235499920de4eb",
+  "output": "SUB\nBRANCH\n 123 \n 40000  65529 -32768 \n 6  50020 \n 5  50030 \nDEEP\nDONE\n",
+  "expected_file": "tests/expected/dos_runtime.expected",
+  "comparison": "CRLF and whitespace normalized by tests/run_dos_runtime.py"
+}

@@ -5,6 +5,22 @@ runtime operations, but it does not compile timer or key event handlers.
 See [compiler usage](getting-started.md) and
 [known limitations](roadmap.md).
 
+## Program line numbers
+
+ASCII program labels range from **0 through 65529**, including in the editor,
+`LOAD`/`MERGE`, command-line file loading, and the compiler. Labels outside this
+range are rejected rather than wrapping to a different line. `LIST`, `DELETE`,
+`EDIT`, `AUTO`, and `RENUM` accept high line numbers; ASCII and binary SAVE/LOAD
+preserve them. Branch targets and `ERL` retain the full line number.
+
+In the interpreter, `RENUM` returns to direct mode even when invoked by a
+running program. It preserves variables, arrays, defined functions and the
+DATA cursor, while discarding execution and error/event-handler state.
+
+Line labels are parsed separately from expressions. The INTEGER type still
+ranges from -32768 through 32767; for example, `A%=40000` raises Overflow even
+when it appears on a valid line numbered 40000.
+
 ## Data Types
 
 | Type | Suffix | Description |

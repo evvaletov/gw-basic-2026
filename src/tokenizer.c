@@ -4,6 +4,50 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+int gw_parse_line_number(const char *text, uint16_t *num)
+{
+    const char *p = text;
+    uint16_t value = 0;
+    while (*p == ' ' || *p == '\t') p++;
+    if (*p < '0' || *p > '9') return 0;
+    while (*p >= '0' && *p <= '9') {
+        unsigned digit = (unsigned)(*p - '0');
+        if (value > (GW_MAX_LINE - digit) / 10U) return -1;
+        value = value * 10U + digit;
+        p++;
+    }
+    *num = value;
+    return (int)(p - text);
+}
+
+bool gw_read_line_number(uint8_t **text, uint16_t *num)
+{
+    uint8_t *p = *text;
+    double value;
+    int size;
+    if (*p >= 0x11 && *p <= 0x1A) {
+        value = *p - 0x11; size = 1;
+    } else if (*p == TOK_INT1) {
+        value = p[1]; size = 2;
+    } else if (*p == TOK_INT2) {
+        value = (uint16_t)(p[1] | ((uint16_t)p[2] << 8)); size = 3;
+    } else if (*p == TOK_CONST_SNG) {
+        float single;
+        memcpy(&single, p + 1, 4);
+        value = single; size = 5;
+    } else if (*p == TOK_CONST_DBL) {
+        memcpy(&value, p + 1, 8); size = 9;
+    } else {
+        return false;
+    }
+    /* Range-check before conversion, including NaN/infinity. */
+    if (!(value >= 0 && value <= GW_MAX_LINE) || value != (uint16_t)value)
+        return false;
+    *num = (uint16_t)value;
+    *text = p + size;
+    return true;
+}
+
 /*
  * CRUNCH: convert text to tokenized form.
  * Reimplements GWMAIN.ASM's CRUNCH routine.

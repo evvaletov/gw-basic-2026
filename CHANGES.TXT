@@ -2,6 +2,16 @@ GW-BASIC 2026 -- Change History
 ================================
 
 Unreleased
+  - Execute DOS16 and DOS32 runtime smoke tests in CI using a checksum-pinned
+    FreeDOS boot image and disposable QEMU disks, without root or KVM.
+    Check saved output, editor input/cursor behavior and compute-loop breaks;
+    missing prerequisites, timeouts and mismatches fail the job.
+  - Accept ASCII line labels from 0 through 65529 in the editor, loader and
+    compiler. Preserve high branch targets, ERL, and RENUM/SAVE round trips
+    without changing signed expression integer limits. Keep EDIT's active
+    command buffer intact when storing the edited line.
+    Return to direct mode after interpreter RENUM and relocate saved function
+    and DATA pointers. Keep expanded token records intact in binary SAVE/LOAD.
   - Reuse the statement dispatcher frame for inline IF branches to avoid
     exhausting the 16-bit DOS stack during nested error recovery.
   - Resume native error handling at source statement boundaries, including

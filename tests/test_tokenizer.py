@@ -35,6 +35,21 @@ static int check(const char *text, int expected) {
 }
 
 int main(void) {
+    uint16_t number;
+    unsigned char token[32], *cursor;
+    if (gw_parse_line_number(" 65529 PRINT", &number) != 6 || number != 65529) return 6;
+    if (gw_parse_line_number("65530", &number) != -1 ||
+        gw_parse_line_number("99999999999999999999", &number) != -1 ||
+        gw_parse_line_number("PRINT 40000", &number) != 0) return 7;
+    if (gw_crunch("40000", token, sizeof token) != 5 || token[0] != TOK_CONST_SNG)
+        return 8;  /* Labels must not widen signed expression integers. */
+    cursor = token;
+    if (!gw_read_line_number(&cursor, &number) || number != 40000 || cursor != token + 5)
+        return 9;
+    gw_crunch("65530", token, sizeof token);
+    cursor = token;
+    if (gw_read_line_number(&cursor, &number) || cursor != token) return 10;
+    puts("PASS label bounds and unchanged expression token types");
     struct { const char *text; int size; } cases[] = {
         {"", 0}, {"9", 1}, {"10", 2}, {"256", 3},
         {"&H1234", 3}, {"&O777", 3}, {"1!", 5}, {"1#", 9},
