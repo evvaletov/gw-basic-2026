@@ -1,0 +1,53 @@
+# Maintainer: Eremey Valetov <evaletov@protonmail.com>
+# SPDX-License-Identifier: 0BSD
+
+pkgname=gwbasic-2026
+pkgver=0.18.2
+pkgrel=1
+pkgdesc='Line-numbered BASIC interpreter and ahead-of-time native compiler'
+arch=('x86_64')
+url='https://github.com/evvaletov/gw-basic-2026'
+license=('MIT')
+# gcc is invoked by gwbasic-compile when producing native executables.
+depends=('glibc' 'gcc' 'bash')
+makedepends=('cmake')
+provides=('gwbasic')
+conflicts=('gwbasic')
+# gwbasic-compile links this static archive into the programs it generates.
+options=('staticlibs' '!lto')
+source=("${url}/releases/download/v${pkgver}/gwbasic-${pkgver}-source.tar.gz")
+sha256sums=('81c6ca793290f7015187b7367a69451536c7c4814ba69303a472f79c8e2f49ea')
+
+build() {
+  # Disable the optional PulseAudio backend, as in the Homebrew package.
+  cmake -S "gwbasic-${pkgver}" -B "gwbasic-${pkgver}/build" \
+    -DCMAKE_BUILD_TYPE=None \
+    -DPKG_CONFIG_EXECUTABLE=/usr/bin/false
+  cmake --build "gwbasic-${pkgver}/build"
+}
+
+check() {
+  local runtime="${srcdir}/gwbasic-${pkgver}"
+  printf '10 FOR N=1 TO 3\n20 PRINT N*N\n30 NEXT N\n40 END\n' > squares.bas
+  "$runtime/build/gwbasic" squares.bas < /dev/null > interpreted.txt
+  test "$(xargs < interpreted.txt)" = '1 4 9'
+  "$runtime/build/gwbasic-compile" --runtime "$runtime" squares.bas -c
+  ./squares > compiled.txt
+  cmp interpreted.txt compiled.txt
+}
+
+package() {
+  cd "gwbasic-${pkgver}"
+  local runtime="/usr/lib/${pkgname}"
+  install -Dm755 build/gwbasic "${pkgdir}/usr/bin/gwbasic"
+  install -Dm755 build/gwbasic-compile "${pkgdir}${runtime}/gwbasic-compile"
+  install -Dm644 build/libgwrt.a "${pkgdir}${runtime}/build/libgwrt.a"
+  install -Dm644 include/*.h -t "${pkgdir}${runtime}/include"
+  printf '#!/usr/bin/bash\nexec "%s/gwbasic-compile" --runtime "%s" "$@"\n' \
+    "$runtime" "$runtime" > "${pkgdir}/usr/bin/gwbasic-compile"
+  chmod 755 "${pkgdir}/usr/bin/gwbasic-compile"
+  install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install -Dm644 README.md docs/demos.md -t "${pkgdir}/usr/share/doc/${pkgname}"
+  install -Dm644 examples/squares.bas examples/circles.bas \
+    -t "${pkgdir}/usr/share/${pkgname}/examples"
+}
