@@ -20,9 +20,11 @@ sudo dnf install gcc make cmake pkgconf-pkg-config pulseaudio-libs-devel
 
 ## macOS binary downloads
 
-The [v0.18.2 release](https://github.com/evvaletov/gw-basic-2026/releases/tag/v0.18.2)
-provides separate archives for Apple Silicon (`gwbasic-0.18.2-macos-arm64.tar.gz`)
-and Intel (`gwbasic-0.18.2-macos-x86_64.tar.gz`). Both require macOS 15 or later.
+The macOS workflow prepares separate archives for Apple Silicon
+(`gwbasic-0.18.2-macos-arm64.tar.gz`) and Intel
+(`gwbasic-0.18.2-macos-x86_64.tar.gz`). Both require macOS 15 or later.
+Publication is separate; check the [v0.18.2 release assets](https://github.com/evvaletov/gw-basic-2026/releases/tag/v0.18.2)
+for available downloads.
 Download the matching `BUILD-macos-*.json` and `SHA256SUMS-macos-*` files into the
 same directory to verify the archive and its build record. For Apple Silicon:
 
@@ -134,8 +136,9 @@ Options:
 ## Ahead-of-Time Compiler
 
 `gwbasic-compile` reads ASCII `.bas` programs and emits C source. With `-c`,
-it invokes GCC to produce native executables linked against `libgwrt.a`.
-GCC is needed for generated C, including when Clang built the interpreter.
+it invokes the `gcc` command to produce native executables linked against
+`libgwrt.a`. On macOS, Apple's Command Line Tools provide this command through
+Clang; on Linux, install GCC.
 Convert a tokenized program with `SAVE "program.bas",A` before compiling it.
 
 ### Basic Usage
