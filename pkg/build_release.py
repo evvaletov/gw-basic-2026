@@ -97,18 +97,18 @@ def main():
     metadata_json = json.dumps(metadata, indent=2) + '\n'
     with tempfile.TemporaryDirectory(prefix='gwbasic-release-') as temp:
         root = Path(temp)
-        name = f'gwbasic-{version}-linux-{platform.machine()}'
-        linux = root / name
+        linux_name = f'gwbasic-{version}-linux-{platform.machine()}'
+        linux = root / linux_name
         (linux / 'bin').mkdir(parents=True)
         (linux / 'build').mkdir()
         for binary in ('gwbasic', 'gwbasic-compile'):
             shutil.copy2(build / binary, linux / 'bin' / binary)
         shutil.copy2(build / 'libgwrt.a', linux / 'build/libgwrt.a')
-        for name in tracked_files(REPO):
-            if name.startswith('include/'):
-                destination = linux / name
+        for relative_path in tracked_files(REPO):
+            if relative_path.startswith('include/'):
+                destination = linux / relative_path
                 destination.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(REPO / name, destination)
+                shutil.copy2(REPO / relative_path, destination)
         for doc in ('README.md', 'CHANGES.TXT', 'LICENSE', 'RELEASE_NOTES.md'):
             shutil.copy2(REPO / doc, linux / doc)
         (linux / 'BUILD.json').write_text(metadata_json)
@@ -127,8 +127,8 @@ def main():
             raise RuntimeError('packaged compiler/runtime smoke failed')
         (linux / 'hello').unlink()
         (linux / 'hello.c').unlink(missing_ok=True)
-        with tarfile.open(output / (name + '.tar.gz'), 'w:gz') as archive:
-            archive.add(linux, arcname=name)
+        with tarfile.open(output / (linux_name + '.tar.gz'), 'w:gz') as archive:
+            archive.add(linux, arcname=linux_name)
         dos16_zip = root / f'gwbasic-{version}.zip'
         run(['bash', str(REPO / 'pkg/build_pkg.sh')], cwd=REPO,
             env=dict(os.environ, GW_DOS16_EXE=str(args.dos16.resolve()),
