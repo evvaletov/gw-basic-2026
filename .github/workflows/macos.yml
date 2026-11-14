@@ -1,0 +1,70 @@
+name: macOS release archives
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: 'Source tag or commit to build (empty uses this workflow revision)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  archive:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            architecture: arm64
+          - os: macos-15-intel
+            architecture: x86_64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref || github.event.pull_request.head.sha || github.sha }}
+          path: source
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Build with Apple's compiler and system libraries
+        run: |
+          cmake -S source -B source/build -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=/usr/bin/clang \
+            -DCMAKE_OSX_ARCHITECTURES=${{ matrix.architecture }} \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 \
+            -DPKG_CONFIG_EXECUTABLE=/usr/bin/false
+          cmake --build source/build --parallel 3
+      - name: Package and test the extracted archive
+        run: |
+          python3 tests/test_macos_packaging.py
+          python3 pkg/build_macos.py --source source --build source/build \
+            --architecture ${{ matrix.architecture }} --output dist/macos
+          cd dist/macos
+          shasum -a 256 --check SHA256SUMS-macos-${{ matrix.architecture }}
+      - name: Compare original BASIC gameplay with Microsoft reference output
+        run: |
+          python3 source/tests/run_corpus.py --build source/build --mode O2 \
+            --report corpus-macos-${{ matrix.architecture }}.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-macos-${{ matrix.architecture }}
+          path: dist/macos/*
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: evidence-macos-${{ matrix.architecture }}
+          path: corpus-macos-${{ matrix.architecture }}.json
+          if-no-files-found: warn

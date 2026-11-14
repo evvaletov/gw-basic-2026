@@ -18,6 +18,40 @@ On Fedora/RHEL:
 sudo dnf install gcc make cmake pkgconf-pkg-config pulseaudio-libs-devel
 ```
 
+## macOS binary downloads
+
+The macOS workflow prepares separate archives for Apple Silicon
+(`gwbasic-0.18.2-macos-arm64.tar.gz`) and Intel
+(`gwbasic-0.18.2-macos-x86_64.tar.gz`). Both require macOS 15 or later.
+Publication is separate; check the [v0.18.2 release assets](https://github.com/evvaletov/gw-basic-2026/releases/tag/v0.18.2)
+for available downloads.
+Download the matching `BUILD-macos-*.json` and `SHA256SUMS-macos-*` files into the
+same directory to verify the archive and its build record. For Apple Silicon:
+
+```sh
+shasum -a 256 --check SHA256SUMS-macos-arm64
+tar -xzf gwbasic-0.18.2-macos-arm64.tar.gz
+cd gwbasic-0.18.2-macos-arm64
+bin/gwbasic hello.bas
+bin/gwbasic-compile hello.bas -c --runtime .
+./hello
+```
+
+On Intel, substitute `x86_64` for `arm64`. Native compilation needs Apple's
+Command Line Tools, installed with `xcode-select --install`. The interpreter
+needs no Homebrew libraries. Audio output is disabled in these archives.
+
+The binaries are not Developer ID signed or notarised. macOS may ask you to
+approve downloaded software; the [Homebrew installation](https://github.com/evvaletov/gw-basic-2026#homebrew)
+is another option. Tests exercise extracted archives on macOS 15, including
+interpreter and native execution, input, arrays, strings, file I/O and paths
+containing spaces. They do not cover the interactive editor or terminal graphics.
+
+`BUILD.json` inside each archive records the source commit, architecture,
+dependencies and build environment. The separate `BUILD-macos-*.json` also
+records the extracted-package tests. The original release notes describe the
+earlier Linux and DOS downloads; the macOS archives use the same tagged source.
+
 ## Building
 
 ```bash
@@ -102,8 +136,9 @@ Options:
 ## Ahead-of-Time Compiler
 
 `gwbasic-compile` reads ASCII `.bas` programs and emits C source. With `-c`,
-it invokes GCC to produce native executables linked against `libgwrt.a`.
-GCC is needed for generated C, including when Clang built the interpreter.
+it invokes the `gcc` command to produce native executables linked against
+`libgwrt.a`. On macOS, Apple's Command Line Tools provide this command through
+Clang; on Linux, install GCC.
 Convert a tokenized program with `SAVE "program.bas",A` before compiling it.
 
 ### Basic Usage

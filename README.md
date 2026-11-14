@@ -87,8 +87,9 @@ build/gwbasic-compile tests/programs/fibonacci.bas -c --runtime .
 ## Ahead-of-Time Compiler
 
 `gwbasic-compile` translates ASCII BASIC programs to C source. With `-c`,
-it invokes GCC to produce native executables linked against `libgwrt.a`.
-GCC is required for this path even if the interpreter was built with Clang.
+it invokes the `gcc` command to produce native executables linked against
+`libgwrt.a`. On macOS, Apple's Command Line Tools provide this command through
+Clang; on Linux, install GCC.
 
 Pipeline: `.bas` → tokenizer → analysis → C codegen → `gcc` → native binary.
 
@@ -209,11 +210,12 @@ Output mismatches, execution failures, and timeouts fail the suites. See
 [Development](docs/development.md) for timeout settings and test coverage.
 
 The [compatibility corpus](tests/corpus/README.md) contains 98 original BASIC
-Computer Games listings. Its automated runtime suite checks 53 fixed-input cases
-from twenty-six listings against Microsoft GW-BASIC transcripts and compares six
+Computer Games listings. The current runtime suite checks 76 scripted cases
+from thirty-six listings against Microsoft GW-BASIC transcripts and compares six
 compiler modes with the interpreter. The other listings have build-audit
 coverage only. Awari and Checkers compile; Super Star Trek is rejected for an
 unspaced `TO` expression that Microsoft GW-BASIC also rejects.
+The v0.18.2 release contains the earlier suite of 53 cases from twenty-six listings.
 
 ## DOS / FreeDOS
 
@@ -230,8 +232,11 @@ a DOS extender.  See [Getting Started](docs/getting-started.md) for details.
 ## Release archives
 
 The v0.18.2 [release notes](RELEASE_NOTES.md) describe the Linux and DOS archives,
-checksums, and validation limits. CI builds archives after its checks pass;
-publication is a separate step.
+checksums, and validation limits. Additional macOS archives support Apple Silicon
+(`arm64`) and Intel (`x86_64`) on macOS 15 or later. They contain the interpreter,
+native compiler, runtime and headers; audio output is disabled. See the
+[macOS download instructions](docs/getting-started.md#macos-binary-downloads).
+CI builds and tests archives; publication is a separate step.
 
 ## Documentation
 
