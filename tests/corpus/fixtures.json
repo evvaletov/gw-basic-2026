@@ -585,6 +585,253 @@
         "invalid kill move",
         "retreat"
       ]
+    },
+    {
+      "id": "chief-confirm",
+      "source": "chief.bas",
+      "input": "inputs/chief-confirm.txt",
+      "expected": "expected/chief-confirm.txt",
+      "features": [
+        "number reconstruction",
+        "confirmation"
+      ]
+    },
+    {
+      "id": "chief-dispute",
+      "source": "chief.bas",
+      "input": "inputs/chief-dispute.txt",
+      "expected": "expected/chief-dispute.txt",
+      "features": [
+        "arithmetic explanation",
+        "negative-step drawing",
+        "disagreement"
+      ]
+    },
+    {
+      "id": "cube-win",
+      "source": "cube.bas",
+      "input": "inputs/cube-win.txt",
+      "expected": "expected/cube-win.txt",
+      "features": [
+        "RND(0) mine placement",
+        "legal path",
+        "wager winnings"
+      ]
+    },
+    {
+      "id": "cube-invalid",
+      "source": "cube.bas",
+      "input": "inputs/cube-invalid.txt",
+      "expected": "expected/cube-invalid.txt",
+      "features": [
+        "instructions",
+        "oversized wager retry",
+        "illegal move loss"
+      ]
+    },
+    {
+      "id": "cube-mine",
+      "source": "cube.bas",
+      "input": "inputs/cube-mine.txt",
+      "expected": "expected/cube-mine.txt",
+      "features": [
+        "mine collision",
+        "bankruptcy"
+      ]
+    },
+    {
+      "id": "hammurabi-retry",
+      "source": "hammurabi.bas",
+      "input": "inputs/hammurabi-retry.txt",
+      "expected": "expected/hammurabi-retry.txt",
+      "features": [
+        "land and grain limits",
+        "labour limit",
+        "starvation impeachment"
+      ]
+    },
+    {
+      "id": "hammurabi-term",
+      "source": "hammurabi.bas",
+      "input": "inputs/hammurabi-term.txt",
+      "expected": "expected/hammurabi-term.txt",
+      "features": [
+        "ten-year term",
+        "plague and immigration",
+        "harvest and rats",
+        "final assessment"
+      ]
+    },
+    {
+      "id": "hammurabi-resign",
+      "source": "hammurabi.bas",
+      "input": "inputs/hammurabi-resign.txt",
+      "expected": "expected/hammurabi-resign.txt",
+      "features": [
+        "negative-input resignation"
+      ]
+    },
+    {
+      "id": "depthcharge-loss",
+      "source": "depthcharge.bas",
+      "input": "inputs/depthcharge-loss.txt",
+      "expected": "expected/depthcharge-loss.txt",
+      "features": [
+        "three-coordinate input",
+        "sonar directions",
+        "shot limit loss"
+      ]
+    },
+    {
+      "id": "depthcharge-replay",
+      "source": "depthcharge.bas",
+      "input": "inputs/depthcharge-replay.txt",
+      "expected": "expected/depthcharge-replay.txt",
+      "features": [
+        "hit after a miss",
+        "replay state",
+        "depth feedback",
+        "loss"
+      ]
+    },
+    {
+      "id": "gunner-loss",
+      "source": "gunner.bas",
+      "input": "inputs/gunner-loss.txt",
+      "expected": "expected/gunner-loss.txt",
+      "features": [
+        "elevation limits",
+        "six-shot loss"
+      ]
+    },
+    {
+      "id": "gunner-win-replay",
+      "source": "gunner.bas",
+      "input": "inputs/gunner-win-replay.txt",
+      "expected": "expected/gunner-win-replay.txt",
+      "features": [
+        "five-target campaign",
+        "trigonometry",
+        "campaign replay",
+        "shot totals"
+      ]
+    },
+    {
+      "id": "train-wrong",
+      "source": "train.bas",
+      "input": "inputs/train-wrong.txt",
+      "expected": "expected/train-wrong.txt",
+      "features": [
+        "incorrect answer",
+        "percentage error"
+      ]
+    },
+    {
+      "id": "train-replay",
+      "source": "train.bas",
+      "input": "inputs/train-replay.txt",
+      "expected": "expected/train-replay.txt",
+      "features": [
+        "correct answers",
+        "fractional division",
+        "replay"
+      ]
+    },
+    {
+      "id": "bombsaway-mission",
+      "source": "bombsaway.bas",
+      "input": "inputs/bombsaway-mission.txt",
+      "expected": "expected/bombsaway-mission.txt",
+      "features": [
+        "side and aircraft retries",
+        "mission count retry",
+        "successful mission"
+      ]
+    },
+    {
+      "id": "bombsaway-loss",
+      "source": "bombsaway.bas",
+      "input": "inputs/bombsaway-loss.txt",
+      "expected": "expected/bombsaway-loss.txt",
+      "features": [
+        "mission branch",
+        "random loss"
+      ]
+    },
+    {
+      "id": "bombsaway-replay",
+      "source": "bombsaway.bas",
+      "input": "inputs/bombsaway-replay.txt",
+      "expected": "expected/bombsaway-replay.txt",
+      "features": [
+        "target and defence retries",
+        "gunnery loss",
+        "replay success"
+      ]
+    },
+    {
+      "id": "chemist-loss",
+      "source": "chemist.bas",
+      "input": "inputs/chemist-loss.txt",
+      "expected": "expected/chemist-loss.txt",
+      "features": [
+        "nine-life loss",
+        "random quantities"
+      ]
+    },
+    {
+      "id": "chemist-recover",
+      "source": "chemist.bas",
+      "input": "inputs/chemist-recover.txt",
+      "expected": "expected/chemist-recover.txt",
+      "features": [
+        "correct dilution",
+        "subsequent errors",
+        "life counter"
+      ]
+    },
+    {
+      "id": "boxing-win",
+      "source": "boxing.bas",
+      "input": "inputs/boxing-win.txt",
+      "expected": "expected/boxing-win.txt",
+      "features": [
+        "three-round match",
+        "full swing",
+        "player win"
+      ]
+    },
+    {
+      "id": "boxing-loss",
+      "source": "boxing.bas",
+      "input": "inputs/boxing-loss.txt",
+      "expected": "expected/boxing-loss.txt",
+      "features": [
+        "three-round match",
+        "jab",
+        "opponent win"
+      ]
+    },
+    {
+      "id": "evenwins-win",
+      "source": "evenwins.bas",
+      "input": "inputs/evenwins-win.txt",
+      "expected": "expected/evenwins-win.txt",
+      "features": [
+        "player-first strategy",
+        "even total win"
+      ]
+    },
+    {
+      "id": "evenwins-retry-replay",
+      "source": "evenwins.bas",
+      "input": "inputs/evenwins-retry-replay.txt",
+      "expected": "expected/evenwins-retry-replay.txt",
+      "features": [
+        "move range and remaining-pile checks",
+        "computer-first loss",
+        "replay reset"
+      ]
     }
   ]
 }
