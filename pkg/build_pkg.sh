@@ -7,16 +7,18 @@
 #   DOC/GWBASIC/README         (project README, CRLF)
 #   DOC/GWBASIC/CHANGES        (version history, CRLF)
 #   DOC/GWBASIC/LICENSE        (MIT, CRLF)
+#   DOC/GWBASIC/README.DOS     (installation notes, CRLF)
 #   SOURCE/GWBASIC/SOURCE.TGZ  (full source tree with its original filenames)
 #
 # Run from the project root:  ./pkg/build_pkg.sh
+# GW_DOS16_EXE selects a prebuilt binary; GW_PKG_OUT selects the output ZIP.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_DIR"
 
-VERSION=$(grep -oE '"[0-9]+\.[0-9]+\.[0-9]+"' include/gwbasic.h | tr -d '"')
+VERSION=$(sed -nE 's/^#define GW_VERSION "([0-9]+\.[0-9]+\.[0-9]+)"$/\1/p' include/gwbasic.h)
 [ -n "$VERSION" ] || { echo "Cannot determine version from include/gwbasic.h" >&2; exit 1; }
 
 echo "==> Packaging GW-BASIC 2026 v$VERSION"
@@ -54,11 +56,12 @@ done
 
 # Keep long source names inside an archive so installation needs only 8.3 names.
 # The source archive can be unpacked on a host with long-filename support.
-git ls-files -z -- ':!:docs/_build/**' ':!:build/**' \
+git ls-files -z \
     | tar --null -czf "$STAGE/SOURCE/GWBASIC/SOURCE.TGZ" -T -
 
-mkdir -p dist
-ZIP="$PROJECT_DIR/dist/gwbasic-$VERSION.zip"
+ZIP="${GW_PKG_OUT:-$PROJECT_DIR/dist/gwbasic-$VERSION.zip}"
+[[ "$ZIP" = /* ]] || ZIP="$PROJECT_DIR/$ZIP"
+mkdir -p "$(dirname "$ZIP")"
 rm -f "$ZIP"
 ( cd "$STAGE" && zip -rq "$ZIP" APPINFO BIN DOC SOURCE )
 

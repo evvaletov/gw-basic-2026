@@ -24,7 +24,7 @@ def run(command, **kwargs):
 def validate_dos_package(path, repo):
     """Check DOS-installable names and lossless inclusion of the tracked source."""
     tracked = subprocess.check_output(
-        ['git', 'ls-files', '-z', '--', ':!:docs/_build/**', ':!:build/**'], cwd=repo
+        ['git', 'ls-files', '-z'], cwd=repo
     ).decode().split('\0')[:-1]
     with zipfile.ZipFile(path) as package:
         if package.testzip() is not None:
@@ -83,6 +83,7 @@ def main():
     if os.environ.get('GITHUB_RUN_ID'):
         metadata['ci_run_url'] = (os.environ.get('GITHUB_SERVER_URL', 'https://github.com') + '/' +
                                   os.environ['GITHUB_REPOSITORY'] + '/actions/runs/' + os.environ['GITHUB_RUN_ID'])
+    metadata_json = json.dumps(metadata, indent=2) + '\n'
     with tempfile.TemporaryDirectory(prefix='gwbasic-release-') as temp:
         root = Path(temp)
         name = f'gwbasic-{version}-linux-{platform.machine()}'
@@ -95,7 +96,7 @@ def main():
         shutil.copytree(REPO / 'include', linux / 'include')
         for doc in ('README.md', 'CHANGES.TXT', 'LICENSE', 'RELEASE_NOTES.md'):
             shutil.copy2(REPO / doc, linux / doc)
-        (linux / 'BUILD.json').write_text(json.dumps(metadata, indent=2) + '\n')
+        (linux / 'BUILD.json').write_text(metadata_json)
         (linux / 'QUICKSTART.txt').write_text(
             'Run bin/gwbasic program.bas. For the compiler, from this directory:\n'
             'bin/gwbasic-compile program.bas -c --runtime .\n'
@@ -113,19 +114,22 @@ def main():
         (linux / 'hello.c').unlink(missing_ok=True)
         with tarfile.open(output / (name + '.tar.gz'), 'w:gz') as archive:
             archive.add(linux, arcname=name)
+        dos16_zip = root / f'gwbasic-{version}.zip'
         run(['bash', str(REPO / 'pkg/build_pkg.sh')], cwd=REPO,
-            env=dict(os.environ, GW_DOS16_EXE=str(args.dos16.resolve())), stdout=subprocess.DEVNULL)
-        validate_dos_package(REPO / f'dist/gwbasic-{version}.zip', REPO)
-        shutil.copy2(REPO / f'dist/gwbasic-{version}.zip', output)
+            env=dict(os.environ, GW_DOS16_EXE=str(args.dos16.resolve()),
+                     GW_PKG_OUT=str(dos16_zip)), stdout=subprocess.DEVNULL)
+        validate_dos_package(dos16_zip, REPO)
+        shutil.copy2(dos16_zip, output)
         with zipfile.ZipFile(output / f'gwbasic-{version}-dos32.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
             archive.write(args.dos32, 'GWBASIC.EXE')
-            for doc in ('LICENSE', 'CHANGES.TXT', 'RELEASE_NOTES.md'):
-                archive.write(REPO / doc, doc)
+            for doc, name in [('LICENSE', 'LICENSE'), ('CHANGES.TXT', 'CHANGES.TXT'),
+                              ('RELEASE_NOTES.md', 'RELNOTES.TXT')]:
+                archive.writestr(name, (REPO / doc).read_text().replace('\n', '\r\n'))
             archive.writestr('README.TXT', 'GW-BASIC '+version+' for DOS/4GW.\r\n'
                 'Provide DOS4GW.EXE on PATH or in this directory; it is not included.\r\n')
         run(['git', 'archive', '--format=tar.gz', f'--prefix=gwbasic-{version}/',
              '-o', str(output / f'gwbasic-{version}-source.tar.gz'), commit], cwd=REPO)
-    (output / 'BUILD.json').write_text(json.dumps(metadata, indent=2) + '\n')
+    (output / 'BUILD.json').write_text(metadata_json)
     shutil.copy2(REPO / 'RELEASE_NOTES.md', output)
     checksums = [hashlib.sha256(path.read_bytes()).hexdigest() + '  ' + path.name
                  for path in sorted(output.iterdir()) if path.is_file()]

@@ -16,7 +16,8 @@ Author:          Eremey Valetov <evv@msu.edu>
 Maintained-by:   Eremey Valetov <evv@msu.edu>
 Primary-site:    https://github.com/evvaletov/gw-basic-2026
 Original-site:   https://github.com/microsoft/GW-BASIC
-Platforms:       DOS, FreeDOS 1.4 (16-bit real mode), MS-DOS 5+, DOS/4GW
-                 (32-bit protected mode); also Linux, macOS, BSD via CMake
+Platforms:       FreeDOS 1.4 in QEMU (16-bit real mode and 32-bit DOS/4GW);
+                 Linux (interpreter and compiler). Other DOS and POSIX
+                 systems have not been validated for this release.
 Copying-policy:  MIT License; vendored BASIC Computer Games listings: Unlicense
 End
