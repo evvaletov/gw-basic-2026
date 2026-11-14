@@ -20,7 +20,7 @@ v0.18.1.
   shell metacharacters are passed literally.
 
 The compatibility corpus now checks 53 scripted cases from 26 unchanged BASIC Computer Games
-listings. Fourteen new sessions cover Reverse, Combat, Bombardment, Acey Ducey,
+listings. The latest fourteen sessions cover Reverse, Combat, Bombardment, Acey Ducey,
 Hangman and Bullfight. Across the full corpus, 49 sessions finish normally, two
 stop at recorded input checkpoints and two reproduce errors in the originals.
 Each case runs in the interpreter and six compiler modes. Every run is compared
