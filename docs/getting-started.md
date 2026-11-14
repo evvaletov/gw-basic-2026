@@ -40,7 +40,7 @@ Command Line Tools, installed with `xcode-select --install`. The interpreter
 needs no Homebrew libraries. Audio output is disabled in these archives.
 
 The binaries are not Developer ID signed or notarised. macOS may ask you to
-approve downloaded software; the [Homebrew installation](../README.md#homebrew)
+approve downloaded software; the [Homebrew installation](https://github.com/evvaletov/gw-basic-2026#homebrew)
 is another option. Tests exercise extracted archives on macOS 15, including
 interpreter and native execution, input, arrays, strings, file I/O and paths
 containing spaces. They do not cover the interactive editor or terminal graphics.
