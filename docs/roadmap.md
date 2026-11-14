@@ -127,6 +127,10 @@ The v0.18.1 fixes cover terminal resize visibility, the 16-bit DOS string pool,
 and compiler control flow. Numeric and nested IF/ELSE regressions include
 missing-line errors and have Microsoft GW-BASIC reference checks (`b2bb5ca`).
 Release archives are prepared by CI with source metadata and checksums.
+The macOS workflow builds separate Apple Silicon and Intel archives, checks
+their architecture and system-library dependencies, and runs the extracted
+interpreter and compiler on macOS 15. Tagged-source builds can add downloads to
+an existing release. These archives disable audio and are not notarised.
 Audio measurements validate the application stream; physical speaker fidelity
 remains unverified.
 
@@ -146,13 +150,13 @@ Next priorities:
    (git-bug `dc24012`).
 2. Prepare a focused retrocomputing/DOS community announcement under the
    selected venue's current rules (git-bug `682425c`).
-3. Add tested macOS binary release archives, building on the working macOS
-   package CI (git-bug `e82ce91`).
-4. Complete the FreeDOS repository route after maintainers reply to the sent
+3. Complete the FreeDOS repository route after maintainers reply to the sent
    enquiry, including any requested FDNPKG/FDIMPLES checks (git-bug `ab8188c`).
-5. Add separately labelled playable GW-BASIC ports of Awari and Checkers while
+4. Add separately labelled playable GW-BASIC ports of Awari and Checkers while
    preserving the original listings and their reference failures
    (git-bug `51679f0`).
+5. Make SDF source, tag and git-bug synchronisation repeatable with failure
+   reporting (git-bug `0b511f7`).
 
 The tested AUR package awaits reopening of account registration. Homebrew and
 `gwbasickernel` on PyPI are live; directory requests await maintainers. HN stays
