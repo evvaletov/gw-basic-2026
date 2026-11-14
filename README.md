@@ -121,16 +121,37 @@ F5 Run, and native compilation in the integrated terminal. Install its VSIX
 from the `vscode-extension-stable` CI artifact, then configure the interpreter and
 compiler paths. The extension and runtime are packaged separately.
 
+## Homebrew
+
+Install the interpreter and native compiler on Linux or macOS:
+
+```sh
+brew tap evvaletov/gwbasic https://github.com/evvaletov/gw-basic-2026.git
+brew install evvaletov/gwbasic/gwbasic
+```
+
+The formula builds from a pinned source revision with PulseAudio disabled.
+`gwbasic-compile program.bas -c` uses the installed runtime automatically.
+Native compilation requires `gcc` on `PATH` (Apple's `gcc` command invokes
+Clang on macOS).
+
 ## Jupyter Kernel
 
 A Jupyter notebook kernel for GW-BASIC with inline Sixel graphics
-rendering, INPUT support, and Pygments syntax highlighting.
+rendering, INPUT support, and Pygments syntax highlighting. Requires Python
+3.10 or later and the native interpreter on Linux or macOS.
 
 ```bash
-pip install -e .
-gwbasickernel-install --user
-jupyter notebook  # select "GW-BASIC 2026" kernel
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install gwbasickernel jupyterlab
+gwbasickernel-install --sys-prefix
+jupyter lab  # select "GW-BASIC 2026" kernel
 ```
+
+See the [kernel installation guide](gwbasickernel/README.md) for interpreter
+setup and kernels installed in a different Python environment. To develop the
+kernel from this checkout, use `python -m pip install -e .`.
 
 ## What Works
 

@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gwbasickernel"
+dynamic = ["version"]
+description = "Jupyter kernel for GW-BASIC 2026 with inline graphics"
+readme = "gwbasickernel/README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{name = "Eremey Valetov"}]
+dependencies = ["ipykernel>=6", "jupyter_client>=8", "pygments>=2"]
+classifiers = [
+  "Framework :: Jupyter",
+  "Programming Language :: Python :: 3",
+  "Operating System :: POSIX :: Linux",
+  "Operating System :: MacOS",
+]
+
+[project.urls]
+Homepage = "https://github.com/evvaletov/gw-basic-2026"
+Documentation = "https://evvaletov.github.io/gw-basic-2026/"
+Issues = "https://github.com/evvaletov/gw-basic-2026/issues"
+
+[project.scripts]
+gwbasickernel-install = "gwbasickernel.install:main"
+
+[project.entry-points."pygments.lexers"]
+gwbasic = "gwbasickernel.basic_lexer:GWBasicLexer"
+
+[tool.setuptools.packages.find]
+include = ["gwbasickernel*"]
+
+[tool.setuptools.package-data]
+gwbasickernel = ["kernel.json"]
+
+[tool.setuptools.dynamic]
+version = {attr = "gwbasickernel.__version__"}

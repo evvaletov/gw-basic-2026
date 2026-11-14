@@ -1,0 +1,2 @@
+prune tests
+include tests/test_kernel_package.py
