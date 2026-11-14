@@ -16,9 +16,9 @@ bash tests/run_corpus.sh --case plot --mode O2
 python3 tests/test_corpus.py
 ```
 
-`fixtures.json` selects 53 cases from twenty-six listings. Inputs are fixed.
+`fixtures.json` selects 76 cases from thirty-six listings. Inputs are fixed.
 Random games use the original default RND sequence in a fresh process; no case
-uses the current date or RANDOMIZE. Forty-nine cases finish naturally with
+uses the current date or RANDOMIZE. Seventy-two cases finish naturally with
 `END`, two stop at documented input checkpoints, and two reproduce errors in
 the original listings. The vendored listing bytes remain unchanged.
 
@@ -48,6 +48,16 @@ the original listings. The vendored listing bytes remain unchanged.
 | Acey Ducey | oversized bet, bankruptcy and replay | Card names, wager validation, bankroll reset |
 | Hangman | letter solution, wrong/repeated guesses, loss, word/replay wins | String arrays, DATA reset, full drawing, answer reveal |
 | Bullfight | survival award, invalid answers/move and retreat | Nested DEF FN, random outcomes, instructions |
+| Chief | confirmation and disputed calculation | Arithmetic explanation, negative-step drawing |
+| Cube | winning path, invalid move, mine collision | RND(0), wager retry, winnings and bankruptcy |
+| Hammurabi | ten-year term, invalid allocations and impeachment, resignation | Harvest, rats, plague, immigration, resource limits, final assessment |
+| Depth Charge | loss, hit and replay | Three-coordinate input, sonar directions, shot limit, state reset |
+| Gunner | loss and two successful campaigns | Elevation limits, trigonometry, five targets per campaign, ammunition totals |
+| Train | incorrect answer and two correct problems | Percentage error, fractional division, replay |
+| Bombs Away | successful mission, loss and replay | ON GOTO, side/aircraft/target/defence retries, random outcomes |
+| Chemist | nine-life loss, correct dilution followed by errors | Arithmetic tolerance, random quantities, life counter |
+| Boxing | player and opponent wins | Three-round matches, full swings, jabs, cumulative scores |
+| Even Wins | player win, invalid moves and replay losses | Parity strategy, pile limits, both starting players, total reset |
 | Awari | three invalid inputs; first legal move | Input checkpoint; original error 26 at line 230 |
 | Checkers | opening with invalid input; computer capture | Input checkpoint; original error 26 at line 1340 |
 
@@ -76,10 +86,13 @@ C compiler. Python 3 and a POSIX host are required.
 
 ## Reference capture
 
-`expected/` contains captures from 2026-11-06, 2026-11-07 and 2026-11-13 using a local
+`expected/` contains captures from 2026-11-06, 2026-11-07, 2026-11-13 and
+2026-11-14 using a local
 Microsoft GW-BASIC source build (JWasm, 2023-10-03) under DOSBox-X. The pinned
 executable is not retail 3.23; these captures do not establish retail identity. `reference.json` records executable, adapter, source, input, transformed
 source, and transcript hashes. The Microsoft executable is not distributed here.
+The top-level capture date and adapter hash describe the initial batch; later
+captures record their date and hash in each case entry.
 
 To reproduce into a new directory using your own executable:
 
@@ -111,7 +124,7 @@ correctness by themselves.
 
 File redirection does not reproduce terminal echo, screen width/wrapping,
 graphics, or sound. These cases do not establish complete gameplay coverage,
-identical floating-point arithmetic, or compatibility of the other 72 listings.
+identical floating-point arithmetic, or compatibility of the other 62 listings.
 
 ## Full build audit and remaining gaps
 

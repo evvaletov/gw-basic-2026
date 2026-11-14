@@ -101,13 +101,18 @@ round trips; expression INTEGER limits remain unchanged (`58ea19c`).
 The harness now fails on output mismatches and process errors, with separate
 limits for audio, timer, and compilation tests (git-bug `54f3aa6`).
 
-The curated compatibility suite checks 53 scripted cases from twenty-six original
+The curated compatibility suite checks 76 scripted cases from thirty-six original
 listings against Microsoft GW-BASIC output and across six compiler modes.
 Hi-Lo, Bagels, Craps, Rock–Scissors–Paper and Dice include complete random
 games or simulations, retries and replay. Nim covers normal/misere endings,
 and Tic-Tac-Toe includes both X and O play. Reverse, Combat, Bombardment,
 Acey Ducey, Hangman and Bullfight add fourteen complete sessions, covering
-solutions, losses, input retries and replay. Awari and
+solutions, losses, input retries and replay. Another twenty-three cases cover
+Chief, Cube, Hammurabi, Depth Charge, Gunner, Train, Bombs Away, Chemist, Boxing
+and Even Wins. These include a ten-year Hammurabi term, two five-target Gunner
+campaigns, complete Boxing matches and both Even Wins starting positions.
+Seventy-two cases end naturally; all 98 vendored listings remain unchanged.
+Awari and
 Checkers have input checkpoints and expected original-listing failures: FOR
 without NEXT at lines 230 and 1340, respectively. These are documented dialect
 limitations, not successful complete games. The interpreter and compiler now
@@ -136,17 +141,25 @@ and cleans up its process groups after successful and failed commands.
 
 Next priorities:
 
-1. Prepare Show HN and Lobsters posts and a FreeDOS package submission using the
-   published release and clearly identified development changes
-   (git-bug `dc24012`, `ab8188c`).
-2. Expand gameplay beyond the twenty-six covered listings; assess separately labeled
-   GW-BASIC ports of original-dialect failures (git-bug `51679f0`).
-3. Add VS Code completion and debugging support after the packaged extension
-   milestone (git-bug `32a637c`).
-4. Add C-style `PRINTF` / `FPRINTF` with a shared formatter and HAL/file output
-   (git-bug `cd8750c`).
-5. Add FORTRAN-style formatted `WRITE` using that formatter while preserving
-   existing `WRITE` syntax (git-bug `a6e99af`).
+1. Write a technical article with reproducible native-compiler and notebook
+   graphics examples, distinguishing v0.18.2 from later test coverage
+   (git-bug `dc24012`).
+2. Prepare a focused retrocomputing/DOS community announcement under the
+   selected venue's current rules (git-bug `682425c`).
+3. Add tested macOS binary release archives, building on the working macOS
+   package CI (git-bug `e82ce91`).
+4. Complete the FreeDOS repository route after maintainers reply to the sent
+   enquiry, including any requested FDNPKG/FDIMPLES checks (git-bug `ab8188c`).
+5. Add separately labelled playable GW-BASIC ports of Awari and Checkers while
+   preserving the original listings and their reference failures
+   (git-bug `51679f0`).
+
+The tested AUR package awaits reopening of account registration. Homebrew and
+`gwbasickernel` on PyPI are live; directory requests await maintainers. HN stays
+deferred, and Lobsters needs an invitation and an eligible account. Broader
+gameplay coverage remains open for 62 listings. Later implementation work
+includes VS Code completion/debugging (`32a637c`), C-style `PRINTF` / `FPRINTF`
+(`cd8750c`) and FORTRAN-style formatted `WRITE` (`a6e99af`).
 
 ## Longer-Term Plans
 
