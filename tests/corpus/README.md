@@ -91,6 +91,8 @@ C compiler. Python 3 and a POSIX host are required.
 Microsoft GW-BASIC source build (JWasm, 2023-10-03) under DOSBox-X. The pinned
 executable is not retail 3.23; these captures do not establish retail identity. `reference.json` records executable, adapter, source, input, transformed
 source, and transcript hashes. The Microsoft executable is not distributed here.
+The top-level capture date and adapter hash describe the initial batch; later
+captures record their date and hash in each case entry.
 
 To reproduce into a new directory using your own executable:
 
