@@ -135,14 +135,14 @@ the larger local semantic matrices remain useful release checks.
 
 ### Compatibility Testing
 
-The curated corpus has 39 scripted cases from twenty original *BASIC
+The curated corpus has 53 scripted cases from twenty-six original *BASIC
 Computer Games* listings. Each interpreter run and each of six compiler modes
 must match a checked-in Microsoft GW-BASIC transcript. Compiled output must also
 match the interpreter. Normalization converts CRLF to LF and removes trailing
 spaces and tabs; leading spaces and blank lines remain significant.
 
 ```bash
-# Run one case, or leave off --case to run all 39.
+# Run one case, or leave off --case to run all 53.
 bash tests/run_corpus.sh --case plot --report corpus-matrix.json
 
 # Transpile and compile all 98 listings without executing them.
@@ -255,6 +255,11 @@ Fortran symbols and fences; it also checks timeout/success cleanup, duplex I/O,
 noisy processes and artifacts larger than the log cap.
 
 ## Release preparation
+
+The 16-bit FreeDOS ZIP exposes only 8.3 entries. Its tracked source tree is
+stored in `SOURCE/GWBASIC/SOURCE.TGZ` with the original filenames; extract that
+archive on a host with long-filename support. The packager verifies outer entry
+names, ZIP integrity and exact source-file contents before accepting the ZIP.
 
 `include/gwbasic.h` sets the runtime version. Keep `CHANGES.TXT`, the README
 banner, `pkg/GWBASIC.LSM`, and `RELEASE_NOTES.md` consistent with it. The DOS

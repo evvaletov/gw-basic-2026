@@ -7,10 +7,10 @@
 #   DOC/GWBASIC/README         (project README, CRLF)
 #   DOC/GWBASIC/CHANGES        (version history, CRLF)
 #   DOC/GWBASIC/LICENSE        (MIT, CRLF)
-#   SOURCE/GWBASIC/<...>       (full source tree, optional)
+#   SOURCE/GWBASIC/SOURCE.TGZ  (full source tree with its original filenames)
 #
 # Run from the project root:  ./pkg/build_pkg.sh
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -47,17 +47,15 @@ cp "$EXE" "$STAGE/BIN/GWBASIC.EXE"
 cp README.md "$STAGE/DOC/GWBASIC/README"
 cp CHANGES.TXT "$STAGE/DOC/GWBASIC/CHANGES"
 cp LICENSE "$STAGE/DOC/GWBASIC/LICENSE"
+cp pkg/README.DOS "$STAGE/DOC/GWBASIC/README.DOS"
 for f in "$STAGE/DOC/GWBASIC"/*; do
     unix2dos -q "$f" 2>/dev/null || sed -i 's/$/\r/' "$f"
 done
 
-# Source (so users can rebuild from the package).  Follow git's tracked-files
-# list to avoid bundling build/, _build/, *.obj, etc.
-git ls-files \
-    | grep -v '^docs/_build/' \
-    | grep -v '^build/' \
-    | tar -cf - -T - \
-    | tar -xf - -C "$STAGE/SOURCE/GWBASIC"
+# Keep long source names inside an archive so installation needs only 8.3 names.
+# The source archive can be unpacked on a host with long-filename support.
+git ls-files -z -- ':!:docs/_build/**' ':!:build/**' \
+    | tar --null -czf "$STAGE/SOURCE/GWBASIC/SOURCE.TGZ" -T -
 
 mkdir -p dist
 ZIP="$PROJECT_DIR/dist/gwbasic-$VERSION.zip"

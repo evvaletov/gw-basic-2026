@@ -16,9 +16,9 @@ bash tests/run_corpus.sh --case plot --mode O2
 python3 tests/test_corpus.py
 ```
 
-`fixtures.json` selects 39 cases from twenty listings. Inputs are fixed.
+`fixtures.json` selects 53 cases from twenty-six listings. Inputs are fixed.
 Random games use the original default RND sequence in a fresh process; no case
-uses the current date or RANDOMIZE. Thirty-five cases finish naturally with
+uses the current date or RANDOMIZE. Forty-nine cases finish naturally with
 `END`, two stop at documented input checkpoints, and two reproduce errors in
 the original listings. The vendored listing bytes remain unchanged.
 
@@ -42,6 +42,12 @@ the original listings. The vendored listing bytes remain unchanged.
 | Rock–Scissors–Paper | win/loss/tie, invalid setup and moves | Random choices, final score |
 | Dice | 100 rolls, replay and zero rolls | Histogram, array reset, empty FOR range |
 | Nim | two piles, instructions/retries, replay with misere rules | Computer moves, normal/misere endings |
+| Reverse | solved permutation, oversized move, quit/replay | Prefix reversals, random permutation, move count |
+| Combat | win, loss, treaty, invalid force/attack retries | ON GOTO, integer casualties, outcome branches |
+| Bombardment | win and loss with distinct outposts | Random placement, array of previous shots, terminal outcomes |
+| Acey Ducey | oversized bet, bankruptcy and replay | Card names, wager validation, bankroll reset |
+| Hangman | letter solution, wrong/repeated guesses, loss, word/replay wins | String arrays, DATA reset, full drawing, answer reveal |
+| Bullfight | survival award, invalid answers/move and retreat | Nested DEF FN, random outcomes, instructions |
 | Awari | three invalid inputs; first legal move | Input checkpoint; original error 26 at line 230 |
 | Checkers | opening with invalid input; computer capture | Input checkpoint; original error 26 at line 1340 |
 
@@ -70,7 +76,7 @@ C compiler. Python 3 and a POSIX host are required.
 
 ## Reference capture
 
-`expected/` contains captures from 2026-11-06 and 2026-11-07 using a local
+`expected/` contains captures from 2026-11-06, 2026-11-07 and 2026-11-13 using a local
 Microsoft GW-BASIC source build (JWasm, 2023-10-03) under DOSBox-X. The pinned
 executable is not retail 3.23; these captures do not establish retail identity. `reference.json` records executable, adapter, source, input, transformed
 source, and transcript hashes. The Microsoft executable is not distributed here.
@@ -105,7 +111,7 @@ correctness by themselves.
 
 File redirection does not reproduce terminal echo, screen width/wrapping,
 graphics, or sound. These cases do not establish complete gameplay coverage,
-identical floating-point arithmetic, or compatibility of the other 81 listings.
+identical floating-point arithmetic, or compatibility of the other 72 listings.
 
 ## Full build audit and remaining gaps
 
@@ -126,7 +132,7 @@ transpilation or native compilation errors, so the current audit exits 1.
 | Sinewave | Builds, but Microsoft GW-BASIC reports syntax error at line 40 (`REMARKABLE`); excluded from runtime fixtures |
 
 The FOR/NEXT native compilation failures (`ca3a8b8`) are resolved. Broader
-scripted gameplay, random-seed handling, and dialect triage remain under `51679f0`.
+scripted gameplay and dialect triage remain under `51679f0`.
 FOR entry validation and GOSUB loop scope now have focused original-GW-BASIC
 references in `../compatibility/semantics.json`. That suite also checks DEFTYPE
 storage changes and integer rounding. Successful builds are not counted as

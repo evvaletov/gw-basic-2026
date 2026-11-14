@@ -2,6 +2,7 @@
 """Package supplied binaries beside clean source; never creates a tag or publishes."""
 import argparse
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
@@ -18,6 +19,28 @@ REPO = Path(__file__).resolve().parents[1]
 
 def run(command, **kwargs):
     return subprocess.run(command, check=True, timeout=120, **kwargs)
+
+
+def validate_dos_package(path, repo):
+    """Check DOS-installable names and lossless inclusion of the tracked source."""
+    tracked = subprocess.check_output(
+        ['git', 'ls-files', '-z', '--', ':!:docs/_build/**', ':!:build/**'], cwd=repo
+    ).decode().split('\0')[:-1]
+    with zipfile.ZipFile(path) as package:
+        if package.testzip() is not None:
+            raise ValueError('FreeDOS package has a CRC error')
+        for name in package.namelist():
+            if any(not re.fullmatch(r'[A-Za-z0-9_-]{1,8}(?:\.[A-Za-z0-9_-]{1,3})?', part)
+                   for part in name.rstrip('/').split('/')):
+                raise ValueError(f'FreeDOS package entry is not 8.3: {name}')
+        source = package.read('SOURCE/GWBASIC/SOURCE.TGZ')
+    with tarfile.open(fileobj=io.BytesIO(source), mode='r:gz') as archive:
+        members = archive.getmembers()
+        if len(members) != len(tracked) or {m.name for m in members} != set(tracked):
+            raise ValueError('FreeDOS source inventory differs from tracked source')
+        for member in members:
+            if not member.isfile() or archive.extractfile(member).read() != (repo / member.name).read_bytes():
+                raise ValueError(f'FreeDOS source differs: {member.name}')
 
 
 def main():
@@ -92,6 +115,7 @@ def main():
             archive.add(linux, arcname=name)
         run(['bash', str(REPO / 'pkg/build_pkg.sh')], cwd=REPO,
             env=dict(os.environ, GW_DOS16_EXE=str(args.dos16.resolve())), stdout=subprocess.DEVNULL)
+        validate_dos_package(REPO / f'dist/gwbasic-{version}.zip', REPO)
         shutil.copy2(REPO / f'dist/gwbasic-{version}.zip', output)
         with zipfile.ZipFile(output / f'gwbasic-{version}-dos32.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
             archive.write(args.dos32, 'GWBASIC.EXE')

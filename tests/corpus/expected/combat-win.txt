@@ -1,0 +1,30 @@
+                                COMBAT
+              CREATIVE COMPUTING  MORRISTOWN, NEW JERSEY
+
+
+
+I AM AT WAR WITH YOU.
+WE HAVE 72000 SOLDIERS APIECE.
+
+DISTRIBUTE YOUR FORCES.
+              ME              YOU
+ARMY           30000        ? NAVY           20000        ? A. F.          22000        ?
+DISTRIBUTE YOUR FORCES.
+              ME              YOU
+ARMY           30000        ? NAVY           20000        ? A. F.          22000        ? YOU ATTACK FIRST. TYPE (1) FOR ARMY; (2) FOR NAVY;
+AND (3) FOR AIR FORCE.
+? HOW MANY MEN
+? HOW MANY MEN
+? HOW MANY MEN
+? YOU LOST 5000 MEN, BUT I LOST  20000
+
+              YOU           ME
+ARMY           25000         0
+NAVY           20000         20000
+A. F.          22000         22000
+WHAT IS YOUR NEXT MOVE?
+ARMY=1  NAVY=2  AIR FORCE=3
+? HOW MANY MEN
+? ONE OF YOUR PLANES CRASHED INTO MY HOUSE. I AM DEAD.
+MY COUNTRY FELL APART.
+YOU WON, OH! SHUCKS!!!!

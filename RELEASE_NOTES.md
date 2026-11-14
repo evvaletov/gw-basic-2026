@@ -1,74 +1,66 @@
-# GW-BASIC 2026 v0.18.1
+# GW-BASIC 2026 v0.18.2
 
-This bugfix release corrects terminal input, compiler control flow, and test
-failure reporting. It also adds reproducible compatibility checks and release
-archives for Linux and DOS.
+This release improves compatibility with original BASIC programs and makes the
+FreeDOS package installable without long-filename support. It also includes the
+VS Code Run/Compile integration and compiler path-handling fixes developed since
+v0.18.1.
 
-- Numbered edits no longer print an extra `Ok`. INPUT excludes its prompt;
-  AUTO and input editing retain the typed answer. Loading ASCII source preserves
-  the active command buffer. Lines whose expanded tokens exceed the buffer are
-  rejected before execution. CLEAR rejects truncated binary token payloads.
-- The terminal keeps pending input and commands when resized. A viewport follows
-  the cursor when the window is smaller than the BASIC screen; the logical
-  screen retains its startup dimensions. CLS preserves the visible F-key bar.
-  Shortening a scrolled answer on a very small screen keeps the cursor within
-  the screen buffer, including an empty answer.
-- The 16-bit DOS string pool defaults to 8 KiB, leaving room for program lines
-  and GC scratch space in the 64 KiB near-data segment. Other builds retain
-  32 KiB. `CLEAR` can request a different size within available memory.
-- Ctrl-C interrupts DOS loops even when the program does not read the keyboard.
-- LOCATE uses BASIC's one-based coordinates consistently in both execution
-  paths. The DOS hardware cursor aligns with the editor's logical position.
-- Compiled FOR/NEXT loops track the active loop, including alternate NEXT paths,
-  shared NEXT statements, and loop re-entry. GOSUB can return to call sites later
-  in the source. CLEAR resets both compiled control stacks. Initially empty FOR
-  loops skip their bodies in both interpreter and compiler.
-- Compiler fixes cover grouped strings, shared array storage, INPUT variable
-  preservation, DEF FN tokens, and backward TAB. Regression failures and
-  timeouts now fail CI.
-- Numeric THEN/ELSE branches retain their targets across whitespace, and nested
-  ELSE clauses bind to the matching IF. Missing ELSE targets raise BASIC error
-  8 when reached, including through ON ERROR handlers, instead of producing
-  undefined C labels. Sixteen focused cases also match Microsoft GW-BASIC.
+## Compatibility changes
 
-The corpus checks 13 scripted cases against Microsoft GW-BASIC transcripts in
-the interpreter and six compiler modes. Awari and Checkers now compile. The full
-98-listing build audit reports 97 successes and one syntax rejection: Super Star
-Trek contains an unspaced `TO` expression also rejected by Microsoft GW-BASIC.
-Build success is not complete gameplay coverage. The original listings and
-license remain unchanged.
+- Preserve full variable names, including periods, through 40 characters.
+- Match the original RND sequence and RANDOMIZE seed handling, including the
+  prompt when RANDOMIZE has no argument.
+- Compile INPUT$ and execution-order DEFTYPE declarations natively, including
+  programs that call C through `$EXTERN`.
+- Preserve FOR/GOSUB loop scope and native error-recovery continuation points.
+  Accept ASCII line labels through 65529 without changing expression integer limits.
+- Improve terminal INPUT/LINE INPUT editing, resize handling, CP437 display and
+  terminal restoration after interruption.
+- Invoke GCC without a shell, so compiler paths containing spaces, quotes and
+  shell metacharacters are passed literally.
 
-## Archives
+The corpus now checks 53 scripted cases from 26 unchanged BASIC Computer Games
+listings. Fourteen new sessions cover Reverse, Combat, Bombardment, Acey Ducey,
+Hangman and Bullfight. Across the full corpus, 49 sessions finish normally, two
+stop at recorded input checkpoints and two reproduce errors in the originals.
+Every case is compared with Microsoft reference output in the interpreter and
+six compiler modes.
 
-- `gwbasic-0.18.1-linux-x86_64.tar.gz`: interpreter, AOT compiler, runtime library,
-  headers, and a small example. CI builds it on Ubuntu 22.04. `BUILD.json` records
-  the source commit, binary hashes, CI run, and build host's libc version.
-  CI builds all binaries from that source commit; local packaging records
-  supplied binaries and checks their versions. PulseAudio runtime libraries are
-  required; compiling BASIC also requires GCC and the PulseAudio development
-  libraries. See the included `QUICKSTART.txt`.
-- `gwbasic-0.18.1.zip`: FreeDOS package with the 16-bit real-mode interpreter,
-  metadata, documentation, and source. No DOS extender is required.
-- `gwbasic-0.18.1-dos32.zip`: 32-bit DOS/4GW interpreter. Supply `DOS4GW.EXE`
-  separately; it is not included.
-- `gwbasic-0.18.1-source.tar.gz`: tracked source at the release commit.
-- `SHA256SUMS`: checksums for the archives and accompanying metadata.
+The reference is a pinned Microsoft GW-BASIC assembly-source build made with
+JWasm, not retail 3.23. File redirection captures calculations and text output;
+it does not establish equivalent terminal wrapping, graphics, sound or hardware
+behaviour. The other 72 vendored listings have no scripted runtime coverage.
 
-Verify downloads with `sha256sum --check SHA256SUMS` from their directory.
-CI prepares these archives after the Linux and DOS checks pass. Packaging does
-not create a tag or publish a release.
+## Downloads
 
-## Validation scope and remaining limits
+- `gwbasic-0.18.2-linux-x86_64.tar.gz`: interpreter, BASIC-to-C compiler, runtime
+  library, headers and a small example. `BUILD.json` identifies the source commit,
+  supplied binaries, build host and libc version. Native compilation needs GCC
+  and PulseAudio development libraries for a runtime built with PulseAudio.
+- `gwbasic-0.18.2.zip`: 16-bit DOS interpreter with package metadata, documentation
+  and source. No DOS extender is needed. Copy or rename the downloaded archive
+  to `GWBASIC.ZIP` for use with DOS short filenames.
+- `gwbasic-0.18.2-dos32.zip`: 32-bit interpreter; provide `DOS4GW.EXE` separately.
+- `gwbasic-0.18.2-source.tar.gz`: source at the recorded commit.
+- `SHA256SUMS`: archive and metadata checksums.
 
-Validation includes the interpreter/compiler suites, compiler mode comparisons,
-PTY input and resize checks, curated corpus, and sanitizer runs. Local DOS QA
-uses a disposable FreeDOS/QEMU boot disk and checks the actual BIOS-rendered
-editor. Audio QA measures only the application's PulseAudio stream on an
-isolated sink. Physical speaker fidelity is not established; the development
-VM's default audio backend also distorted a separate known-good PCM control.
+The 16-bit ZIP has 8.3 names throughout its outer directory tree. The complete
+tracked source is stored in `SOURCE/GWBASIC/SOURCE.TGZ`; extract that inner
+archive on a host with long-filename support. Packaging verifies the outer names
+and compares every archived source file with the checkout.
 
-Strict GW-BASIC error behavior for nonempty FOR statements and conditional
-DEFTYPE changes still needs work. Most corpus games lack scripted runtime
-coverage. Compiled event handlers and several physical-device interfaces remain
-unsupported; see the language reference and roadmap. The implementation is
-MIT-licensed; vendored BASIC Computer Games listings use the upstream Unlicense.
+The VS Code extension is distributed separately as a VSIX CI artifact. It
+supports highlighting, snippets, Run and Compile. Completion and debugging are
+still planned.
+
+## Limits
+
+Floating-point arithmetic uses IEEE 754. MBF file conversion does not reproduce
+all intermediate arithmetic of the original interpreter. Several hardware
+interfaces are emulated or stubbed, and compiled timer/key events are unsupported.
+Runtime/editor execution is tested on Linux; DOS runtime tests use FreeDOS/QEMU.
+The new corpus comparisons use POSIX executables and do not establish the same
+26-listing coverage on DOS. Physical speaker fidelity remains unverified.
+
+The implementation uses the MIT License. The vendored BASIC Computer Games
+listings retain their upstream Unlicense. See CHANGES.TXT for the full history.

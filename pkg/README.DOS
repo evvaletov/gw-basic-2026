@@ -1,0 +1,22 @@
+GW-BASIC 2026 for DOS
+
+BIN/GWBASIC.EXE is the 16-bit real-mode interpreter. It needs no DOS extender.
+Run GWBASIC to open the editor, or GWBASIC GAME.BAS to load and run a program.
+Type SYSTEM to exit. The separate 32-bit build requires DOS4GW.EXE.
+
+The package uses relative APPINFO, BIN, DOC and SOURCE directories. Extract
+it into your chosen DOS software directory and put its BIN directory on PATH.
+GWBASIC.EXE can share a filename with an older interpreter; choose a separate
+installation directory if you want to retain both.
+
+SOURCE/GWBASIC/SOURCE.TGZ contains the full tracked source tree. Extract it
+on a host with long-filename support to preserve the original source names.
+The installed interpreter and outer package entries use 8.3 filenames.
+The native-code compiler is a separate POSIX tool; it is not in this DOS binary.
+
+See README for building, CHANGES for updates and LICENSE for the MIT licence.
+The source archive includes the separate Unlicense for BASIC Computer Games.
+Hardware interfaces include emulation and stubs. Floating-point arithmetic
+uses IEEE 754; it is not identical to the original Microsoft intermediate math.
+
+Project: https://github.com/evvaletov/gw-basic-2026

@@ -432,6 +432,159 @@
         "occupied-square retry",
         "computer win"
       ]
+    },
+    {
+      "id": "reverse-win",
+      "source": "reverse.bas",
+      "input": "inputs/reverse-win.txt",
+      "expected": "expected/reverse-win.txt",
+      "features": [
+        "instructions",
+        "too-large move retry",
+        "eleven-move complete solution"
+      ]
+    },
+    {
+      "id": "reverse-replay",
+      "source": "reverse.bas",
+      "input": "inputs/reverse-replay.txt",
+      "expected": "expected/reverse-replay.txt",
+      "features": [
+        "prefix reversal",
+        "early exit",
+        "replay with a new permutation"
+      ]
+    },
+    {
+      "id": "combat-win",
+      "source": "combat.bas",
+      "input": "inputs/combat-win.txt",
+      "expected": "expected/combat-win.txt",
+      "features": [
+        "force-allocation retry",
+        "negative and oversized attack retries",
+        "player victory"
+      ]
+    },
+    {
+      "id": "combat-loss",
+      "source": "combat.bas",
+      "input": "inputs/combat-loss.txt",
+      "expected": "expected/combat-loss.txt",
+      "features": [
+        "integer casualties",
+        "player defeat"
+      ]
+    },
+    {
+      "id": "combat-peace",
+      "source": "combat.bas",
+      "input": "inputs/combat-peace.txt",
+      "expected": "expected/combat-peace.txt",
+      "features": [
+        "zero-size attacks",
+        "peace treaty"
+      ]
+    },
+    {
+      "id": "bombardment-win",
+      "source": "bombardment.bas",
+      "input": "inputs/bombardment-win.txt",
+      "expected": "expected/bombardment-win.txt",
+      "features": [
+        "four distinct outposts",
+        "random counterattacks",
+        "player victory"
+      ]
+    },
+    {
+      "id": "bombardment-loss",
+      "source": "bombardment.bas",
+      "input": "inputs/bombardment-loss.txt",
+      "expected": "expected/bombardment-loss.txt",
+      "features": [
+        "four distinct outposts",
+        "random counterattacks",
+        "player defeat"
+      ]
+    },
+    {
+      "id": "aceyducey-loss",
+      "source": "aceyducey.bas",
+      "input": "inputs/aceyducey-loss.txt",
+      "expected": "expected/aceyducey-loss.txt",
+      "features": [
+        "oversized wager retry",
+        "card names",
+        "bankruptcy"
+      ]
+    },
+    {
+      "id": "aceyducey-replay",
+      "source": "aceyducey.bas",
+      "input": "inputs/aceyducey-replay.txt",
+      "expected": "expected/aceyducey-replay.txt",
+      "features": [
+        "bankroll reset",
+        "replay",
+        "bankruptcy"
+      ]
+    },
+    {
+      "id": "hangman-letters",
+      "source": "hangman.bas",
+      "input": "inputs/hangman-letters.txt",
+      "expected": "expected/hangman-letters.txt",
+      "features": [
+        "wrong word guesses",
+        "repeated-letter retry",
+        "complete letter solution"
+      ]
+    },
+    {
+      "id": "hangman-loss",
+      "source": "hangman.bas",
+      "input": "inputs/hangman-loss.txt",
+      "expected": "expected/hangman-loss.txt",
+      "features": [
+        "ten wrong guesses",
+        "string-array drawing",
+        "answer reveal"
+      ]
+    },
+    {
+      "id": "hangman-replay",
+      "source": "hangman.bas",
+      "input": "inputs/hangman-replay.txt",
+      "expected": "expected/hangman-replay.txt",
+      "features": [
+        "word guesses",
+        "replay",
+        "DATA reset"
+      ]
+    },
+    {
+      "id": "bullfight-brave",
+      "source": "bullfight.bas",
+      "input": "inputs/bullfight-brave.txt",
+      "expected": "expected/bullfight-brave.txt",
+      "features": [
+        "DEF FN random choices",
+        "gored but survives",
+        "award"
+      ]
+    },
+    {
+      "id": "bullfight-retreat",
+      "source": "bullfight.bas",
+      "input": "inputs/bullfight-retreat.txt",
+      "expected": "expected/bullfight-retreat.txt",
+      "features": [
+        "instructions",
+        "yes/no retry",
+        "invalid kill move",
+        "retreat"
+      ]
     }
   ]
 }

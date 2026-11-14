@@ -1,7 +1,13 @@
 GW-BASIC 2026 -- Change History
 ================================
 
-Unreleased
+v0.18.2
+  - Store the complete source in SOURCE/GWBASIC/SOURCE.TGZ so the installed
+    FreeDOS package uses 8.3 names. Add DOS installation/source notes.
+  - Add fourteen complete reference sessions from six more unchanged listings:
+    Reverse, Combat, Bombardment, Acey Ducey, Hangman and Bullfight. The corpus
+    now contains 53 cases across 26 listings: 49 complete runs, two input
+    checkpoints and two expected original-dialect errors.
   - Compile conditional and later DEFTYPE with native tagged expressions and
     execution-order shared scalar/array storage. Support $EXTERN on this path,
     including calls inside shared statement handlers and DEF FN bodies.

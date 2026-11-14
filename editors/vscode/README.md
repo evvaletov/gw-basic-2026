@@ -51,9 +51,8 @@ For programs elsewhere, use absolute executable paths and a runtime root:
 }
 ```
 
-The compiler path-handling fix is newer than v0.18.1. Build the current checkout
-for compilation in paths containing spaces, quotes, or shell metacharacters;
-the published v0.18.1 compiler does not handle those paths safely.
+Use v0.18.2 or a newer build for compilation in paths containing spaces, quotes,
+or shell metacharacters. The v0.18.1 compiler does not handle those paths safely.
 
 ## Running and compiling
 

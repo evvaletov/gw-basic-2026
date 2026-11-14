@@ -101,11 +101,13 @@ round trips; expression INTEGER limits remain unchanged (`58ea19c`).
 The harness now fails on output mismatches and process errors, with separate
 limits for audio, timer, and compilation tests (git-bug `54f3aa6`).
 
-The curated compatibility suite checks 39 scripted cases from twenty original
+The curated compatibility suite checks 53 scripted cases from twenty-six original
 listings against Microsoft GW-BASIC output and across six compiler modes.
 Hi-Lo, Bagels, Craps, Rock–Scissors–Paper and Dice include complete random
 games or simulations, retries and replay. Nim covers normal/misere endings,
-and Tic-Tac-Toe includes both X and O play. Awari and
+and Tic-Tac-Toe includes both X and O play. Reverse, Combat, Bombardment,
+Acey Ducey, Hangman and Bullfight add fourteen complete sessions, covering
+solutions, losses, input retries and replay. Awari and
 Checkers have input checkpoints and expected original-listing failures: FOR
 without NEXT at lines 230 and 1340, respectively. These are documented dialect
 limitations, not successful complete games. The interpreter and compiler now
@@ -123,7 +125,7 @@ Release archives are prepared by CI with source metadata and checksums.
 Audio measurements validate the application stream; physical speaker fidelity
 remains unverified.
 
-Development since v0.18.1 adds FOR-entry validation, GOSUB-scoped loop
+Version 0.18.2 adds FOR-entry validation, GOSUB-scoped loop
 stacks and native execution-order DEFTYPE storage. Conditional and later type
 declarations use tagged native expressions and shared variable/array storage;
 `$EXTERN` calls work on this path, including inside shared statement handlers.
@@ -137,7 +139,7 @@ Next priorities:
 1. Prepare Show HN and Lobsters posts and a FreeDOS package submission using the
    published release and clearly identified development changes
    (git-bug `dc24012`, `ab8188c`).
-2. Expand gameplay beyond the twenty covered listings; assess separately labeled
+2. Expand gameplay beyond the twenty-six covered listings; assess separately labeled
    GW-BASIC ports of original-dialect failures (git-bug `51679f0`).
 3. Add VS Code completion and debugging support after the packaged extension
    milestone (git-bug `32a637c`).
