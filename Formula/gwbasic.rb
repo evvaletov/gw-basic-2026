@@ -1,5 +1,5 @@
 class Gwbasic < Formula
-  desc "GW-BASIC interpreter and ahead-of-time native compiler"
+  desc "Line-numbered BASIC interpreter and ahead-of-time native compiler"
   homepage "https://github.com/evvaletov/gw-basic-2026"
   url "https://github.com/evvaletov/gw-basic-2026/archive/12131e52fff5b7bc1afbbc50e90dd2ac3bb79ec7.tar.gz"
   version "0.18.2"
