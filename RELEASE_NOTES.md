@@ -1,7 +1,7 @@
 # GW-BASIC 2026 v0.18.2
 
-This release improves compatibility with original BASIC programs and gives the
-FreeDOS package 8.3 names throughout its outer directory tree. It also includes the
+This release improves compatibility with original BASIC programs and fixes
+long-filename problems in the DOS packages. It also covers the
 VS Code Run/Compile integration and compiler path-handling fixes developed since
 v0.18.1.
 
@@ -19,7 +19,7 @@ v0.18.1.
 - Invoke GCC without a shell, so compiler paths containing spaces, quotes and
   shell metacharacters are passed literally.
 
-The corpus now checks 53 scripted cases from 26 unchanged BASIC Computer Games
+The compatibility corpus now checks 53 scripted cases from 26 unchanged BASIC Computer Games
 listings. Fourteen new sessions cover Reverse, Combat, Bombardment, Acey Ducey,
 Hangman and Bullfight. Across the full corpus, 49 sessions finish normally, two
 stop at recorded input checkpoints and two reproduce errors in the originals.
@@ -35,7 +35,7 @@ behaviour. The other 72 vendored listings have no scripted runtime coverage.
 
 - `gwbasic-0.18.2-linux-x86_64.tar.gz`: interpreter, BASIC-to-C compiler, runtime
   library, headers and a small example. `BUILD.json` identifies the source commit,
-  supplied binaries, packaging host and libc version. Native compilation needs GCC
+  supplied binaries, packaging platform and libc version. Native compilation needs GCC
   and PulseAudio development libraries because the supplied runtime uses PulseAudio.
 - `gwbasic-0.18.2.zip`: 16-bit DOS interpreter with package metadata, documentation
   and source. No DOS extender is needed. Copy or rename the downloaded archive
@@ -60,8 +60,7 @@ Floating-point arithmetic uses IEEE 754. MBF file conversion does not reproduce
 all intermediate arithmetic of the original interpreter. Several hardware
 interfaces are emulated or stubbed, and compiled timer/key events are unsupported.
 The interpreter and editor are tested on Linux; DOS runtime tests use FreeDOS/QEMU.
-The new corpus comparisons use POSIX executables and do not establish the same
-26-listing coverage on DOS. Physical speaker fidelity remains unverified.
+The corpus comparisons run on POSIX and have not been repeated on DOS. Physical speaker fidelity remains unverified.
 
 The implementation uses the MIT License. The vendored BASIC Computer Games
 listings retain their upstream Unlicense. See CHANGES.TXT for the full history.

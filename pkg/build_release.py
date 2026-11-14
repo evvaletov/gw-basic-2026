@@ -21,26 +21,37 @@ def run(command, **kwargs):
     return subprocess.run(command, check=True, timeout=120, **kwargs)
 
 
+def tracked_files(repo):
+    return subprocess.check_output(['git', 'ls-files', '-z'], cwd=repo).decode().split('\0')[:-1]
+
+
+def validate_dos_entries(package):
+    if package.testzip() is not None:
+        raise ValueError('DOS package has a CRC error')
+    for name in package.namelist():
+        if any(not re.fullmatch(r'[A-Za-z0-9_-]{1,8}(?:\.[A-Za-z0-9_-]{1,3})?', part)
+               for part in name.rstrip('/').split('/')):
+            raise ValueError(f'DOS package entry is not 8.3: {name}')
+
+
+def validate_source_archive(archive, repo, prefix=''):
+    """Both source downloads must retain every tracked file and its bytes."""
+    expected = {prefix + name: name for name in tracked_files(repo)}
+    members = [member for member in archive.getmembers() if not member.isdir()]
+    if len(members) != len(expected) or {member.name for member in members} != set(expected):
+        raise ValueError('Source archive inventory differs from tracked source')
+    for member in members:
+        if not member.isfile() or archive.extractfile(member).read() != (repo / expected[member.name]).read_bytes():
+            raise ValueError(f'Source archive differs: {member.name}')
+
+
 def validate_dos_package(path, repo):
     """Check DOS-installable names and lossless inclusion of the tracked source."""
-    tracked = subprocess.check_output(
-        ['git', 'ls-files', '-z'], cwd=repo
-    ).decode().split('\0')[:-1]
     with zipfile.ZipFile(path) as package:
-        if package.testzip() is not None:
-            raise ValueError('FreeDOS package has a CRC error')
-        for name in package.namelist():
-            if any(not re.fullmatch(r'[A-Za-z0-9_-]{1,8}(?:\.[A-Za-z0-9_-]{1,3})?', part)
-                   for part in name.rstrip('/').split('/')):
-                raise ValueError(f'FreeDOS package entry is not 8.3: {name}')
+        validate_dos_entries(package)
         source = package.read('SOURCE/GWBASIC/SOURCE.TGZ')
     with tarfile.open(fileobj=io.BytesIO(source), mode='r:gz') as archive:
-        members = archive.getmembers()
-        if len(members) != len(tracked) or {m.name for m in members} != set(tracked):
-            raise ValueError('FreeDOS source inventory differs from tracked source')
-        for member in members:
-            if not member.isfile() or archive.extractfile(member).read() != (repo / member.name).read_bytes():
-                raise ValueError(f'FreeDOS source differs: {member.name}')
+        validate_source_archive(archive, repo)
 
 
 def main():
@@ -93,7 +104,11 @@ def main():
         for binary in ('gwbasic', 'gwbasic-compile'):
             shutil.copy2(build / binary, linux / 'bin' / binary)
         shutil.copy2(build / 'libgwrt.a', linux / 'build/libgwrt.a')
-        shutil.copytree(REPO / 'include', linux / 'include')
+        for name in tracked_files(REPO):
+            if name.startswith('include/'):
+                destination = linux / name
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(REPO / name, destination)
         for doc in ('README.md', 'CHANGES.TXT', 'LICENSE', 'RELEASE_NOTES.md'):
             shutil.copy2(REPO / doc, linux / doc)
         (linux / 'BUILD.json').write_text(metadata_json)
@@ -127,8 +142,12 @@ def main():
                 archive.writestr(name, (REPO / doc).read_text().replace('\n', '\r\n'))
             archive.writestr('README.TXT', 'GW-BASIC '+version+' for DOS/4GW.\r\n'
                 'Provide DOS4GW.EXE on PATH or in this directory; it is not included.\r\n')
+        with zipfile.ZipFile(output / f'gwbasic-{version}-dos32.zip') as archive:
+            validate_dos_entries(archive)
         run(['git', 'archive', '--format=tar.gz', f'--prefix=gwbasic-{version}/',
              '-o', str(output / f'gwbasic-{version}-source.tar.gz'), commit], cwd=REPO)
+        with tarfile.open(output / f'gwbasic-{version}-source.tar.gz') as archive:
+            validate_source_archive(archive, REPO, f'gwbasic-{version}/')
     (output / 'BUILD.json').write_text(metadata_json)
     shutil.copy2(REPO / 'RELEASE_NOTES.md', output)
     checksums = [hashlib.sha256(path.read_bytes()).hexdigest() + '  ' + path.name

@@ -8,9 +8,9 @@ Description:     A portable C reimplementation of Microsoft GW-BASIC, using
                  compatible behavior with classic GW-BASIC programs.
                  Includes a full-screen TUI editor that renders through
                  BIOS INT 10h on bare FreeDOS (no ANSI.SYS required),
-                 MBF on-disk file
-                 format compatibility, and an ahead-of-time compiler
-                 (Linux/POSIX builds only).
+                 and MBF on-disk file format compatibility. The project
+                 also provides an ahead-of-time compiler on Linux/POSIX;
+                 that compiler is distributed separately.
 Keywords:        BASIC, GW-BASIC, Microsoft, interpreter, retrocomputing
 Author:          Eremey Valetov <evv@msu.edu>
 Maintained-by:   Eremey Valetov <evv@msu.edu>

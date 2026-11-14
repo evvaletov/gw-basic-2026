@@ -231,6 +231,7 @@ jobs:
           path: build/dos
       - name: Package and smoke-test archives
         run: |
+          python3 tests/test_packaging.py
           python3 pkg/build_release.py --dos16 build/dos/gwbasic16.exe \
             --dos32 build/dos/gwbasic.exe --output dist/release
           cd dist/release
