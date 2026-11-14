@@ -8,6 +8,34 @@ The interpreter implements the language in C11 and aims to reproduce the
 original behavior. Hardware access uses emulation or device stubs; see the
 [language reference](docs/language-reference.md) for their limits.
 
+## Demos
+
+### FreeDOS editor
+
+The 16-bit interpreter, installed with FreeDOS's FDINST package installer, listing and running [squares.bas](examples/squares.bas) in QEMU:
+
+![GW-BASIC full-screen editor in FreeDOS, showing the squares program and its output](docs/images/freedos-editor.png)
+
+### Native compilation
+
+The same listing compiles through C to a native executable. These commands run from the repository root after building:
+
+```text
+cp examples/squares.bas build/squares.bas
+build/gwbasic-compile build/squares.bas -c --keep-c --runtime .
+build/squares
+```
+
+The executable prints the same table of squares as the interpreter. `build/squares.c` contains the generated C.
+
+### Notebook graphics
+
+[graphics.ipynb](examples/graphics.ipynb) runs [circles.bas](examples/circles.bas) through the Jupyter kernel. The kernel converts the interpreter's Sixel output to inline PNG images. This preview shows the final frame from the executed notebook's HTML export:
+
+![Executed BASIC notebook with a SCREEN 1 program and its concentric circles](docs/images/notebook-graphics.png)
+
+See [Reproducing the demos](docs/demos.md) for installation, commands, capture details and limitations.
+
 ## Building
 
 ```bash
