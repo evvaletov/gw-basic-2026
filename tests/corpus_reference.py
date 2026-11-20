@@ -147,7 +147,8 @@ def main():
             parser.error(f'unknown cases: {sorted(unknown)}')
         cases = [case for case in cases if case['id'] in args.case]
     ids = [case['id'] for case in cases]
-    if len(ids) != len(set(ids)) or any(not re.fullmatch(r'[A-Za-z0-9_-]+', name) for name in ids):
+    id_pattern = r'[a-z0-9-]+' if file_suite else r'[A-Za-z0-9_-]+'
+    if not ids or len(ids) != len(set(ids)) or any(not re.fullmatch(id_pattern, name) for name in ids):
         parser.error('fixture IDs must be unique safe filenames')
     paths = {case['id']: (fixture_path(source_root, case['source']), fixture_path(corpus, case['input']))
              for case in cases} if file_suite else {}

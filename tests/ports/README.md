@@ -26,7 +26,7 @@ interpreter and O2 native mode on Apple Silicon and Intel.
 | `checkers-quit` | Piece reselection and explicit quit; not a completed game |
 
 The eight complete-game cases contain 60 finished games, including the long
-history session. The two quit cases are reported separately above. These are
+history session. The two quit cases are marked in the table. These are
 tests of the documented historical variants, including optional captures in
 Checkers, rather than a claim of tournament-rule compliance.
 
