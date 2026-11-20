@@ -22,7 +22,7 @@ build/gwbasic-compile build/squares.bas -c --keep-c --runtime .
 build/squares
 ```
 
-Both executions print the integers 1 to 8 and their squares. The demo was checked by comparing their standard output byte for byte. The compiler writes `build/squares.c` and `build/squares`.
+Both executions print the integers 1 to 8 and their squares. The demo was checked by comparing their standard output byte for byte. The compiler writes `build/squares.bas.c` and `build/squares`.
 
 ## Run the FreeDOS package
 

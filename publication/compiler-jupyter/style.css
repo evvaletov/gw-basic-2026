@@ -1,0 +1,41 @@
+:root { color-scheme: light; --ink: #202b32; --muted: #52616b; --accent: #92401f; --paper: #faf8f3; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 18px/1.7 Georgia, "Times New Roman", serif; }
+header, main, footer { max-width: 860px; margin: auto; padding: 0 32px; }
+header { padding-top: 32px; padding-bottom: 26px; border-bottom: 1px solid #d8d7cf; font: 15px/1.5 system-ui, sans-serif; }
+header a { text-decoration: none; color: var(--ink); }
+header span { float: right; color: var(--muted); }
+main { padding-top: 40px; padding-bottom: 48px; }
+h1, h2 { font-family: system-ui, sans-serif; line-height: 1.2; letter-spacing: -.025em; }
+h1 { font-size: clamp(2.1rem, 5vw, 3.2rem); margin: 0 0 20px; max-width: 760px; }
+h2 { font-size: 1.55rem; margin: 2.3em 0 .8em; }
+p { margin: 1em 0; }
+a { color: var(--accent); text-underline-offset: .16em; overflow-wrap: anywhere; }
+a:hover { text-decoration-thickness: 2px; }
+a:focus-visible { outline: 3px solid #286078; outline-offset: 4px; }
+.meta, footer { font: 14px/1.7 system-ui, sans-serif; color: var(--muted); }
+.meta { margin-bottom: 30px; }
+pre { background: #eaece9; border: 1px solid #d5dad6; border-radius: 4px; padding: 18px 20px; overflow-x: auto; line-height: 1.55; font-size: 14px; }
+code { font-family: ui-monospace, "Cascadia Code", "DejaVu Sans Mono", monospace; font-size: .85em; }
+pre code { font-size: inherit; }
+p code { background: #ecece6; padding: .1em .25em; border-radius: 3px; overflow-wrap: anywhere; }
+img { display: block; width: 640px; max-width: 100%; height: auto; margin: 30px auto 18px; image-rendering: pixelated; border: 1px solid #7b827e; }
+footer { padding-top: 24px; padding-bottom: 32px; border-top: 1px solid #d8d7cf; }
+.skip { position: absolute; left: -10000px; }
+.skip:focus { position: fixed; top: 8px; left: 8px; background: white; padding: 8px; z-index: 1; }
+.entry { border-top: 1px solid #d8d7cf; padding-top: 24px; margin-top: 36px; }
+.entry h2 { margin: 0 0 12px; }
+@media (max-width: 540px) {
+  body { font-size: 17px; }
+  header, main, footer { padding-left: 20px; padding-right: 20px; }
+  header span { float: none; display: block; margin-top: 4px; }
+  main { padding-top: 30px; }
+  pre { padding: 14px; font-size: 13px; }
+}
+@media print {
+  body { background: white; color: black; font-size: 11pt; }
+  header, footer, .skip { display: none; }
+  main { max-width: none; padding: 0; }
+  pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+  a { color: inherit; }
+}

@@ -1,0 +1,27 @@
+{
+  "source_revision": "12131e52fff5b7bc1afbbc50e90dd2ac3bb79ec7",
+  "source_tag": "v0.18.2",
+  "platform": "Linux x86_64",
+  "python": "3.12.15",
+  "gcc": "gcc (GCC) 14.3.1 20251022 (Red Hat 14.3.1-4.0.1)",
+  "packages": {
+    "gwbasickernel": "0.1.0",
+    "jupyterlab": "4.6.6",
+    "nbclient": "0.11.0"
+  },
+  "interpreter_native_byte_match": true,
+  "squares_arithmetic_oracle": "8 rows: n and n*n for n=1..8",
+  "persistent_state_result": "42",
+  "notebook_finished": "DONE",
+  "png_frames": 12,
+  "final_png_dimensions": [
+    320,
+    204
+  ],
+  "sha256": {
+    "squares-output.txt": "96d8e631351cb9f115631604f0c8957cf9867e54c4e1f70d1192d0710954c4bd",
+    "squares.bas.c": "f53f4d1fa401628eecc593c6ebb54a29d56655342cc716df86848826f19eeb79",
+    "graphics.png": "0af509af078edc0274e0dcd8f44d39458efba6abfab73b7ab6c56b65e64e3b57",
+    "examples.ipynb": "7478486677c6cdb07a5c888d31520dfa4dab2b4d99909cf2dffcaf98a1dff272"
+  }
+}
