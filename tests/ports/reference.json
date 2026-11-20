@@ -1,6 +1,6 @@
 {
   "reference_sha256": "3d83e8d2bbc71e8b79e20c6cfb7bceba36c4dd4bda2a7af4c415cab6b3f3203c",
-  "adapter_sha256": "f1119be49325f1d19124ec76d7418b523a788672a93c22d5dd3b8768c7177ba8",
+  "adapter_sha256": "f375c1a6e8fb53ffb1991ff34faba7eb6b809830cda95d239ed0b27049c58ca4",
   "method": "Microsoft GW-BASIC under DOSBox-X; only I/O redirected",
   "suite": "ports",
   "cases": [
@@ -27,17 +27,17 @@
     },
     {
       "id": "checkers-win",
-      "sha256": "b38f8626eb48e765783bde98f068c81aac9abf2b18000ee381623aef917c625a",
-      "source_sha256": "50c98d92c1ab773befd2b60962e28c1bd9d787387ad8bb8055a95b2ef48b759e",
+      "sha256": "942cc308df888f742b2feb79eff0355f80d215f9c8754288ee44394fe3bd6d34",
+      "source_sha256": "ac78d2b1738964ff5a5910f82c588c8a8057e056c17ee6eadc1c29548225adad",
       "input_sha256": "e7333e05f55c3ced35eff9f1b77eb52cfaef7202767fb9d836270f750f19a948",
-      "capture_sha256": "f3802473c1de68bde3648fdd007c5b08a6abb64f42daab8befe738bd67b8936a"
+      "capture_sha256": "f9923a770eb98e5eb2b6fa513d05ca0dc17066caaad67fdc2ff99bd6560dd024"
     },
     {
       "id": "checkers-loss",
-      "sha256": "70d1dd4fa78aae1c72e396e6f6fb72e655c256103842e0d7819eb319a7127aec",
-      "source_sha256": "50c98d92c1ab773befd2b60962e28c1bd9d787387ad8bb8055a95b2ef48b759e",
+      "sha256": "c841abce24c944b26b1a3be601751f4c4df1f74d60280aa8a79eebf2ca2ac42e",
+      "source_sha256": "ac78d2b1738964ff5a5910f82c588c8a8057e056c17ee6eadc1c29548225adad",
       "input_sha256": "31d3201244cc5fa016b802abcd2fc8db06e19933b46b4d14bcf34f77cf972696",
-      "capture_sha256": "f3802473c1de68bde3648fdd007c5b08a6abb64f42daab8befe738bd67b8936a"
+      "capture_sha256": "f9923a770eb98e5eb2b6fa513d05ca0dc17066caaad67fdc2ff99bd6560dd024"
     },
     {
       "id": "awari-retry",
@@ -55,10 +55,10 @@
     },
     {
       "id": "checkers-retry-replay",
-      "sha256": "9653df58a52e7518c483e3fca15bcab5046065eea5d3b7298eba590d0a1a36a6",
-      "source_sha256": "50c98d92c1ab773befd2b60962e28c1bd9d787387ad8bb8055a95b2ef48b759e",
+      "sha256": "7b0ccc9be317e7af32ed70b24ebd9ac937395598857cba9e124acebe5bfc8bb6",
+      "source_sha256": "ac78d2b1738964ff5a5910f82c588c8a8057e056c17ee6eadc1c29548225adad",
       "input_sha256": "9a96ffe2fc285d0e933f0b680270a0f79ba1127b0523eed78a087c0c19e050f8",
-      "capture_sha256": "f3802473c1de68bde3648fdd007c5b08a6abb64f42daab8befe738bd67b8936a"
+      "capture_sha256": "f9923a770eb98e5eb2b6fa513d05ca0dc17066caaad67fdc2ff99bd6560dd024"
     },
     {
       "id": "awari-quit",
@@ -69,10 +69,10 @@
     },
     {
       "id": "checkers-quit",
-      "sha256": "2e53ecec9a521e1cf1778d15c14cb8be75c7cfdb61ce52aafd037ffe180e293f",
-      "source_sha256": "50c98d92c1ab773befd2b60962e28c1bd9d787387ad8bb8055a95b2ef48b759e",
+      "sha256": "1a32dcf0fceca4788c9bd9ce29f74698c25f78f7b0dff2133899b2d793e697cc",
+      "source_sha256": "ac78d2b1738964ff5a5910f82c588c8a8057e056c17ee6eadc1c29548225adad",
       "input_sha256": "e05c039a6a8010d716c4ff8dae22e12a39c9de2188f8fee80dc36a4717c0ab20",
-      "capture_sha256": "f3802473c1de68bde3648fdd007c5b08a6abb64f42daab8befe738bd67b8936a"
+      "capture_sha256": "f9923a770eb98e5eb2b6fa513d05ca0dc17066caaad67fdc2ff99bd6560dd024"
     }
   ],
   "captured_at": "2026-11-20",

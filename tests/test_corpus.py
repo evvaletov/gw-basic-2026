@@ -232,6 +232,32 @@ class CorpusTests(unittest.TestCase):
         for unsafe in ('10 CLOSE', '10 CLOSE #8', '10 OPEN "OUTPUT.TXT" FOR OUTPUT AS #9'):
             with self.assertRaises(ValueError): corpus_reference.adapt(unsafe, file_io=True)
 
+    def test_reference_capture_rejects_paths_outside_fixture_roots_before_launch(self):
+        shutil.copy2(Path(__file__).with_name('corpus_reference.py'), self.tests)
+        ports = self.tests / 'ports'
+        shutil.copytree(self.corpus, ports)
+        source_root = self.repo / 'examples/ports'
+        source_root.mkdir(parents=True)
+        (source_root / 'case.bas').write_text('10 PRINT "PORT"\n20 END\n')
+        reference = self.root / 'reference.exe'
+        reference.write_bytes(b'capture test fixture')
+        self.executable(self.root / 'flatpak', "raise AssertionError('must not launch')\n")
+        baseline = json.loads((ports / 'fixtures.json').read_text())
+        for field, value in [('source', '../../tests/corpus/case.bas'),
+                             ('input', '../corpus/input.txt'), ('id', '../escaped')]:
+            with self.subTest(field=field):
+                fixture = json.loads(json.dumps(baseline))
+                fixture['cases'][0][field] = value
+                (ports / 'fixtures.json').write_text(json.dumps(fixture))
+                output = self.root / ('capture-' + field)
+                result = subprocess.run([sys.executable, str(self.tests / 'corpus_reference.py'),
+                                         '--suite', 'ports', '--reference-exe', str(reference),
+                                         '--output', str(output)], capture_output=True, text=True, timeout=10,
+                                        env=dict(os.environ, PATH=str(self.root) + os.pathsep + os.environ['PATH']))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('safe filenames' if field == 'id' else 'invalid corpus file', result.stderr)
+                self.assertFalse(output.exists())
+
     def test_input_checkpoint_requires_the_requested_prompt(self):
         checkpoint = {'inputs': 1, 'prompt': 'MOVE?', 'occurrence': 2}
         script = self.root / 'checkpoint'

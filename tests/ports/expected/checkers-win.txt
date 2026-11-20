@@ -36,7 +36,7 @@ FROM 1  5 TO 0  4
  0  O    .    O    .    O    .    O    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 0  6 TO 1  5
 
@@ -57,7 +57,7 @@ FROM? TO? FROM 0  6 TO 1  5
  0  O    .    O    .    O    .    O    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 1  7 TO 0  6
 
@@ -78,7 +78,7 @@ FROM? TO? FROM 1  7 TO 0  6
  0  O    .    O    .    O    .    O    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 3  5 TO 4  4
 
@@ -99,7 +99,7 @@ FROM? TO? FROM 3  5 TO 4  4
  0  O    .    O    .    O    .    O    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 2  6 TO 3  5
 
@@ -120,7 +120,7 @@ FROM? TO? FROM 2  6 TO 3  5
  0  O    .    O    .    O    .    O    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 3  7 TO 2  6
 
@@ -141,7 +141,7 @@ FROM? TO? FROM 3  7 TO 2  6
  0  O    .    O    .    O    .    O    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 1  5 TO 2  4
 
@@ -162,7 +162,7 @@ FROM? TO? FROM 1  5 TO 2  4
  0  O    .    O    .    O    .    O    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? +TO? FROM 0  6 TO 1  5
 
@@ -183,7 +183,7 @@ FROM? TO? +TO? FROM 0  6 TO 1  5
  0  O    .    O    .    O    .    O    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 1  5 TO 2  4
 
@@ -204,7 +204,7 @@ FROM? TO? FROM 1  5 TO 2  4
  0  O    .    .    .    O    .    O    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 2  4 TO 3  3
 
@@ -225,7 +225,7 @@ FROM? TO? FROM 2  4 TO 3  3
  0  O    .    .    .    O    .    O    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 3  3 TO 4  2
 
@@ -246,7 +246,7 @@ FROM? TO? FROM 3  3 TO 4  2
  0  .    .    .    .    O    .    O    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 4  2 TO 2  0
 
@@ -267,7 +267,7 @@ FROM? TO? FROM 4  2 TO 2  0
  0  .    .    X*   .    O    .    O    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 5  5 TO 7  3
 
@@ -288,7 +288,7 @@ FROM? TO? FROM 5  5 TO 7  3
  0  .    .    X*   .    .    .    O    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? +TO? +TO? FROM 2  0 TO 3  1
 
@@ -309,7 +309,7 @@ FROM? TO? +TO? +TO? FROM 2  0 TO 3  1
  0  .    .    .    .    .    .    O    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 3  1 TO 2  0
 
@@ -330,7 +330,7 @@ FROM? TO? FROM 3  1 TO 2  0
  0  .    .    X*   .    .    .    O    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? +TO? FROM 2  0 TO 3  1
 
@@ -351,7 +351,7 @@ FROM? TO? +TO? FROM 2  0 TO 3  1
  0  .    .    .    .    .    .    O    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 3  1 TO 2  0
 
@@ -372,7 +372,7 @@ FROM? TO? FROM 3  1 TO 2  0
  0  .    .    X*   .    .    .    O    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 2  0 TO 3  1
 
@@ -393,7 +393,7 @@ FROM? TO? FROM 2  0 TO 3  1
  0  .    .    .    .    .    .    O    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 3  1 TO 2  0
 
@@ -414,7 +414,7 @@ FROM? TO? FROM 3  1 TO 2  0
  0  .    .    X*   .    .    .    O    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 2  0 TO 3  1
 
@@ -435,7 +435,7 @@ FROM? TO? FROM 2  0 TO 3  1
  0  .    .    .    .    .    .    O    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 3  1 TO 2  0
 
@@ -456,7 +456,7 @@ FROM? TO? FROM 3  1 TO 2  0
  0  .    .    X*   .    .    .    O    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 2  0 TO 3  1
 
@@ -477,7 +477,7 @@ FROM? TO? FROM 2  0 TO 3  1
  0  .    .    .    .    .    .    O    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 3  1 TO 2  0
 
@@ -498,7 +498,7 @@ FROM? TO? FROM 3  1 TO 2  0
  0  .    .    X*   .    .    .    O    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 2  0 TO 3  1
 
@@ -519,7 +519,7 @@ FROM? TO? FROM 2  0 TO 3  1
  0  .    .    .    .    .    .    O    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 3  1 TO 2  0
 
@@ -540,7 +540,7 @@ FROM? TO? FROM 3  1 TO 2  0
  0  .    .    X*   .    .    .    O    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 2  0 TO 1  1
 
@@ -561,7 +561,7 @@ FROM? TO? FROM 2  0 TO 1  1
  0  .    .    .    .    .    .    O    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 1  1 TO 3  3
 
@@ -582,7 +582,7 @@ FROM? TO? FROM 1  1 TO 3  3
  0  .    .    .    .    .    .    O    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 3  3 TO 4  4
 
@@ -603,7 +603,7 @@ FROM? TO? FROM 3  3 TO 4  4
  0  .    .    .    .    .    .    O    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 4  4 TO 5  5
 
@@ -624,7 +624,7 @@ FROM? TO? FROM 4  4 TO 5  5
  0  .    .    .    .    .    .    O    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 5  5 TO 4  6
 
@@ -645,7 +645,7 @@ FROM? TO? FROM 5  5 TO 4  6
  0  .    .    .    .    .    .    O    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 0  4 TO 1  3
 
@@ -666,7 +666,7 @@ FROM? TO? FROM 0  4 TO 1  3
  0  .    .    .    .    .    .    O    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 7  5 TO 6  4
 
@@ -687,7 +687,7 @@ FROM? TO? FROM 7  5 TO 6  4
  0  .    .    .    .    .    .    O    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? +TO? FROM 6  6 TO 7  5
 
@@ -708,7 +708,7 @@ FROM? TO? +TO? FROM 6  6 TO 7  5
  0  .    .    .    .    .    .    O    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 1  3 TO 2  2
 
@@ -729,7 +729,7 @@ FROM? TO? FROM 1  3 TO 2  2
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 2  2 TO 1  1
 
@@ -750,7 +750,7 @@ FROM? TO? FROM 2  2 TO 1  1
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 1  1 TO 0  0
 
@@ -771,7 +771,7 @@ FROM? TO? FROM 1  1 TO 0  0
  0  X*   .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 0  0 TO 1  1
 
@@ -792,7 +792,7 @@ FROM? TO? FROM 0  0 TO 1  1
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 1  1 TO 0  2
 
@@ -813,7 +813,7 @@ FROM? TO? FROM 1  1 TO 0  2
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 0  2 TO 1  3
 
@@ -834,7 +834,7 @@ FROM? TO? FROM 0  2 TO 1  3
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 1  3 TO 0  4
 
@@ -855,7 +855,7 @@ FROM? TO? FROM 1  3 TO 0  4
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 0  4 TO 1  5
 
@@ -876,7 +876,7 @@ FROM? TO? FROM 0  4 TO 1  5
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 1  5 TO 0  4
 
@@ -897,7 +897,7 @@ FROM? TO? FROM 1  5 TO 0  4
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 0  4 TO 1  5
 
@@ -918,7 +918,7 @@ FROM? TO? FROM 0  4 TO 1  5
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 1  5 TO 0  4
 
@@ -939,7 +939,7 @@ FROM? TO? FROM 1  5 TO 0  4
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 0  4 TO 1  5
 
@@ -960,7 +960,7 @@ FROM? TO? FROM 0  4 TO 1  5
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 1  5 TO 0  4
 
@@ -981,7 +981,7 @@ FROM? TO? FROM 1  5 TO 0  4
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 0  4 TO 1  5
 
@@ -1002,7 +1002,7 @@ FROM? TO? FROM 0  4 TO 1  5
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 1  5 TO 0  4
 
@@ -1023,7 +1023,7 @@ FROM? TO? FROM 1  5 TO 0  4
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 0  4 TO 1  5
 
@@ -1044,7 +1044,7 @@ FROM? TO? FROM 0  4 TO 1  5
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 1  5 TO 0  4
 
@@ -1065,7 +1065,7 @@ FROM? TO? FROM 1  5 TO 0  4
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 0  4 TO 1  5
 
@@ -1086,7 +1086,7 @@ FROM? TO? FROM 0  4 TO 1  5
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 1  5 TO 0  4
 
@@ -1107,7 +1107,7 @@ FROM? TO? FROM 1  5 TO 0  4
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 0  4 TO 1  5
 
@@ -1128,7 +1128,7 @@ FROM? TO? FROM 0  4 TO 1  5
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? +TO? FROM 5  7 TO 6  6
 
@@ -1149,7 +1149,7 @@ FROM? TO? +TO? FROM 5  7 TO 6  6
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 6  4 TO 5  3
 
@@ -1170,7 +1170,7 @@ FROM? TO? FROM 6  4 TO 5  3
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 7  5 TO 6  4
 
@@ -1191,7 +1191,7 @@ FROM? TO? FROM 7  5 TO 6  4
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 6  6 TO 7  5
 
@@ -1212,7 +1212,7 @@ FROM? TO? FROM 6  6 TO 7  5
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 7  7 TO 6  6
 
@@ -1233,7 +1233,7 @@ FROM? TO? FROM 7  7 TO 6  6
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 6  6 TO 5  5
 
@@ -1254,7 +1254,7 @@ FROM? TO? FROM 6  6 TO 5  5
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? +TO? +TO? FROM 6  4 TO 5  3
 
@@ -1275,7 +1275,7 @@ FROM? TO? +TO? +TO? FROM 6  4 TO 5  3
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 7  5 TO 6  4
 
@@ -1296,7 +1296,7 @@ FROM? TO? FROM 7  5 TO 6  4
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 5  3 TO 4  2
 
@@ -1317,7 +1317,7 @@ FROM? TO? FROM 5  3 TO 4  2
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? +TO? FROM 6  4 TO 5  3
 
@@ -1338,7 +1338,7 @@ FROM? TO? +TO? FROM 6  4 TO 5  3
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 5  3 TO 4  2
 
@@ -1359,7 +1359,7 @@ FROM? TO? FROM 5  3 TO 4  2
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 4  2 TO 3  1
 
@@ -1380,7 +1380,7 @@ FROM? TO? FROM 4  2 TO 3  1
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 3  1 TO 2  0
 
@@ -1401,7 +1401,7 @@ FROM? TO? FROM 3  1 TO 2  0
  0  .    .    X*   .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 2  0 TO 1  1
 
@@ -1422,7 +1422,7 @@ FROM? TO? FROM 2  0 TO 1  1
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 1  1 TO 0  2
 
@@ -1443,7 +1443,7 @@ FROM? TO? FROM 1  1 TO 0  2
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? FROM 0  2 TO 1  3
 
@@ -1464,7 +1464,7 @@ FROM? TO? FROM 0  2 TO 1  3
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? +TO? FROM 7  3 TO 6  2
 
@@ -1485,7 +1485,7 @@ FROM? TO? +TO? FROM 7  3 TO 6  2
  0  .    .    .    .    .    .    .    .
 
 
-     0    1    2    3    4    5    6    7
+    0    1    2    3    4    5    6    7
 
 FROM? TO? +TO?
 YOU WIN.

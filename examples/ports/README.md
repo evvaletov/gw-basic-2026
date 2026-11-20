@@ -24,16 +24,18 @@ examples/ports/checkers
 Choose a pit from 1 to 6, counting left to right along the bottom row. Enter
 `0` to quit. After a game, enter `1` to play again or `0` to finish.
 
-This keeps the listing's rules: seeds pass through both stores; landing in an
-empty non-store pit captures the opposite pit's seeds when it is occupied.
+This keeps the listing's rules: seeds pass through both stores. When the last
+seed lands in a previously empty pit on either row and the opposite pit contains
+seeds, the landing seed and all opposite seeds move into the mover's store.
 Each turn allows at most one bonus move. A game ends when either row is empty;
 only seeds already in the stores determine the score. Remaining seeds are not
 swept into a store. The computer uses the original move heuristic and remembers
 up to 50 games it did not win, discarding the oldest record when that fills.
 
-The port replaces the backward `NEXT` path with a forward loop ending, rejects
-fractional and out-of-range pit numbers, and adds explicit replay and quit
-controls. The bounded history prevents an array overrun during repeated play.
+The port gives the second row check its own `NEXT`, where the original jumped
+back to the first loop's `NEXT`. It also rejects fractional and out-of-range pit
+numbers and adds replay and quit controls. The bounded history prevents an
+array overrun during repeated play.
 
 ## Checkers
 
