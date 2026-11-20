@@ -80,6 +80,34 @@ class CorpusTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         self.assertIn('interpreter=match O0=FAIL', result.stdout)
 
+    def test_ports_use_separate_sources_and_keep_original_hash_checks(self):
+        ports = self.tests / 'ports'
+        shutil.copytree(self.corpus, ports)
+        source_root = self.repo / 'examples/ports'
+        source_root.mkdir(parents=True)
+        (ports / 'case.bas').rename(source_root / 'case.bas')
+        result = self.run_suite('--suite', 'ports')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(json.loads((self.root / 'report.json').read_text())['suite'], 'ports')
+        (source_root / 'case.bas').write_text('changed port')
+        result = self.run_suite('--suite', 'ports')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('source differs', result.stderr)
+        shutil.copy2(self.corpus / 'case.bas', source_root / 'case.bas')
+        (self.corpus / 'case.bas').write_text('changed original')
+        result = self.run_suite('--suite', 'ports')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('differs from pinned upstream source', result.stderr)
+
+    def test_separate_source_root_still_rejects_path_escape(self):
+        source_root = self.repo / 'examples/ports'
+        source_root.mkdir(parents=True)
+        case = json.loads((self.corpus / 'fixtures.json').read_text())
+        case['cases'][0]['source'] = '../../tests/corpus/case.bas'
+        (self.corpus / 'fixtures.json').write_text(json.dumps(case))
+        with self.assertRaisesRegex(ValueError, 'invalid corpus file'):
+            run_corpus.load_cases(self.corpus, source_root=source_root)
+
     def test_nonzero_transpiler_with_partial_c_fails(self):
         self.fixture(compile_exit=7)
         result = self.run_suite()
@@ -166,6 +194,36 @@ class CorpusTests(unittest.TestCase):
             with self.subTest(source=source), self.assertRaises(ValueError):
                 corpus_reference.adapt(source)
 
+    def test_ports_reference_capture_uses_separate_source_and_input(self):
+        shutil.copy2(Path(__file__).with_name('corpus_reference.py'), self.tests)
+        ports = self.tests / 'ports'
+        shutil.copytree(self.corpus, ports)
+        fixture = json.loads((ports / 'fixtures.json').read_text())
+        fixture['cases'][0]['id'] = 'checkers-replay'
+        (ports / 'fixtures.json').write_text(json.dumps(fixture))
+        source_root = self.repo / 'examples/ports'
+        source_root.mkdir(parents=True)
+        (source_root / 'case.bas').write_bytes(b'10 PRINT "PORT"\r\n20 END\r\n')
+        (ports / 'input.txt').write_bytes(b'PORT INPUT\r\n')
+        reference = self.root / 'reference.exe'
+        reference.write_bytes(b'capture test fixture')
+        self.executable(self.root / 'flatpak',
+                        "import sys\nfrom pathlib import Path\n"
+                        "drive=Path(next(a.split('=',1)[1] for a in sys.argv if a.startswith('--filesystem=')))\n"
+                        "assert 'PORT' in (drive/'CASE.BAS').read_text()\n"
+                        "assert (drive/'INPUT.TXT').read_bytes()==b'PORT INPUT\\r\\n'\n"
+                        "(drive/'OUTPUT.TXT').write_bytes(b'PORT\\r\\n__CORPUS_DONE__\\r\\n')\n")
+        output = self.root / 'capture'
+        result = subprocess.run([sys.executable, str(self.tests / 'corpus_reference.py'),
+                                 '--suite', 'ports', '--reference-exe', str(reference),
+                                 '--output', str(output)], capture_output=True, text=True, timeout=10,
+                                env=dict(os.environ, PATH=str(self.root) + os.pathsep + os.environ['PATH']))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        shutil.copy2(output / 'reference.json', ports / 'reference.json')
+        shutil.copy2(output / 'checkers-replay.txt', ports / 'expected.txt')
+        self.assertEqual(json.loads((ports / 'reference.json').read_text())['suite'], 'ports')
+        self.assertEqual([case['id'] for case in run_corpus.load_cases(ports, source_root=source_root)], ['checkers-replay'])
+
     def test_reference_adapter_preserves_fixture_file_io(self):
         source = ('10 OPEN "DATA.DAT" FOR INPUT AS #1\n'
                   '20 OPEN "O",#2,"COPY.DAT":PRINT #2,INPUT$(2,#1)\n'
@@ -176,6 +234,59 @@ class CorpusTests(unittest.TestCase):
         self.assertIn('CLOSE #1,#2:PRINT #9,"__CORPUS_DONE__"', adapted)
         for unsafe in ('10 CLOSE', '10 CLOSE #8', '10 OPEN "OUTPUT.TXT" FOR OUTPUT AS #9'):
             with self.assertRaises(ValueError): corpus_reference.adapt(unsafe, file_io=True)
+
+    def test_reference_capture_rejects_paths_outside_fixture_roots_before_launch(self):
+        shutil.copy2(Path(__file__).with_name('corpus_reference.py'), self.tests)
+        ports = self.tests / 'ports'
+        shutil.copytree(self.corpus, ports)
+        source_root = self.repo / 'examples/ports'
+        source_root.mkdir(parents=True)
+        (source_root / 'case.bas').write_text('10 PRINT "PORT"\n20 END\n')
+        reference = self.root / 'reference.exe'
+        reference.write_bytes(b'capture test fixture')
+        self.executable(self.root / 'flatpak', "raise AssertionError('must not launch')\n")
+        baseline = json.loads((ports / 'fixtures.json').read_text())
+        for field, value in [('source', '../../tests/corpus/case.bas'),
+                             ('input', '../corpus/input.txt'), ('id', '../escaped'),
+                             ('id', 'checkers_replay'), ('id', 'Checkers-replay')]:
+            with self.subTest(field=field, value=value):
+                fixture = json.loads(json.dumps(baseline))
+                fixture['cases'][0][field] = value
+                (ports / 'fixtures.json').write_text(json.dumps(fixture))
+                output = self.root / ('capture-' + field)
+                result = subprocess.run([sys.executable, str(self.tests / 'corpus_reference.py'),
+                                         '--suite', 'ports', '--reference-exe', str(reference),
+                                         '--output', str(output)], capture_output=True, text=True, timeout=10,
+                                        env=dict(os.environ, PATH=str(self.root) + os.pathsep + os.environ['PATH']))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('safe filenames' if field == 'id' else 'invalid corpus file', result.stderr)
+                self.assertFalse(output.exists())
+                if field == 'id':
+                    with self.assertRaisesRegex(ValueError, 'invalid fixture ID'):
+                        run_corpus.load_cases(ports, source_root=source_root)
+
+    def test_semantics_capture_keeps_inline_source_and_underscore_ids(self):
+        shutil.copy2(Path(__file__).with_name('corpus_reference.py'), self.tests)
+        compatibility = self.tests / 'compatibility'
+        compatibility.mkdir()
+        (compatibility / 'semantics.json').write_text(json.dumps({'cases': [
+            {'id': 'inline_case', 'source': '10 PRINT "OK"\n20 END\n', 'stdin': ''}]}))
+        reference = self.root / 'reference.exe'
+        reference.write_bytes(b'capture test fixture')
+        self.executable(self.root / 'flatpak',
+                        "import sys\nfrom pathlib import Path\n"
+                        "drive=Path(next(a.split('=',1)[1] for a in sys.argv if a.startswith('--filesystem=')))\n"
+                        "assert 'PRINT #9,' in (drive/'CASE.BAS').read_text()\n"
+                        "(drive/'OUTPUT.TXT').write_bytes(b'OK\\r\\n__CORPUS_DONE__\\r\\n')\n")
+        output = self.root / 'semantics-capture'
+        result = subprocess.run([sys.executable, str(self.tests / 'corpus_reference.py'),
+                                 '--suite', 'semantics', '--reference-exe', str(reference),
+                                 '--output', str(output)], capture_output=True, text=True, timeout=10,
+                                env=dict(os.environ, PATH=str(self.root) + os.pathsep + os.environ['PATH']))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((output / 'inline_case.txt').read_text(), 'OK\n')
+        metadata = json.loads((output / 'reference.json').read_text())
+        self.assertEqual(metadata['cases'][0]['id'], 'inline_case')
 
     def test_input_checkpoint_requires_the_requested_prompt(self):
         checkpoint = {'inputs': 1, 'prompt': 'MOVE?', 'occurrence': 2}

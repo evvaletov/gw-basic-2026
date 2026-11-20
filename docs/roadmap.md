@@ -115,7 +115,12 @@ Seventy-two cases end naturally; all 98 vendored listings remain unchanged.
 Awari and
 Checkers have input checkpoints and expected original-listing failures: FOR
 without NEXT at lines 230 and 1340, respectively. These are documented dialect
-limitations, not successful complete games. The interpreter and compiler now
+limitations, not successful complete games. Separately labelled
+[Awari and Checkers ports](https://github.com/evvaletov/gw-basic-2026/tree/main/examples/ports)
+support full play, input validation, replay and quitting. Their ten separate
+reference cases include wins, losses, a draw, multiple jumps, promotion and
+a 52-game Awari history session; they do not change the original-corpus counts.
+The interpreter and compiler now
 share the original RND initial state, sequence, argument behavior and explicit
 RANDOMIZE seeding, including the no-argument seed prompt. Full variable names
 (up to 40 characters, including periods) and native INPUT$ have independent
@@ -152,11 +157,10 @@ Next priorities:
    selected venue's current rules (git-bug `682425c`).
 3. Complete the FreeDOS repository route after maintainers reply to the sent
    enquiry, including any requested FDNPKG/FDIMPLES checks (git-bug `ab8188c`).
-4. Add separately labelled playable GW-BASIC ports of Awari and Checkers while
-   preserving the original listings and their reference failures
-   (git-bug `51679f0`).
-5. Make SDF source, tag and git-bug synchronisation repeatable with failure
+4. Make SDF source, tag and git-bug synchronisation repeatable with failure
    reporting (git-bug `0b511f7`).
+5. Extend scripted gameplay coverage beyond the 36 original listings already
+   covered, keeping adapted ports separate (git-bug `51679f0`).
 
 The tested AUR package awaits reopening of account registration. Homebrew and
 `gwbasickernel` on PyPI are live; directory requests await maintainers. HN stays

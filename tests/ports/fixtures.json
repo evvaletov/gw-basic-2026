@@ -1,0 +1,75 @@
+{
+  "description": "Separately labelled ports; these cases do not extend unchanged-original compatibility coverage.",
+  "cases": [
+    {
+      "id": "awari-win",
+      "source": "awari.bas",
+      "input": "inputs/awari-win.txt",
+      "expected": "expected/awari-win.txt",
+      "completion": "one complete game"
+    },
+    {
+      "id": "awari-loss",
+      "source": "awari.bas",
+      "input": "inputs/awari-loss.txt",
+      "expected": "expected/awari-loss.txt",
+      "completion": "one complete game"
+    },
+    {
+      "id": "awari-draw",
+      "source": "awari.bas",
+      "input": "inputs/awari-draw.txt",
+      "expected": "expected/awari-draw.txt",
+      "completion": "one complete game"
+    },
+    {
+      "id": "checkers-win",
+      "source": "checkers.bas",
+      "input": "inputs/checkers-win.txt",
+      "expected": "expected/checkers-win.txt",
+      "completion": "one complete game"
+    },
+    {
+      "id": "checkers-loss",
+      "source": "checkers.bas",
+      "input": "inputs/checkers-loss.txt",
+      "expected": "expected/checkers-loss.txt",
+      "completion": "one complete game"
+    },
+    {
+      "id": "awari-retry",
+      "source": "awari.bas",
+      "input": "inputs/awari-retry.txt",
+      "expected": "expected/awari-retry.txt",
+      "completion": "one complete game with invalid, fractional and empty pits and invalid replay input"
+    },
+    {
+      "id": "awari-history",
+      "source": "awari.bas",
+      "input": "inputs/awari-history.txt",
+      "expected": "expected/awari-history.txt",
+      "completion": "52 complete games; fills, rotates and reuses the 50-entry learned history"
+    },
+    {
+      "id": "checkers-retry-replay",
+      "source": "checkers.bas",
+      "input": "inputs/checkers-retry-replay.txt",
+      "expected": "expected/checkers-retry-replay.txt",
+      "completion": "two complete games; invalid coordinates, backward moves, friendly/empty jumps, invalid continuation, reselection and replay"
+    },
+    {
+      "id": "awari-quit",
+      "source": "awari.bas",
+      "input": "inputs/awari-quit.txt",
+      "expected": "expected/awari-quit.txt",
+      "completion": "explicit quit, not a completed game"
+    },
+    {
+      "id": "checkers-quit",
+      "source": "checkers.bas",
+      "input": "inputs/checkers-quit.txt",
+      "expected": "expected/checkers-quit.txt",
+      "completion": "reselect and explicitly quit, not a completed game"
+    }
+  ]
+}

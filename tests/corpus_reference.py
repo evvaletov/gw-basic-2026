@@ -25,6 +25,13 @@ def normalize(text):
     return "\n".join(line.rstrip(" \t") for line in text.replace("\r\n", "\n").split("\n"))
 
 
+def fixture_path(root, relative):
+    path = (root / relative).resolve()
+    if root.resolve() not in path.parents or not path.is_file():
+        raise ValueError(f'invalid corpus file: {relative}')
+    return path
+
+
 def statements(text):
     start = 0
     quoted = False
@@ -126,29 +133,38 @@ def main():
     parser.add_argument('--output', type=Path, required=True,
                         help='fresh output directory; never overwrites checked-in expectations')
     parser.add_argument('--case', action='append')
-    parser.add_argument('--suite', choices=('corpus', 'semantics'), default='corpus')
+    parser.add_argument('--suite', choices=('corpus', 'semantics', 'ports'), default='corpus')
     args = parser.parse_args()
     repo = Path(__file__).resolve().parents[1]
-    corpus = repo / 'tests/corpus'
-    manifest = corpus / 'fixtures.json' if args.suite == 'corpus' else repo / 'tests/compatibility/semantics.json'
+    corpus = repo / ('tests/ports' if args.suite == 'ports' else 'tests/corpus')
+    source_root = repo / 'examples/ports' if args.suite == 'ports' else corpus
+    file_suite = args.suite != 'semantics'
+    manifest = corpus / 'fixtures.json' if file_suite else repo / 'tests/compatibility/semantics.json'
     cases = json.loads(manifest.read_text())['cases']
     if args.case:
         unknown = set(args.case) - {case['id'] for case in cases}
         if unknown:
             parser.error(f'unknown cases: {sorted(unknown)}')
         cases = [case for case in cases if case['id'] in args.case]
+    ids = [case['id'] for case in cases]
+    id_pattern = r'[a-z0-9-]+' if file_suite else r'[A-Za-z0-9_-]+'
+    if not ids or len(ids) != len(set(ids)) or any(not re.fullmatch(id_pattern, name) for name in ids):
+        parser.error('fixture IDs must be unique safe filenames')
+    paths = {case['id']: (fixture_path(source_root, case['source']), fixture_path(corpus, case['input']))
+             for case in cases} if file_suite else {}
     if args.output.exists():
         parser.error('--output must not already exist')
     args.output.mkdir(parents=True)
     metadata = {'reference_sha256': hashlib.sha256(args.reference_exe.read_bytes()).hexdigest(),
                 'adapter_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
-                'method': 'Microsoft GW-BASIC under DOSBox-X; only I/O redirected', 'cases': []}
+                'method': 'Microsoft GW-BASIC under DOSBox-X; only I/O redirected',
+                'suite': args.suite, 'cases': []}
     for case in cases:
         with tempfile.TemporaryDirectory(prefix='gw-corpus-reference-') as temp:
             drive = Path(temp)
             shutil.copy2(args.reference_exe, drive / 'GWBASIC.EXE')
-            source = (corpus / case['source']).read_text() if args.suite == 'corpus' else case['source']
-            stdin = (corpus / case['input']).read_text() if args.suite == 'corpus' else case['stdin']
+            source = paths[case['id']][0].read_text() if file_suite else case['source']
+            stdin = paths[case['id']][1].read_text() if file_suite else case['stdin']
             checkpoint = case.get('checkpoint')
             transformed = adapt(source, checkpoint['inputs'] if checkpoint else None, case.get('file_io', False))
             for filename, data in case.get('files_hex', {}).items():
@@ -189,8 +205,8 @@ def main():
                 raise RuntimeError(f"{case['id']}: reference stopped at the wrong input checkpoint")
             (args.output / f"{case['id']}.txt").write_text(text)
             metadata['cases'].append({'id': case['id'], 'sha256': hashlib.sha256(text.encode()).hexdigest(),
-                                      'source_sha256': hashlib.sha256((corpus / case['source']).read_bytes() if args.suite == 'corpus' else source.encode('ascii')).hexdigest(),
-                                      'input_sha256': hashlib.sha256((corpus / case['input']).read_bytes() if args.suite == 'corpus' else stdin.encode('ascii')).hexdigest(),
+                                      'source_sha256': hashlib.sha256(paths[case['id']][0].read_bytes() if file_suite else source.encode('ascii')).hexdigest(),
+                                      'input_sha256': hashlib.sha256(paths[case['id']][1].read_bytes() if file_suite else stdin.encode('ascii')).hexdigest(),
                                       'capture_sha256': hashlib.sha256(transformed.encode('ascii')).hexdigest()})
             if checkpoint:
                 metadata['cases'][-1]['checkpoint'] = checkpoint

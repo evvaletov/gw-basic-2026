@@ -51,12 +51,23 @@ jobs:
       - name: Curated compatibility corpus
         run: bash tests/run_corpus.sh --report corpus-matrix.json
 
+      - name: Playable game ports
+        run: python3 tests/run_corpus.py --suite ports --report ports-matrix.json
+
       - name: Upload compatibility matrix
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: corpus-matrix
           path: corpus-matrix.json
+          if-no-files-found: warn
+
+      - name: Upload ported-game matrix
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ports-matrix
+          path: ports-matrix.json
           if-no-files-found: warn
 
       - name: Interactive terminal regressions

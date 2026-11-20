@@ -39,7 +39,7 @@ def contained(root, relative):
     return path
 
 
-def load_cases(corpus, selected=None):
+def load_cases(corpus, selected=None, source_root=None):
     cases = json.loads((corpus / 'fixtures.json').read_text())['cases']
     references = json.loads((corpus / 'reference.json').read_text())
     refs = {entry['id']: entry for entry in references['cases']}
@@ -63,7 +63,8 @@ def load_cases(corpus, selected=None):
         if checkpoint and case.get('expected_error'):
             raise ValueError('a fixture cannot expect both a checkpoint and an error')
         for key, hash_key in [('source', 'source_sha256'), ('input', 'input_sha256'), ('expected', 'sha256')]:
-            if digest(contained(corpus, case[key])) != ref[hash_key]:
+            root = source_root if key == 'source' and source_root is not None else corpus
+            if digest(contained(root, case[key])) != ref[hash_key]:
                 raise ValueError(f"{case['id']}: {key} differs from its reviewed reference capture")
     return [case for case in cases if not selected or case['id'] in selected]
 
@@ -212,6 +213,8 @@ def build_program(source, flags, work, build, cc, libs):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--build', type=Path, default=REPO / 'build')
+    parser.add_argument('--suite', choices=('corpus', 'ports'), default='corpus',
+                        help='unchanged originals (default) or separately labelled game ports')
     parser.add_argument('--case', action='append', help='run one named case (repeatable)')
     parser.add_argument('--mode', action='append', choices=list(MODES))
     parser.add_argument('--report', type=Path, help='write the complete JSON matrix')
@@ -219,10 +222,14 @@ def main():
     args = parser.parse_args()
     if args.audit and (args.case or args.mode):
         parser.error('--audit cannot be combined with --case or --mode')
+    if args.audit and args.suite != 'corpus':
+        parser.error('--audit applies only to the unchanged original corpus')
+    fixtures = CORPUS if args.suite == 'corpus' else REPO / 'tests/ports'
+    source_root = CORPUS if args.suite == 'corpus' else REPO / 'examples/ports'
     build = args.build.resolve()
     try:
         sources = verify_sources(CORPUS)
-        cases = [] if args.audit else load_cases(CORPUS, args.case)
+        cases = [] if args.audit else load_cases(fixtures, args.case, source_root)
         for name in ('gwbasic', 'gwbasic-compile', 'libgwrt.a'):
             if not (build / name).is_file():
                 raise ValueError(f'missing build artifact: {build / name}')
@@ -238,7 +245,8 @@ def main():
         parser.error(str(error))
     modes = args.mode or list(MODES)
     report = {'kind': 'build-audit' if args.audit else 'reference-and-parity',
-              'upstream_revision': sources['revision'], 'rows': [], 'passed': 0, 'failed': 0}
+              'suite': args.suite, 'upstream_revision': sources['revision'],
+              'rows': [], 'passed': 0, 'failed': 0}
     with tempfile.TemporaryDirectory(prefix='gwbasic-corpus-') as temp:
         root = Path(temp)
         if args.audit:
@@ -250,7 +258,7 @@ def main():
                 print(f"{'PASS' if ok else 'FAIL'} {name}: " + ' '.join(f'{k}={v["status"]}' for k, v in phases.items()), flush=True)
         else:
             for case in cases:
-                source = CORPUS / case['source']
+                source = source_root / case['source']
                 if case.get('expected_error'):
                     # Preserve the listing bytes on disk. A diagnostic-only
                     # wrapper makes ERR/ERL comparable to the reference capture.
@@ -258,8 +266,8 @@ def main():
                     source = root / (case['id'] + '.bas')
                     source.write_text('0 ON ERROR GOTO 65500\n' + original +
                                       '\n65500 PRINT "__CORPUS_ERROR__";ERR;ERL:END\n')
-                stdin = (CORPUS / case['input']).read_text()
-                expected = (CORPUS / case['expected']).read_bytes().decode()
+                stdin = (fixtures / case['input']).read_text()
+                expected = (fixtures / case['expected']).read_bytes().decode()
                 row = {'case': case['id'], 'source': case['source'], 'compiled': {}}
                 process, interpreted = execute([str(build / 'gwbasic'), str(source)],
                                                 root / case['id'] / 'interpreter', 'run', stdin,
