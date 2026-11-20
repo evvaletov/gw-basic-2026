@@ -217,6 +217,10 @@ coverage only. Awari and Checkers compile; Super Star Trek is rejected for an
 unspaced `TO` expression that Microsoft GW-BASIC also rejects.
 The v0.18.2 release contains the earlier suite of 53 cases from twenty-six listings.
 
+For complete Awari and Checkers games, run the separately labelled
+[playable ports](examples/ports/README.md). They include input checks, replay
+and quit controls, with their own Microsoft-reference gameplay tests.
+
 ## DOS / FreeDOS
 
 Cross-compiles to DOS with OpenWatcom V2:

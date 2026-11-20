@@ -146,6 +146,10 @@ transpilation or native compilation errors, so the current audit exits 1.
 
 The FOR/NEXT native compilation failures (`ca3a8b8`) are resolved. Broader
 scripted gameplay and dialect triage remain under `51679f0`.
+For complete Awari and Checkers games, use the separately labelled
+[playable ports](../../examples/ports/README.md), which have their own
+[reference tests](../ports/README.md). The original listings and the expected
+failures above remain unchanged.
 FOR entry validation and GOSUB loop scope now have focused original-GW-BASIC
 references in `../compatibility/semantics.json`. That suite also checks DEFTYPE
 storage changes and integer rounding. Successful builds are not counted as

@@ -1,0 +1,96 @@
+GW-BASIC PORT OF AWARI
+                                 AWARI
+              CREATIVE COMPUTING  MORRISTOWN, NEW JERSEY
+CHOOSE PIT 1-6, LEFT TO RIGHT ON YOUR BOTTOM ROW.
+0 QUITS. ONE BONUS MOVE PER TURN.
+
+
+
+     3   3   3   3   3   3
+  0                         0
+     3   3   3   3   3   3
+
+YOUR MOVE?
+     3   3   3   3   3   3
+  0                         0
+     3   3   0   4   4   4
+
+MY MOVE IS 6
+     0   3   3   3   3   3
+  1                         0
+     4   4   0   4   4   4
+
+YOUR MOVE?
+     0   3   3   4   4   4
+  1                         1
+     4   4   0   4   4   0
+
+MY MOVE IS 2
+     0   4   4   5   0   4
+  6                         1
+     0   4   0   4   4   0
+
+YOUR MOVE?
+     0   4   4   5   0   0
+  6                         6
+     0   0   1   5   5   0
+
+MY MOVE IS 4
+     0   5   0   5   0   0
+  9                         6
+     0   0   1   5   5   0
+
+YOUR MOVE?
+     0   5   0   5   0   0
+  9                         6
+     0   0   0   6   5   0
+
+MY MOVE IS 5
+     1   0   0   5   0   0
+ 10                         6
+     1   1   1   6   5   0
+
+YOUR MOVE?
+     1   0   0   5   0   0
+ 10                         6
+     0   2   1   6   5   0
+
+MY MOVE IS 6,3
+     0   1   1   0   0   0
+ 14                         6
+     0   2   1   6   5   0
+
+YOUR MOVE?
+     0   1   1   0   1   1
+ 14                         14
+     0   2   1   0   0   1
+
+MY MOVE IS 5
+     1   0   1   0   1   1
+ 14                         14
+     0   2   1   0   0   1
+
+YOUR MOVE?
+     1   0   1   0   1   1
+ 14                         14
+     0   2   0   1   0   1
+
+MY MOVE IS 4
+     1   0   0   0   1   1
+ 17                         14
+     0   0   0   1   0   1
+
+YOUR MOVE?
+     1   0   0   0   1   1
+ 17                         15
+     0   0   0   1   0   0
+
+AGAIN?
+     1   0   0   0   0   1
+ 17                         17
+     0   0   0   0   0   0
+
+
+GAME OVER
+DRAWN GAME
+PLAY AGAIN (1 YES, 0 NO)?

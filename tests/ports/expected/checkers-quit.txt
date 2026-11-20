@@ -1,0 +1,41 @@
+GW-BASIC PORT OF CHECKERS
+                               CHECKERS
+              CREATIVE COMPUTING  MORRISTOWN, NEW JERSEY
+
+
+
+THIS IS THE GAME OF CHECKERS.  THE COMPUTER IS X,
+AND YOU ARE O.  THE COMPUTER WILL MOVE FIRST.
+SQUARES ARE REFERRED TO BY A COORDINATE SYSTEM.
+(0,0) IS THE LOWER LEFT CORNER
+(0,7) IS THE UPPER LEFT CORNER
+(7,0) IS THE LOWER RIGHT CORNER
+(7,7) IS THE UPPER RIGHT CORNER
+CAPTURES AND FURTHER JUMPS ARE OPTIONAL.
+FROM: -1,-1 QUITS. TO: -1,-1 CHOOSES ANOTHER PIECE.
++TO: ENTER ANOTHER JUMP OR -1,-1 TO FINISH.
+
+
+
+FROM 1  5 TO 0  4
+
+ 7  .    X    .    X    .    X    .    X
+
+ 6  X    .    X    .    X    .    X    .
+
+ 5  .    .    .    X    .    X    .    X
+
+ 4  X    .    .    .    .    .    .    .
+
+ 3  .    .    .    .    .    .    .    .
+
+ 2  O    .    O    .    O    .    O    .
+
+ 1  .    O    .    O    .    O    .    O
+
+ 0  O    .    O    .    O    .    O    .
+
+
+     0    1    2    3    4    5    6    7
+
+FROM? TO? FROM?

@@ -1,0 +1,80 @@
+{
+  "reference_sha256": "3d83e8d2bbc71e8b79e20c6cfb7bceba36c4dd4bda2a7af4c415cab6b3f3203c",
+  "adapter_sha256": "f1119be49325f1d19124ec76d7418b523a788672a93c22d5dd3b8768c7177ba8",
+  "method": "Microsoft GW-BASIC under DOSBox-X; only I/O redirected",
+  "suite": "ports",
+  "cases": [
+    {
+      "id": "awari-win",
+      "sha256": "eb0e3676fa3637c87218466300932e5316554c391593f8055755ab1221a6d7db",
+      "source_sha256": "719f98299218a2d1d3f759ab91abd8751bc6f04f7fc7dfc2036ccfff5a2274af",
+      "input_sha256": "c8fcf42d8a8a2c0c872ad1950c8ad243e8236c4b80171bf19d99ea8d1dc174a8",
+      "capture_sha256": "ee1040165e0176189c7bbbc7f489b4bdd10e737d9c0508bef2ed3a0dc5ae012f"
+    },
+    {
+      "id": "awari-loss",
+      "sha256": "1f9d40ab7117c9294e51c872be3f137c3921ee6e9eb254fe69209cfd321f3a9d",
+      "source_sha256": "719f98299218a2d1d3f759ab91abd8751bc6f04f7fc7dfc2036ccfff5a2274af",
+      "input_sha256": "ae602857c0109ba00bd597fb4064e735158f9456f026607e4636acff1b8ddcf7",
+      "capture_sha256": "ee1040165e0176189c7bbbc7f489b4bdd10e737d9c0508bef2ed3a0dc5ae012f"
+    },
+    {
+      "id": "awari-draw",
+      "sha256": "e425a10d1bb978ffb8a9fec3dd5a35b659abf960e3a248ee5b115aaa30da68f5",
+      "source_sha256": "719f98299218a2d1d3f759ab91abd8751bc6f04f7fc7dfc2036ccfff5a2274af",
+      "input_sha256": "5b200873a44bdf6c37458ae425209a014a06807e0ff99ebf368d7fd84fcdd5b9",
+      "capture_sha256": "ee1040165e0176189c7bbbc7f489b4bdd10e737d9c0508bef2ed3a0dc5ae012f"
+    },
+    {
+      "id": "checkers-win",
+      "sha256": "b38f8626eb48e765783bde98f068c81aac9abf2b18000ee381623aef917c625a",
+      "source_sha256": "50c98d92c1ab773befd2b60962e28c1bd9d787387ad8bb8055a95b2ef48b759e",
+      "input_sha256": "e7333e05f55c3ced35eff9f1b77eb52cfaef7202767fb9d836270f750f19a948",
+      "capture_sha256": "f3802473c1de68bde3648fdd007c5b08a6abb64f42daab8befe738bd67b8936a"
+    },
+    {
+      "id": "checkers-loss",
+      "sha256": "70d1dd4fa78aae1c72e396e6f6fb72e655c256103842e0d7819eb319a7127aec",
+      "source_sha256": "50c98d92c1ab773befd2b60962e28c1bd9d787387ad8bb8055a95b2ef48b759e",
+      "input_sha256": "31d3201244cc5fa016b802abcd2fc8db06e19933b46b4d14bcf34f77cf972696",
+      "capture_sha256": "f3802473c1de68bde3648fdd007c5b08a6abb64f42daab8befe738bd67b8936a"
+    },
+    {
+      "id": "awari-retry",
+      "sha256": "cd711123d1b36506fd7fafc843324f1f8628ea16963be46eceb3c5d861d90715",
+      "source_sha256": "719f98299218a2d1d3f759ab91abd8751bc6f04f7fc7dfc2036ccfff5a2274af",
+      "input_sha256": "2967001c51a64cd986f2e61bf3aef2bb7165b836b8ba456820c62333a85c8c05",
+      "capture_sha256": "ee1040165e0176189c7bbbc7f489b4bdd10e737d9c0508bef2ed3a0dc5ae012f"
+    },
+    {
+      "id": "awari-history",
+      "sha256": "cc1e4d9fef7d72b119be0c958ed73448e9b2b0d29b6e1240c35efdf73669c00a",
+      "source_sha256": "719f98299218a2d1d3f759ab91abd8751bc6f04f7fc7dfc2036ccfff5a2274af",
+      "input_sha256": "74b533efe2fe48dcb1b1435227f7782f6ad8e0451842698e824e657371de79a1",
+      "capture_sha256": "ee1040165e0176189c7bbbc7f489b4bdd10e737d9c0508bef2ed3a0dc5ae012f"
+    },
+    {
+      "id": "checkers-retry-replay",
+      "sha256": "9653df58a52e7518c483e3fca15bcab5046065eea5d3b7298eba590d0a1a36a6",
+      "source_sha256": "50c98d92c1ab773befd2b60962e28c1bd9d787387ad8bb8055a95b2ef48b759e",
+      "input_sha256": "9a96ffe2fc285d0e933f0b680270a0f79ba1127b0523eed78a087c0c19e050f8",
+      "capture_sha256": "f3802473c1de68bde3648fdd007c5b08a6abb64f42daab8befe738bd67b8936a"
+    },
+    {
+      "id": "awari-quit",
+      "sha256": "1b4852a1840bba1b03ea01f7aa158753058524883fb87b1cba431b2726e5bfc2",
+      "source_sha256": "719f98299218a2d1d3f759ab91abd8751bc6f04f7fc7dfc2036ccfff5a2274af",
+      "input_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "capture_sha256": "ee1040165e0176189c7bbbc7f489b4bdd10e737d9c0508bef2ed3a0dc5ae012f"
+    },
+    {
+      "id": "checkers-quit",
+      "sha256": "2e53ecec9a521e1cf1778d15c14cb8be75c7cfdb61ce52aafd037ffe180e293f",
+      "source_sha256": "50c98d92c1ab773befd2b60962e28c1bd9d787387ad8bb8055a95b2ef48b759e",
+      "input_sha256": "e05c039a6a8010d716c4ff8dae22e12a39c9de2188f8fee80dc36a4717c0ab20",
+      "capture_sha256": "f3802473c1de68bde3648fdd007c5b08a6abb64f42daab8befe738bd67b8936a"
+    }
+  ],
+  "captured_at": "2026-11-20",
+  "reference_identity": "Microsoft assembly-source build with JWasm, 2023-10-03; not retail 3.23"
+}

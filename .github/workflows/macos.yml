@@ -57,6 +57,12 @@ jobs:
         run: |
           python3 source/tests/run_corpus.py --build source/build --mode O2 \
             --report corpus-macos-${{ matrix.architecture }}.json
+      - name: Test playable ports when present in the selected source
+        run: |
+          if [ -f source/tests/ports/fixtures.json ]; then
+            python3 source/tests/run_corpus.py --suite ports --build source/build --mode O2 \
+              --report ports-macos-${{ matrix.architecture }}.json
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: release-macos-${{ matrix.architecture }}
@@ -66,5 +72,7 @@ jobs:
         if: always()
         with:
           name: evidence-macos-${{ matrix.architecture }}
-          path: corpus-macos-${{ matrix.architecture }}.json
+          path: |
+            corpus-macos-${{ matrix.architecture }}.json
+            ports-macos-${{ matrix.architecture }}.json
           if-no-files-found: warn

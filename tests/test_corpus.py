@@ -80,6 +80,34 @@ class CorpusTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         self.assertIn('interpreter=match O0=FAIL', result.stdout)
 
+    def test_ports_use_separate_sources_and_keep_original_hash_checks(self):
+        ports = self.tests / 'ports'
+        shutil.copytree(self.corpus, ports)
+        source_root = self.repo / 'examples/ports'
+        source_root.mkdir(parents=True)
+        (ports / 'case.bas').rename(source_root / 'case.bas')
+        result = self.run_suite('--suite', 'ports')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(json.loads((self.root / 'report.json').read_text())['suite'], 'ports')
+        (source_root / 'case.bas').write_text('changed port')
+        result = self.run_suite('--suite', 'ports')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('source differs', result.stderr)
+        shutil.copy2(self.corpus / 'case.bas', source_root / 'case.bas')
+        (self.corpus / 'case.bas').write_text('changed original')
+        result = self.run_suite('--suite', 'ports')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('differs from pinned upstream source', result.stderr)
+
+    def test_separate_source_root_still_rejects_path_escape(self):
+        source_root = self.repo / 'examples/ports'
+        source_root.mkdir(parents=True)
+        case = json.loads((self.corpus / 'fixtures.json').read_text())
+        case['cases'][0]['source'] = '../../tests/corpus/case.bas'
+        (self.corpus / 'fixtures.json').write_text(json.dumps(case))
+        with self.assertRaisesRegex(ValueError, 'invalid corpus file'):
+            run_corpus.load_cases(self.corpus, source_root=source_root)
+
     def test_nonzero_transpiler_with_partial_c_fails(self):
         self.fixture(compile_exit=7)
         result = self.run_suite()
@@ -165,6 +193,33 @@ class CorpusTests(unittest.TestCase):
         for source in ('10 OPEN "X" FOR OUTPUT AS #1', '10 INPUT #1,A', '10 LINE INPUT A$', '0 PRINT 1'):
             with self.subTest(source=source), self.assertRaises(ValueError):
                 corpus_reference.adapt(source)
+
+    def test_ports_reference_capture_uses_separate_source_and_input(self):
+        shutil.copy2(Path(__file__).with_name('corpus_reference.py'), self.tests)
+        ports = self.tests / 'ports'
+        shutil.copytree(self.corpus, ports)
+        source_root = self.repo / 'examples/ports'
+        source_root.mkdir(parents=True)
+        (source_root / 'case.bas').write_bytes(b'10 PRINT "PORT"\r\n20 END\r\n')
+        (ports / 'input.txt').write_bytes(b'PORT INPUT\r\n')
+        reference = self.root / 'reference.exe'
+        reference.write_bytes(b'capture test fixture')
+        self.executable(self.root / 'flatpak',
+                        "import sys\nfrom pathlib import Path\n"
+                        "drive=Path(next(a.split('=',1)[1] for a in sys.argv if a.startswith('--filesystem=')))\n"
+                        "assert 'PORT' in (drive/'CASE.BAS').read_text()\n"
+                        "assert (drive/'INPUT.TXT').read_bytes()==b'PORT INPUT\\r\\n'\n"
+                        "(drive/'OUTPUT.TXT').write_bytes(b'PORT\\r\\n__CORPUS_DONE__\\r\\n')\n")
+        output = self.root / 'capture'
+        result = subprocess.run([sys.executable, str(self.tests / 'corpus_reference.py'),
+                                 '--suite', 'ports', '--reference-exe', str(reference),
+                                 '--output', str(output)], capture_output=True, text=True, timeout=10,
+                                env=dict(os.environ, PATH=str(self.root) + os.pathsep + os.environ['PATH']))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        shutil.copy2(output / 'reference.json', ports / 'reference.json')
+        shutil.copy2(output / 'case.txt', ports / 'expected.txt')
+        self.assertEqual(json.loads((ports / 'reference.json').read_text())['suite'], 'ports')
+        self.assertEqual([case['id'] for case in run_corpus.load_cases(ports, source_root=source_root)], ['case'])
 
     def test_reference_adapter_preserves_fixture_file_io(self):
         source = ('10 OPEN "DATA.DAT" FOR INPUT AS #1\n'

@@ -1,0 +1,13 @@
+GW-BASIC PORT OF AWARI
+                                 AWARI
+              CREATIVE COMPUTING  MORRISTOWN, NEW JERSEY
+CHOOSE PIT 1-6, LEFT TO RIGHT ON YOUR BOTTOM ROW.
+0 QUITS. ONE BONUS MOVE PER TURN.
+
+
+
+     3   3   3   3   3   3
+  0                         0
+     3   3   3   3   3   3
+
+YOUR MOVE?
