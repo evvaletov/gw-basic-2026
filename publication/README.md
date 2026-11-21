@@ -120,11 +120,12 @@ the website lease. Keep the old record; do not reset a baseline to bypass an
 unexplained mismatch.
 
 For manual rollback, stop the timer and take the website lease. Preserve the
-current files, restore a completed backup's `gwbasic/` directory and four pages,
+current files outside the state directory, restore a completed backup's `gwbasic/` directory and four pages,
 verify their hashes against its `baseline.json`, and restore that record as
-`current.json`. Keep the timer stopped while retaining an older publication:
+`current.json` with its old `backup` field removed. Keep the timer stopped while retaining an older publication:
 the local `website.json` cache otherwise reports HTTPS mismatches at the same
-main SHA. To deliberately republish current main, move that local cache aside
+main SHA. To deliberately republish current main, archive the local
+`website.json` and `last-install.json` records outside the active state directory
 under the lease and restart the service; its CI artifact must still be
 available. A new successful main build also permits a fresh deployment.
 
