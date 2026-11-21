@@ -47,7 +47,7 @@ case "${1:-16}" in
         EXE=gwbasic16.exe
         # Far-call rewriting produced layout-dependent faults under FreeDOS/
         # JemmEx with OpenWatcom V2. Keep the compiler's original far calls.
-        # Nested-expression guest checks failed with 8 KiB and pass with 16 KiB.
+        # Nested-expression guest checks failed with 8 KiB and passed with 16 KiB.
         LINK_SYSTEM="dos option stack=16384 option nofarcalls"
         ;;
     32)

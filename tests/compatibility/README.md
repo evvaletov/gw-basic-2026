@@ -19,8 +19,9 @@ The text probe checks accepted operands and errors. Its BIOS colour column is
 recorded only; text-mode border writes are not emulated by the port latch.
 The cumulative mode, extended-argument and mode-2 probes record the BIOS colour
 byte and error outcomes; the FN-error probe checks restoration of a saved parameter.
-Mode-2 foreground selection through OUT and repeated SCREEN 2 image retention
-have model-based regression tests, without a pinned original visual capture.
+PALETTE interactions, mode-2 foreground selection through OUT and repeated
+SCREEN 2 image retention have model-based regression tests, without a pinned
+original visual capture.
 The replay replaces the capture's variable-colour LINE stripes with four PSET
 pixels to isolate palette behaviour from the existing LINE parser limitation
 (git-bug `8c77e53`).

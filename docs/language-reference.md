@@ -270,8 +270,9 @@ the mappings for attributes 0-3. `OUT &H3D9` replaces entries 0-3 in mode 1 or
 its saved CGA settings to their defaults.
 Repeating `SCREEN 1` or `SCREEN 2` while that graphics mode is active preserves
 its image and palette; changing mode starts with its defaults.
-Original visual captures cover mode 1. Mode-2 register colours and repeated-mode
-image retention currently have model-based regression coverage.
+Original visual captures cover mode-1 `COLOR`, `OUT &H3D9` and repeated
+`SCREEN 1`. `PALETTE` interaction, mode-2 register colours and repeated
+`SCREEN 2` image retention have model-based regression coverage.
 
 In text mode, `COLOR [foreground][,[background][,border]]` accepts foreground
 0-31, background 0-15 and border 0-255. The current text renderer applies
