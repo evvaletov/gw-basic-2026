@@ -148,7 +148,7 @@ def recover(root, state):
 
 
 def prune_backups(state):
-    for old in sorted(state.glob('backup-*'))[:-5]:
+    for old in sorted(state.glob('backup-*'), key=lambda path: int(path.name[7:]))[:-5]:
         shutil.rmtree(old)
 
 
@@ -183,7 +183,9 @@ def install(data, root, state):
                 receipt['backup'] = meta['backup']
             return receipt
         prepare(payload / 'gwbasic', root / 'index.html')
-        backup = state / ('backup-' + str(time.time_ns()))
+        # Keep generation order even when the host's wall clock moves backwards.
+        previous = max((int(path.name[7:]) for path in state.glob('backup-*')), default=0)
+        backup = state / ('backup-' + str(max(time.time_ns(), previous + 1)))
         backup.mkdir(mode=0o700)
         try:
             shutil.copytree(root / 'gwbasic', backup / 'gwbasic', copy_function=shutil.copy2)

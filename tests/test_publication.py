@@ -288,6 +288,18 @@ d.install(sys.stdin.buffer.read(),Path(sys.argv[2]),Path(sys.argv[3]))
         self.assertEqual(receipt['backup'], committed['backup'])
         self.assertEqual((backups[-1] / 'index.html').read_text(), 'navigation 4')
 
+    def test_backwards_clock_keeps_latest_backup_and_receipt(self):
+        backups = []
+        with patch.object(deploy.time, 'time_ns', side_effect=[95, 96, 97, 98, 99, 40]):
+            for version in range(6):
+                (self.payload / 'index.html').write_text('navigation ' + str(version))
+                backups.append(Path(deploy.install(self.archive(), self.root, self.state)['backup']))
+        self.assertEqual([int(path.name[7:]) for path in backups], [95, 96, 97, 98, 99, 100])
+        self.assertEqual(set(self.state.glob('backup-*')), set(backups[-5:]))
+        self.assertEqual((backups[-1] / 'index.html').read_text(), 'navigation 4')
+        retry = deploy.install(self.archive(), self.root, self.state)
+        self.assertEqual(Path(retry['backup']), backups[-1])
+
     def test_controller_installs_exact_artifact_and_verifies_public_bytes(self):
 
         def command(args, **kwargs):
