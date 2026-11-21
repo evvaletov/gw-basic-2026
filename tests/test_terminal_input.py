@@ -165,6 +165,19 @@ class TerminalInputTests(unittest.TestCase):
                     self.assertEqual(result.stdout, f"Q? [{value}]\nFILE DATA\n")
                     self.assertEqual(result.stderr, "")
 
+    def test_nested_input_break_then_collection_in_editor(self):
+        source = ('10 A$="KEPT"\n20 DEF FNA$(A$)=LEFT$(A$,LEN(INPUT$(1)))\n'
+                  '30 PRINT "WAIT":PRINT FNA$("TEMP")\n')
+        child, _, stream = self.spawn(self.command(source, "interpreter"))
+        child.expect("WAIT")
+        child.send("\x03")
+        child.expect("Ok")
+        self.assertIn("Break", child.before)
+        child.send('B=FRE(""):B$=STRING$(200,88):PRINT "VALUE=[";A$;"]"\r')
+        child.expect("VALUE=\\[KEPT\\]")
+        child.send("SYSTEM\r")
+        self.finish(child, stream)
+
     def test_escape_preserves_the_next_queued_key(self):
         source = '10 LINE INPUT ;"READ:";S$\n20 PRINT "VALUE=[";S$;"]":SYSTEM\n'
         for mode in ("interpreter", "O0", "safe"):

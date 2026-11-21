@@ -68,10 +68,8 @@ const char *gw_error_msg(int errnum)
 
 void gw_error(int errnum)
 {
-#ifdef GW_NATIVE_RUNTIME
-    /* Any native or delegated longjmp invalidates registered C locals. */
-    gwrt_expr_unwind();
-#endif
+    /* Any evaluator longjmp invalidates registered C locals. */
+    gw_eval_unwind();
     gw_errno = errnum;
     gw.err_line_num = gw.cur_line_num;
 

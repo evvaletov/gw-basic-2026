@@ -557,6 +557,33 @@ static void stmt_def_fn(void)
     }
 }
 
+/* Frames live on the evaluator's C stack. Nonlocal exits restore bindings
+ * before that stack disappears; saved strings also participate in GC. */
+typedef struct fn_call_frame {
+    var_entry_t *parameter;
+    gw_value_t saved;
+    struct fn_call_frame *outer;
+} fn_call_frame_t;
+static fn_call_frame_t *fn_calls;
+
+static void restore_fn_parameter(fn_call_frame_t *frame)
+{
+    if (frame->parameter) {
+        if (frame->parameter->val.type == VT_STR)
+            gw_str_free(&frame->parameter->val.sval);
+        frame->parameter->val = frame->saved;
+    }
+}
+
+void gw_eval_unwind(void)
+{
+    while (fn_calls) {
+        restore_fn_parameter(fn_calls);
+        fn_calls = fn_calls->outer;
+    }
+    gwrt_expr_unwind();
+}
+
 /* Evaluate FN call - called from eval.c */
 gw_value_t gw_eval_fn_call(void)
 {
@@ -593,16 +620,19 @@ gw_value_t gw_eval_fn_call(void)
     program_line_t *save_line = gw.cur_line;
 
     /* Set parameter if function has one */
-    var_entry_t *param_var = NULL;
-    gw_value_t saved_val = {0};
-    GW_TEMP_BEGIN(); GW_TEMP_ROOT(&saved_val);
+    fn_call_frame_t frame = {0};
+    GW_TEMP_BEGIN(); GW_TEMP_ROOT(&arg_val); GW_TEMP_ROOT(&frame.saved);
     if (fn->param_name[0] && has_arg) {
-        param_var = gw_var_find_or_create(fn->param_name, fn->param_type);
-        saved_val = param_var->val;
-        if (fn->param_type == VT_STR && saved_val.type == VT_STR)
-            saved_val.sval = gw_str_copy(&param_var->val.sval);
-        gw_var_assign(param_var, &arg_val);
+        frame.parameter = gw_var_find_or_create(fn->param_name, fn->param_type);
+        /* The rooted descriptor keeps the old allocation alive while the
+         * parameter owns the argument; rebinding needs no second copy. */
+        frame.saved = frame.parameter->val;
     }
+    frame.outer = fn_calls;
+    fn_calls = &frame;
+    if (frame.parameter) gw_var_assign(frame.parameter, &arg_val);
+    /* Assignment transfers string ownership to the parameter descriptor. */
+    if (arg_val.type == VT_STR) gw_str_free(&arg_val.sval);
 
     /* Evaluate the body expression */
     gw.text_ptr = fn->body_text;
@@ -610,11 +640,8 @@ gw_value_t gw_eval_fn_call(void)
     gw_value_t result = gw_eval();
 
     /* Restore parameter */
-    if (param_var) {
-        if (fn->param_type == VT_STR)
-            gw_str_free(&param_var->val.sval);
-        param_var->val = saved_val;
-    }
+    restore_fn_parameter(&frame);
+    fn_calls = frame.outer;
 
     /* Restore text pointer */
     gw.text_ptr = save_text;
@@ -2788,26 +2815,32 @@ inline_statement:
     /* COLOR */
     if (tok == TOK_COLOR) {
         gw_chrget();
-        int fg = gw_eval_int();
-        int bg = -1;
-        gw_skip_spaces();
-        if (gw_chrgot() == ',') {
-            gw_chrget();
+        int args[3] = {-1, -1, -1}, count = 0;
+        while (1) {
             gw_skip_spaces();
-            if (gw_chrgot() != ',' && gw_chrgot() != 0 && gw_chrgot() != ':')
-                bg = gw_eval_int();
-            /* Skip optional border parameter */
-            gw_skip_spaces();
-            if (gw_chrgot() == ',') {
-                gw_chrget();
-                gw_skip_spaces();
-                if (gw_chrgot() != 0 && gw_chrgot() != ':')
-                    gw_eval_int();
+            uint8_t next = gw_chrgot();
+            if (!next || next == ':' || next == TOK_ELSE || next == TOK_SQUOTE) break;
+            if (count == 3) gw_error(ERR_FC);
+            if (next != ',') {
+                args[count] = gw_eval_int();
+                if (args[count] < 0 || args[count] > 255) gw_error(ERR_FC);
             }
+            count++;
+            gw_skip_spaces();
+            next = gw_chrgot();
+            if (!next || next == ':' || next == TOK_ELSE || next == TOK_SQUOTE) break;
+            if (next != ',') gw_error(ERR_FC);
+            gw_chrget();
         }
-        if (gfx_active()) {
-            gfx_set_color(fg);
-        } else if (tui.active) {
+        if (!count || gfx_get_mode() == 2) gw_error(ERR_FC);
+        if (gfx_get_mode() == 1) {
+            if (count > 2) gw_error(ERR_FC);
+            gfx_color(args[0], args[1]);
+            return;
+        }
+        int fg = args[0], bg = args[1];
+        if (fg > 31 || bg > 15) gw_error(ERR_FC);
+        if (tui.active) {
             /* TUI mode: update current attribute for subsequent output */
             if (fg >= 0 && fg < 16)
                 tui.current_attr = (tui.current_attr & 0xF0) | (fg & 0x0F);

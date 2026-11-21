@@ -8,12 +8,24 @@ import tempfile
 
 import run_dos_runtime as dos
 
-SOURCE = '''5 DIM M%(2,3):M%(1,2)=17:M%(2,1)=29
+SOURCE = '''1 CLEAR 64:DEF FNA(S$)=FRE("")
+2 IF FNA(STRING$(40,65))<>24 THEN ERROR 5
+3 S$=STRING$(40,65):IF FNA("X")<>23 THEN ERROR 5
+4 IF FRE("")<>24 THEN ERROR 5
+5 CLEAR 8192:DIM M%(2,3):M%(1,2)=17:M%(2,1)=29
 10 CLS:PRINT "GUEST SCREEN"
 20 A%=1:GOSUB 100
 30 SCREEN 1
+35 PSET (319,199),1:IF POINT(319,199)<>1 THEN ERROR 5
 40 PSET (4,5),2
+45 COLOR 17,0:COLOR ,1:SCREEN 1
+46 IF INP(&H3D9)<>49 OR POINT(4,5)<>2 THEN ERROR 5
+47 OUT &H3D9,63:PALETTE
+48 IF INP(&H3D9)<>48 THEN ERROR 5
+49 COLOR VAL(LEFT$("1",1+0*FRE("")+0*LEN(STRING$(80,50)))),0:IF INP(&H3D9)<>1 THEN ERROR 5
 50 C%=POINT(4,5)
+55 SCREEN 2:PSET (383,97),0:PSET (639,199),1
+56 IF POINT(383,97)<>0 OR POINT(639,199)<>1 THEN ERROR 5
 60 SCREEN 0:CLS:PRINT "GUEST SCREEN";A%;C%
 70 OPEN "R",#1,"FIELD.BIN",8
 75 FIELD #1,4 AS A$,4 AS B$
@@ -22,7 +34,7 @@ SOURCE = '''5 DIM M%(2,3):M%(1,2)=17:M%(2,1)=29
 90 OPEN "CHECK.TXT" FOR OUTPUT AS #2:PRINT #2,A%;C%:CLOSE #2:SYSTEM
 100 A%=A%+1:RETURN
 '''
-COMMANDS = "watch A%\nwatch C%\nwatch A$\nwatch M%(1,2)\nwatch M%(2,1)\n" + "checkpoint guest\ninspect file 1 0 8\nstep\n"*36
+COMMANDS = "watch A%\nwatch C%\nwatch A$\nwatch M%(1,2)\nwatch M%(2,1)\n" + "checkpoint guest\ninspect file 1 0 8\nstep\n"*80
 
 
 def main():
@@ -91,7 +103,9 @@ def main():
             assert "error " not in log
             assert "checkpoint guest" in log
             report[mode] = {"status": "passed", "binary_sha256": dos.digest(binary),
-                            "checks": ["calls", "watches", "checkpoints", "FIELD bytes", "graphics POINT", "guest screen", "normal/debug equivalence"]}
+                            "checks": ["calls", "watches", "checkpoints", "FIELD bytes", "graphics POINT",
+                                       "CGA colour state", "same-mode pixels", "full-size framebuffers", "FN string ownership",
+                                       "guest screen", "normal/debug equivalence"]}
             print("PASS DOS"+mode+" debug and screen preservation", flush=True)
     if args.system_disk:
         assert dos.digest(args.system_disk) == base_digest, "base disk changed"

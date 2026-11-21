@@ -88,27 +88,6 @@ static void cga_mode_out(uint8_t value)
         gfx_shutdown();     /* text mode */
 }
 
-/* --- CGA Color Select Register (port 0x3D9) --- */
-
-static uint8_t cga_color;
-
-static void cga_color_out(uint8_t value)
-{
-    cga_color = value;
-    /* Background color (bits 0-3) → palette attribute 0 */
-    gfx_palette_set(0, value & 0x0F);
-    /* Palette select (bit 5): 0 = green/red/yellow, 1 = cyan/magenta/white */
-    if (value & 0x20) {
-        gfx_palette_set(1, 3);   /* cyan */
-        gfx_palette_set(2, 5);   /* magenta */
-        gfx_palette_set(3, 7);   /* white */
-    } else {
-        gfx_palette_set(1, 2);   /* green */
-        gfx_palette_set(2, 4);   /* red */
-        gfx_palette_set(3, 6);   /* yellow/brown */
-    }
-}
-
 /* --- Game Port (port 0x201) --- */
 
 #define GAME_PORT_NO_JOYSTICK  0xF0  /* bits 4-7 set = no buttons */
@@ -150,7 +129,7 @@ uint8_t portio_inp(uint16_t port)
     if (port == 0x3D8)
         return cga_mode;
     if (port == 0x3D9)
-        return cga_color;
+        return gfx_cga_color_in();
 
     /* Game port */
     if (port == 0x201)
@@ -184,7 +163,7 @@ void portio_out(uint16_t port, uint8_t value)
         return;
     }
     if (port == 0x3D9) {
-        cga_color_out(value);
+        gfx_cga_color_out(value);
         return;
     }
 
@@ -208,7 +187,7 @@ void portio_reset(void)
     ppi_portb = 0;
 
     cga_mode = 0;
-    cga_color = 0;
+    /* Graphics owns the colour latch; CLEAR does not reset the display. */
 
     memset(com1_regs, 0, sizeof(com1_regs));
 }

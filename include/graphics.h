@@ -58,6 +58,9 @@ void gfx_window(bool screen_flag, double x1, double y1, double x2, double y2);
 void gfx_window_reset(void);
 void gfx_palette_set(int attr, int color);
 void gfx_palette_reset(void);
+void gfx_color(int background, int palette);
+void gfx_cga_color_out(uint8_t value);
+uint8_t gfx_cga_color_in(void);
 
 /* Coordinate mapping (logical ↔ physical) */
 int  gfx_map_x(double x);

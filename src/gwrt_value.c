@@ -6,60 +6,6 @@
 #include <string.h>
 #include <time.h>
 
-/* Native C temporaries must move with a compacting collection. Frames record
- * the roots that were live on entry, so nested expressions can return values
- * without leaving pointers to expired C locals in the collector. */
-static gw_value_t **expression_roots;
-static size_t root_count, root_capacity;
-static size_t *expression_frames;
-static size_t frame_count, frame_capacity;
-
-void gwrt_expr_begin(void)
-{
-    if (frame_count == frame_capacity) {
-        size_t capacity = frame_capacity ? 2 * frame_capacity : 16;
-        size_t *frames = realloc(expression_frames, capacity * sizeof(*frames));
-        if (!frames) gw_error(ERR_OM);
-        expression_frames = frames; frame_capacity = capacity;
-    }
-    expression_frames[frame_count++] = root_count;
-}
-
-void gwrt_expr_root(gw_value_t *value)
-{
-    if (root_count == root_capacity) {
-        size_t capacity = root_capacity ? 2 * root_capacity : 32;
-        gw_value_t **roots = realloc(expression_roots, capacity * sizeof(*roots));
-        if (!roots) gw_error(ERR_OM);
-        expression_roots = roots; root_capacity = capacity;
-    }
-    expression_roots[root_count++] = value;
-}
-
-void gwrt_expr_end(void)
-{
-    if (frame_count) root_count = expression_frames[--frame_count];
-}
-
-void gwrt_expr_unwind(void)
-{
-    free(expression_roots); free(expression_frames);
-    expression_roots = NULL; expression_frames = NULL;
-    root_count = root_capacity = frame_count = frame_capacity = 0;
-}
-
-void gwrt_collect_roots(char *pool, char *scratch, size_t *offset)
-{
-    for (size_t i = 0; i < root_count; i++) {
-        gw_value_t *value = expression_roots[i];
-        if (value->type == VT_STR && value->sval.len && value->sval.data && strpool_owns(value->sval.data)) {
-            memcpy(scratch + *offset, value->sval.data, value->sval.len);
-            value->sval.data = pool + *offset;
-            *offset += value->sval.len;
-        }
-    }
-}
-
 gw_value_t *gwrt_var(const char *name, int type)
 {
     if (!type) type = gw.def_type[name[0] - 'A'];

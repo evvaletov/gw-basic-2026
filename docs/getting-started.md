@@ -397,6 +397,11 @@ Notes and constraints:
 - The function name is matched case-insensitively at the call site (BASIC
   convention). The emitted C symbol preserves the case written in the pragma:
   `Cmul` calls C's `Cmul`.
+- An external call name takes precedence over a variable name in expressions,
+  including `DEF FN` bodies. With `Q` declared as a zero-argument external,
+  the body of `DEF FNA(Q)=Q+1` calls the external `Q`. Use distinct external
+  and parameter names. Static and runtime-typed native builds use this lookup
+  order; the standalone interpreter ignores external declarations.
 - The BASIC call name must be a legal BASIC identifier (it starts with a
   letter) because the call site is tokenized as ordinary BASIC.  To call a C
   function whose name contains underscores or other characters, add an
@@ -413,9 +418,9 @@ Notes and constraints:
 - A string-returning extern works wherever a string expression is expected,
   including `PRINT`, `WRITE`, `INSTR`, and string comparison (`IF Greet(N$) =
   "..."`).
-- String arguments cross as `const char *` (the compiler converts and frees
-  a temporary copy); a `STRING` return value is copied into the BASIC
-  string pool and the callee retains ownership of its own buffer.
+- String arguments cross as `const char *` buffers valid during the call.
+  A `STRING` result is copied into the BASIC string pool before those argument
+  buffers expire. The callee retains ownership of any buffer it provides.
 - For Fortran callees, declare the routine `bind(c)` with a matching name.
 
 (dos-setup)=
@@ -499,4 +504,7 @@ lines and arrays.
 The 16-bit link disables OpenWatcom far-call rewriting (`OPTION NOFARCALLS`).
 With the same object files, the default rewrite produced layout-dependent
 FreeDOS/JemmEx faults; preserving far calls avoided them. The floating-point
-mode and 8 KiB stack remain unchanged. `build_dos.sh 16` and `Makefile.dos16` use this setting.
+mode remains unchanged. Both `build_dos.sh 16` and `Makefile.dos16` reserve a
+16 KiB stack for nested expression evaluation. Compared with the previous
+8 KiB stack, this leaves 8 KiB less near-heap space for program storage,
+arrays and the string collector's scratch buffer.

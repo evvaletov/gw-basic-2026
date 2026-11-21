@@ -225,6 +225,7 @@ void gwrt_shutdown(void)
     gw.extern_eval = NULL;
     gw_lpt_close();
     snd_shutdown();
+    gfx_shutdown();
     gw_vars_clear();
     gw_arrays_clear();
     gw_file_close_all();

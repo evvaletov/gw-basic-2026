@@ -36,6 +36,7 @@ bash tests/run_tests.sh                 # interpreter programs
 bash tests/run_compiler_tests.sh        # native executables
 python3 tests/test_interactive.py        # terminal input and prompt behavior
 python3 tests/test_debug.py
+python3 tests/test_graphics_palette.py   # CGA colours, register state and redraws
 python3 tests/test_runtime_types.py      # runtime DEFTYPE, FFI and hosted cleanup
 python3 tests/test_compiler_regressions.py  # compiler option combinations
 python3 tests/test_compiler_paths.py        # literal GCC paths and launch failures
@@ -87,6 +88,16 @@ for representative token widths and rejects oversized lines through the
 interpreter, LOAD, and compiler. It builds a small ASan/UBSan test helper.
 
 ### DOS runtime checks
+
+`python3 tests/run_dos_debug.py` checks palette state and preserved pixels
+across repeated SCREEN statements, with and without the debugger. Pixels at
+the bottom-right of modes 1 and 2 exercise offsets beyond signed 16-bit index
+arithmetic. Two mode-2 pixels 65536 bytes apart check for address aliasing.
+The 16-bit build allocates this buffer outside the near heap and uses a 16 KiB
+stack for nested expression evaluation. The guest test also collects strings
+while an outer expression holds a temporary string.
+These checks cover stored graphics state; the DOS text HAL
+does not display the framebuffer.
 
 The DOS cross-build job executes both binaries under FreeDOS in QEMU before
 uploading them for release packaging. Run the same checks locally after building

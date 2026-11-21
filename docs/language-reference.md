@@ -216,6 +216,9 @@ Graphics mode is activated with `SCREEN 1` (320x200, 4 colors) or
 `SCREEN 2` (640x200, monochrome). Drawing commands render to an internal
 framebuffer and output through Sixel graphics. Use a terminal with Sixel support
 enabled to see the rendered image.
+Sixel rendering is available on POSIX. DOS builds retain framebuffer and palette
+state for graphics operations, but do not render pixels through the BIOS text
+display.
 
 `SCREEN 1` starts with black, light cyan, light magenta and high-intensity white
 for attributes 0-3. `SCREEN 2` starts with black and high-intensity white for
@@ -232,9 +235,51 @@ they can render additional colors. Range handling is tracked in git-bug `4d4aed0
 - `PAINT (x,y), fill, border` -- flood fill
 - `DRAW string` -- turtle graphics mini-language (U/D/L/R/E/F/G/H, M, C, S, B, N)
 - `POINT (x,y)` -- read the stored pixel attribute
-- `COLOR fg[,bg]` -- select drawing attribute `fg`. In graphics mode, `bg` is
-  accepted but ignored. The original `SCREEN 1` background/palette selection
-  is tracked in git-bug `1c9b047`.
+
+### COLOR and CGA palette controls
+
+In `SCREEN 1`, `COLOR [background][,[palette]]` changes the displayed colours
+without changing stored pixel attributes or the default drawing attribute.
+Both arguments accept byte values (0-255), following the pinned
+Microsoft-source interpreter. The background's low four bits select an RGBI
+colour; bit 4 selects low or high intensity for attributes 1-3. Higher bits are
+ignored. An even palette value selects green/red/brown, and an odd value selects
+cyan/magenta/white, with the chosen intensity applied to all three colours.
+For example, `COLOR 0,1` selects black with low-intensity cyan/magenta/white;
+`COLOR 16,1` selects black with their bright variants.
+
+Omitted arguments retain their previous settings: `COLOR ,0` changes only the
+palette selection. `COLOR ,` leaves the display unchanged. Bare `COLOR`, values
+outside the byte range after integer conversion, a third argument in mode 1,
+and any `COLOR` statement in mode 2 raise "Illegal function call". Expression
+errors, including integer overflow, can occur before this check.
+The interpreter and native compiler accept the same forms.
+
+`OUT &H3D9,value` writes the emulated CGA colour register. In mode 1, bits 0-3
+select the background, bit 4 selects intensity and bit 5 selects the palette.
+In mode 2, bits 0-3 select the foreground; the background stays black.
+`COLOR` retains its BIOS-style saved settings separately from direct register
+writes, so a later `COLOR` can replace an earlier `OUT` setting. `INP(&H3D9)`
+returns the emulated latch; a physical CGA register is write-only.
+
+`COLOR`, `OUT &H3D9` and `PALETTE` redraw existing pixels immediately. They write
+the same RGBI palette map; the latest write determines each entry's colour.
+This is not an EGA hardware emulation. `COLOR` with a supplied argument replaces
+the mappings for attributes 0-3. `OUT &H3D9` replaces entries 0-3 in mode 1 or
+0-1 in mode 2. Bare `PALETTE` restores the mode's default palette and resets
+its saved CGA settings to their defaults.
+Repeating `SCREEN 1` or `SCREEN 2` while that graphics mode is active preserves
+its image and palette; changing mode starts with its defaults.
+Original visual captures cover mode-1 `COLOR`, `OUT &H3D9` and repeated
+`SCREEN 1`. `PALETTE` interaction, mode-2 register colours and repeated
+`SCREEN 2` image retention have model-based regression coverage.
+
+In text mode, `COLOR [foreground][,[background][,border]]` accepts foreground
+0-31, background 0-15 and border 0-255. The current text renderer applies
+foreground 0-15 and background 0-7. Foreground 16-31, background 8-15 and border
+are accepted but have no visible effect.
+Compiled programs apply these text colours through the same handler.
+The emulated `INP(&H3D9)` latch does not model text-mode border writes.
 
 ### Sprite Capture and Blit (GET / PUT)
 
@@ -266,8 +311,8 @@ matching the original GW-BASIC representation.
   Y increases downward.  Without arguments, resets to physical coordinates.
 - `PALETTE [attribute, color]` -- remap a color attribute to a different
   physical RGBI color (0-15). Without arguments, restores the current screen
-  mode's default palette. Entering a screen mode also resets its palette.
-  Palette changes are displayed by the next drawing command.
+  mode's default palette. Changing screen mode also resets its palette.
+  Palette changes redraw the image immediately.
 - `PMAP(coordinate, function)` -- convert between logical and physical
   coordinates.  Function 0/1 = logical→physical X/Y; 2/3 = physical→logical X/Y.
 
@@ -358,7 +403,7 @@ OUT &H61, INP(&H61) AND &HFC ' speaker off
 | `&H42`-`&H43` | 8253 PIT channel 2 | Speaker frequency divisor (1193180 / divisor Hz) |
 | `&H61` | PPI Port B | Bits 0-1 control speaker; both set = tone on, either clear = off |
 | `&H3D8` | CGA mode control | Mode register; writes with changed mode bits trigger `SCREEN` changes |
-| `&H3D9` | CGA color select | Background color (bits 0-3) and palette select (bit 5) |
+| `&H3D9` | CGA colour select | Mode 1 background (bits 0-3), intensity (bit 4), palette (bit 5); mode 2 foreground (bits 0-3) |
 | `&H201` | Game port | Returns `&HF0` (no joystick connected) |
 | `&H3F8`-`&H3FE` | COM1 serial | Minimal stub; LSR (`&H3FD`) returns `&H60` (transmitter ready) |
 | Default | -- | Reads return `&HFF` (floating bus), writes silently discarded |

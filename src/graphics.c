@@ -1,6 +1,7 @@
 #include "graphics.h"
 #include "gwbasic.h"
 #include "hal.h"
+#include "error.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -11,22 +12,31 @@
 #include <math.h>
 #include <ctype.h>
 
+#ifdef _M_I86
+#include <malloc.h>
+static uint8_t __huge *framebuf;
+#else
 static uint8_t *framebuf;
+#endif
 static int fb_width, fb_height;
 static int screen_mode;
 static int current_color = 1;
 static int last_x, last_y;
 
 /* CGA default palette (RGBI) */
+#ifndef __MSDOS__
 static const uint32_t default_palette[16] = {
     0x000000, 0x0000AA, 0x00AA00, 0x00AAAA,
     0xAA0000, 0xAA00AA, 0xAA5500, 0xAAAAAA,
     0x555555, 0x5555FF, 0x55FF55, 0x55FFFF,
     0xFF5555, 0xFF55FF, 0xFFFF55, 0xFFFFFF,
 };
+#endif
 
 /* Active palette: palette_map[attr] gives the physical color index */
 static int palette_map[16];
+/* COLOR uses the BIOS shadow; direct OUT changes only the hardware latch. */
+static uint8_t cga_bios_color, cga_color;
 
 /* Viewport state (VIEW) */
 static bool vp_active;
@@ -38,19 +48,26 @@ static bool win_active;
 static bool win_screen;  /* WINDOW SCREEN flag */
 static double win_x1, win_y1, win_x2, win_y2;
 
+static void apply_cga_palette(uint8_t value)
+{
+    if (screen_mode == 1) {
+        palette_map[0] = value & 15;
+        int intensity = (value & 16) ? 8 : 0;
+        int select = (value & 32) ? 1 : 0;
+        for (int attr = 1; attr <= 3; attr++)
+            palette_map[attr] = 2 * attr + select + intensity;
+    } else if (screen_mode == 2) {
+        palette_map[0] = 0;
+        palette_map[1] = value & 15;
+    }
+}
+
 static void reset_palette(void)
 {
     for (int i = 0; i < 16; i++)
         palette_map[i] = i;
-
-    /* GW-BASIC SCREEN defaults: attributes are not RGBI color indexes. */
-    if (screen_mode == 1) {
-        palette_map[1] = 11;  /* light cyan */
-        palette_map[2] = 13;  /* light magenta */
-        palette_map[3] = 15;  /* high-intensity white */
-    } else if (screen_mode == 2) {
-        palette_map[1] = 15;  /* high-intensity white */
-    }
+    cga_bios_color = cga_color = screen_mode == 1 ? 0x30 : screen_mode == 2 ? 0x3f : 0;
+    apply_cga_palette(cga_color);
 }
 
 bool gfx_active(void) { return framebuf != NULL; }
@@ -64,6 +81,7 @@ int  gfx_get_height(void) { return fb_height; }
 
 void gfx_init(int mode)
 {
+    if (framebuf && mode == screen_mode) return;
     gfx_shutdown();
     screen_mode = mode;
     switch (mode) {
@@ -71,7 +89,15 @@ void gfx_init(int mode)
     case 2: fb_width = 640; fb_height = 200; break;
     default: return;  /* text mode, no framebuffer */
     }
-    framebuf = calloc(fb_width * fb_height, 1);
+#ifdef _M_I86
+    framebuf = halloc((long)fb_width * fb_height, 1);
+#else
+    framebuf = calloc((size_t)fb_width * fb_height, 1);
+#endif
+    if (!framebuf) {
+        gfx_shutdown();
+        gw_error(ERR_OM);
+    }
     current_color = (mode == 2) ? 1 : 3;
     last_x = 0;
     last_y = 0;
@@ -79,12 +105,17 @@ void gfx_init(int mode)
     vp_x1 = 0; vp_y1 = 0;
     vp_x2 = fb_width - 1; vp_y2 = fb_height - 1;
     win_active = false;
+    gfx_cls();
     reset_palette();
 }
 
 void gfx_shutdown(void)
 {
+#ifdef _M_I86
+    if (framebuf) hfree(framebuf);
+#else
     free(framebuf);
+#endif
     framebuf = NULL;
     fb_width = 0;
     fb_height = 0;
@@ -100,9 +131,14 @@ void gfx_cls(void)
     if (vp_active) {
         for (int y = vp_y1; y <= vp_y2; y++)
             for (int x = vp_x1; x <= vp_x2; x++)
-                framebuf[y * fb_width + x] = 0;
+                framebuf[(long)y * fb_width + x] = 0;
     } else {
-        memset(framebuf, 0, fb_width * fb_height);
+#ifdef _M_I86
+        for (long i = 0; i < (long)fb_width * fb_height; i++)
+            framebuf[i] = 0;
+#else
+        memset(framebuf, 0, (size_t)fb_width * fb_height);
+#endif
     }
 }
 
@@ -123,13 +159,13 @@ static inline void set_pixel(int x, int y, int color)
     int cx1, cy1, cx2, cy2;
     clip_bounds(&cx1, &cy1, &cx2, &cy2);
     if (x >= cx1 && x <= cx2 && y >= cy1 && y <= cy2)
-        framebuf[y * fb_width + x] = color;
+        framebuf[(long)y * fb_width + x] = color;
 }
 
 static inline int get_pixel(int x, int y)
 {
     if (x >= 0 && x < fb_width && y >= 0 && y < fb_height)
-        return framebuf[y * fb_width + x];
+        return framebuf[(long)y * fb_width + x];
     return 0;
 }
 
@@ -496,11 +532,16 @@ void gfx_draw(const char *cmd)
 /* Sixel output encoder */
 void gfx_flush(void)
 {
+#ifdef __MSDOS__
+    /* The BIOS text HAL cannot display Sixel. Keep graphics state available
+       to POINT, sprites and virtual CGA memory without printing escape bytes. */
+    return;
+#else
     if (!framebuf || !gw_hal) return;
 
     /* Determine which colors are used */
     int color_used[16] = {0};
-    for (int i = 0; i < fb_width * fb_height; i++)
+    for (long i = 0; i < (long)fb_width * fb_height; i++)
         color_used[framebuf[i] & 0x0F] = 1;
 
     /* Build Sixel output in a buffer */
@@ -546,7 +587,7 @@ void gfx_flush(void)
             int has_color = 0;
             for (int y2 = band; y2 < band + band_h && !has_color; y2++)
                 for (int x2 = 0; x2 < fb_width && !has_color; x2++)
-                    if (framebuf[y2 * fb_width + x2] == c)
+                    if (framebuf[(long)y2 * fb_width + x2] == c)
                         has_color = 1;
             if (!has_color) continue;
 
@@ -564,7 +605,7 @@ void gfx_flush(void)
                 int sixel = 0;
                 for (int bit = 0; bit < band_h; bit++) {
                     int y2 = band + bit;
-                    if (framebuf[y2 * fb_width + x2] == c)
+                    if (framebuf[(long)y2 * fb_width + x2] == c)
                         sixel |= (1 << bit);
                 }
 
@@ -614,7 +655,7 @@ void gfx_flush(void)
                 if (!color_used[nc]) continue;
                 for (int y2 = band; y2 < band + band_h && !more; y2++)
                     for (int x2 = 0; x2 < fb_width && !more; x2++)
-                        if (framebuf[y2 * fb_width + x2] == nc)
+                        if (framebuf[(long)y2 * fb_width + x2] == nc)
                             more = 1;
                 if (more) break;
             }
@@ -633,6 +674,7 @@ void gfx_flush(void)
     /* Write out via HAL raw output */
     gw_hal->write_raw(buf, pos);
     free(buf);
+#endif
 }
 
 /* ================================================================
@@ -674,7 +716,7 @@ void gfx_view(bool screen_flag, int x1, int y1, int x2, int y2,
     if (has_fill) {
         for (int y = vp_y1; y <= vp_y2; y++)
             for (int x = vp_x1; x <= vp_x2; x++)
-                framebuf[y * fb_width + x] = fill;
+                framebuf[(long)y * fb_width + x] = fill;
     }
 
     /* Reset last position to viewport origin */
@@ -786,11 +828,32 @@ void gfx_palette_set(int attr, int color)
 {
     if (attr < 0 || attr > 15 || color < 0 || color > 15) return;
     palette_map[attr] = color;
+    gfx_flush();
 }
 
 void gfx_palette_reset(void)
 {
     reset_palette();
+    gfx_flush();
+}
+
+uint8_t gfx_cga_color_in(void) { return cga_color; }
+
+void gfx_cga_color_out(uint8_t value)
+{
+    cga_color = value;
+    apply_cga_palette(value);
+    gfx_flush();
+}
+
+void gfx_color(int background, int palette)
+{
+    if (background < 0 && palette < 0) return;
+    if (background >= 0)
+        cga_bios_color = (cga_bios_color & 32) | (background & 31);
+    if (palette >= 0)
+        cga_bios_color = (cga_bios_color & 31) | ((palette & 1) << 5);
+    gfx_cga_color_out(cga_bios_color);
 }
 
 /*
