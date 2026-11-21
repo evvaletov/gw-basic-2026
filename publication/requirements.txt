@@ -1,0 +1,2 @@
+-r ../docs/requirements.txt
+markdown-it-py==4.3.0

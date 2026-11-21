@@ -8,6 +8,10 @@ The interpreter implements the language in C11 and aims to reproduce the
 original behavior. Hardware access uses emulation or device stubs; see the
 [language reference](docs/language-reference.md) for their limits.
 
+[Project site and documentation](https://valetov.com/gwbasic/) ·
+[GitHub Pages mirror](https://evvaletov.github.io/gw-basic-2026/) ·
+[Release downloads](https://github.com/evvaletov/gw-basic-2026/releases)
+
 ## Demos
 
 ### FreeDOS editor

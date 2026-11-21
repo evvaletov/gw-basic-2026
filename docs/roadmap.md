@@ -148,19 +148,22 @@ CP437 glyphs, and restores terminal settings on default termination signals
 during input. The documentation runner enforces strict fences, bounds live logs,
 and cleans up its process groups after successful and failed commands.
 
+The technical article [Compiling GW-BASIC and drawing in Jupyter](https://valetov.com/articles/gw-basic-2026/)
+is public on valetov.com. Its examples use v0.18.2 and gwbasickernel 0.1.0;
+downloadable outputs, a notebook and source references accompany it.
+
 Next priorities:
 
-1. Write a technical article with reproducible native-compiler and notebook
-   graphics examples, distinguishing v0.18.2 from later test coverage
-   (git-bug `dc24012`).
-2. Prepare a focused retrocomputing/DOS community announcement under the
+1. Prepare a focused retrocomputing/DOS community announcement under the
    selected venue's current rules (git-bug `682425c`).
-3. Complete the FreeDOS repository route after maintainers reply to the sent
+2. Complete the FreeDOS repository route after maintainers reply to the sent
    enquiry, including any requested FDNPKG/FDIMPLES checks (git-bug `ab8188c`).
-4. Make SDF source, tag and git-bug synchronisation repeatable with failure
+3. Make SDF source, tag and git-bug synchronisation repeatable with failure
    reporting (git-bug `0b511f7`).
-5. Extend scripted gameplay coverage beyond the 36 original listings already
+4. Extend scripted gameplay coverage beyond the 36 original listings already
    covered, keeping adapted ports separate (git-bug `51679f0`).
+5. Validate and correct the default SCREEN 1 palette against original GW-BASIC;
+   the published article records the released mapping (git-bug `415598e`).
 
 The tested AUR package awaits reopening of account registration. Homebrew and
 `gwbasickernel` on PyPI are live; directory requests await maintainers. HN stays
