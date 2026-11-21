@@ -287,6 +287,7 @@ static void emit_dynamic_ffi_wrappers(void)
 {
     for (int i=0;i<ana->extern_count;i++) {
         const extern_func_t *ef=&ana->externs[i];
+        if (!ana->runtime_types && !ef->referenced) continue;
         EMIT("static gw_value_t _gw_foreign_%d(gw_value_t *args){\n",i);
         for (int n=0;n<ef->argc;n++) {
             int type=ef->arg_types[n];
@@ -307,6 +308,7 @@ static void emit_dynamic_ffi_wrappers(void)
          "uint8_t *end=gw.text_ptr;char name[GW_NAME_SIZE];if(!gw_scan_name(&end,name))return false;\n");
     for (int i=0;i<ana->extern_count;i++) {
         const extern_func_t *ef=&ana->externs[i];
+        if (!ana->runtime_types && !ef->referenced) continue;
         char name[EXTERN_NAME_MAX];
         for (int n=0;n<EXTERN_NAME_MAX;n++) { name[n]=(char)toupper((unsigned char)ef->name[n]); if(!name[n]) break; }
         EMIT("if(strcmp(name,\"%s\")==0){\ngw.text_ptr=end;"

@@ -89,7 +89,7 @@ interpreter, LOAD, and compiler. It builds a small ASan/UBSan test helper.
 
 ### DOS runtime checks
 
-`python3 tests/run_dos_debug.py` also checks palette state and preserved pixels
+`python3 tests/run_dos_debug.py` checks palette state and preserved pixels
 across repeated SCREEN statements, with and without the debugger. Pixels at
 the bottom-right of modes 1 and 2 exercise offsets beyond signed 16-bit index
 arithmetic. Two mode-2 pixels 65536 bytes apart check for address aliasing.

@@ -240,7 +240,7 @@ they can render additional colors. Range handling is tracked in git-bug `4d4aed0
 
 In `SCREEN 1`, `COLOR [background][,[palette]]` changes the displayed colours
 without changing stored pixel attributes or the default drawing attribute.
-Both arguments accept byte values (0-255), following the pinned 1983
+Both arguments accept byte values (0-255), following the pinned
 Microsoft-source interpreter. The background's low four bits select an RGBI
 colour; bit 4 selects low or high intensity for attributes 1-3. Higher bits are
 ignored. An even palette value selects green/red/brown, and an odd value selects
@@ -269,6 +269,11 @@ for attributes 0-3. Bare `PALETTE` restores the mode's default palette and reset
 its saved CGA settings to their defaults.
 Repeating the current `SCREEN` mode preserves the image and palette; changing
 mode starts with its defaults. These changes require a current source build.
+
+In text mode, `COLOR [foreground][,[background][,border]]` accepts foreground
+0-31, background 0-15 and border 0-255. The current text renderer applies
+foreground 0-15 and background 0-7; blink and border rendering remain limited.
+Compiled programs now apply these text colours through the same handler.
 
 ### Sprite Capture and Blit (GET / PUT)
 

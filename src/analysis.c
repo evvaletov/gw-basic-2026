@@ -548,7 +548,9 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
             /* A declared extern is a function call, not a variable — don't add
              * it to the census.  Its argument expressions are scanned normally
              * by the surrounding loop. */
-            if (analysis_find_extern(a, full)) {
+            const extern_func_t *external = analysis_find_extern(a, full);
+            if (external) {
+                a->externs[external - a->externs].referenced = true;
                 if (p < end && (*p == '$' || *p == '%' || *p == '!' || *p == '#'))
                     p++;
                 assign_ctx = false;

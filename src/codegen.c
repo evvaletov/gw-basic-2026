@@ -197,6 +197,12 @@ static void emit_ident(const char *name)
 
 static void emit_varname(const char *name, gw_valtype_t type)
 {
+    /* The collector moves this descriptor in place, including before a
+     * trapped error. Numeric scalars can stay in native C storage. */
+    if (type == VT_STR) {
+        EMIT("gwrt_var(\"%s\",VT_STR)->sval", name);
+        return;
+    }
     EMIT("var_"); emit_ident(name); EMIT("_%s", type_suffix(type));
 }
 
@@ -545,18 +551,8 @@ static void emit_atom(void)
             EMIT("), (gw_hal ? gw_hal->get_cursor_col() + 1 : 1))");
             return;
         case FUNC_FRE:
-            /* In compiled code, GC can't find C-static variables.
-             * Sync vars to interpreter table before GC for FRE(""). */
             if (cur() == '(' && tp[1] == '"') {
-                EMIT("({");
-                for (int vi = 0; vi < compiled_var_count; vi++) {
-                    var_info_t *v = &ana->vars[vi];
-                    if (v->type != VT_STR) continue;
-                    EMIT("gw_var_find_or_create(\"%s\",%d)->val.sval=", v->name, v->type);
-                    emit_varname(v->name, v->type);
-                    EMIT(";");
-                }
-                EMIT(" strpool_gc(); (float)strpool_free();})");
+                EMIT("(strpool_gc(), (float)strpool_free())");
             } else {
                 EMIT("((float)strpool_free())");
             }
@@ -678,6 +674,7 @@ static void emit_atom(void)
         EMIT("({");
         for (int vi = 0; vi < compiled_var_count; vi++) {
             var_info_t *v = &ana->vars[vi];
+            if (v->type == VT_STR) continue;
             EMIT(" gw_var_find_or_create(\"%s\",%d)->val=(gw_value_t){.type=%d,",
                      v->name, v->type, v->type);
             switch (v->type) {
@@ -1542,6 +1539,8 @@ static void emit_extern_call(const extern_func_t *ef)
         if (argt[i] == VT_STR)
             EMIT("gw_string_t _s%d = (%s); char *_a%d = gw_str_to_cstr(&_s%d);"
                  " gw_str_free(&_s%d); ", i, argbuf[i], i, i, i);
+        else if (argt[i] == VT_INT)
+            EMIT("int16_t _a%d = gw_cint((double)(%s)); ", i, argbuf[i]);
         else
             EMIT("%s _a%d = (%s)(%s); ",
                  c_ffi_type(argt[i]), i, c_ffi_type(argt[i]), argbuf[i]);
@@ -1732,9 +1731,9 @@ static gw_valtype_t peek_expr_type(void)
 
 /*
  * Delegate a statement to the runtime interpreter via token embedding.
- * Syncs all compiled variables to the interpreter table, embeds the
- * raw token bytes, calls gw_exec_stmt(), then reads back variables
- * that may have been modified (strings, and optionally all).
+ * Syncs compiled numeric scalars to the interpreter table, embeds the
+ * raw token bytes, calls gw_exec_stmt(), then optionally reads them back.
+ * String descriptors and array storage are already shared.
  *
  * stmt_start: pointer to first token byte (before advancing)
  * read_back: if true, read all variables back from interpreter table
@@ -1781,6 +1780,7 @@ static void emit_delegate_stmt_ex(uint8_t *stmt_start, bool read_back, bool sync
     /* Variable sync: selective (scan tokens for referenced names) or full */
     for (int vi = 0; vi < compiled_var_count; vi++) {
         var_info_t *v = &ana->vars[vi];
+        if (v->type == VT_STR) continue;
         /* A delegate that reads every variable back must first receive every
          * current value, including variables absent from the statement. */
         if (!sync_all && !read_back) {
@@ -1829,6 +1829,7 @@ static void emit_delegate_stmt_ex(uint8_t *stmt_start, bool read_back, bool sync
     if (read_back) {
         for (int vi = 0; vi < compiled_var_count; vi++) {
             var_info_t *v = &ana->vars[vi];
+            if (v->type == VT_STR) continue;
             EMIT("    ");
             emit_varname(v->name, v->type);
             EMIT(" = gw_var_find_or_create(\"%s\", %d)->val.", v->name, v->type);
@@ -2054,6 +2055,7 @@ static void emit_stmt(void)
             EMIT("  {\n");
             for (int vi = 0; vi < compiled_var_count; vi++) {
                 var_info_t *v = &ana->vars[vi];
+                if (v->type == VT_STR) continue;
                 EMIT("    gw_var_find_or_create(\"%s\", %d)->val = ", v->name, v->type);
                 EMIT("(gw_value_t){.type=%d,", v->type);
                 switch (v->type) {
@@ -2483,7 +2485,8 @@ static void emit_stmt(void)
 
     /* COLOR */
     if (tok == TOK_COLOR) {
-        /* FN arguments can read globals absent from the COLOR tokens. */
+        /* FN bodies can read globals absent from the COLOR tokens.
+         * String descriptors already share the collector's runtime storage. */
         emit_delegate_stmt_ex(tp, false, true);
         return;
     }
@@ -2964,9 +2967,10 @@ static void emit_stmt(void)
         }
         int slen = (int)(tp - mid_start);
         EMIT("  {\n");
-        /* Sync string variables to interpreter table */
+        /* Subscripts and the RHS can read compiled numeric scalars. */
         for (int vi = 0; vi < compiled_var_count; vi++) {
             var_info_t *v = &ana->vars[vi];
+            if (v->type == VT_STR) continue;
             EMIT("    gw_var_find_or_create(\"%s\", %d)->val = ", v->name, v->type);
             EMIT("(gw_value_t){.type=%d,", v->type);
             switch (v->type) {
@@ -2986,14 +2990,6 @@ static void emit_stmt(void)
         EMIT("    while (*gw.text_ptr == ' ') gw.text_ptr++;\n");
         /* gw_stmt_mid_assign expects text_ptr at '(' — it does gw_chrget to skip it */
         EMIT("    gw_stmt_mid_assign();\n");
-        /* Read back string variables that may have been modified */
-        for (int vi = 0; vi < compiled_var_count; vi++) {
-            var_info_t *v = &ana->vars[vi];
-            if (v->type != VT_STR) continue;
-            EMIT("    ");
-            emit_varname(v->name, v->type);
-            EMIT(" = gw_var_find_or_create(\"%s\", %d)->val.sval;\n", v->name, v->type);
-        }
         EMIT("  }\n");
         return;
     }
@@ -3090,16 +3086,14 @@ void codegen_emit(FILE *f, analysis_t *a, const codegen_opts_t *opts)
     if (a->extern_count > 0)
         EMIT("\n");
 
-    if (a->runtime_types) emit_dynamic_ffi_wrappers();
+    if (a->extern_count) emit_dynamic_ffi_wrappers();
 
     /* Variable declarations */
     for (int i = 0; i < compiled_var_count; i++) {
+        if (a->vars[i].type == VT_STR) continue;
         EMIT("static %s ", c_type(a->vars[i].type));
         emit_varname(a->vars[i].name, a->vars[i].type);
-        if (a->vars[i].type == VT_STR)
-            EMIT(" = {0, NULL}");
-        else
-            EMIT(" = 0");
+        EMIT(" = 0");
         EMIT(";\n");
     }
 
@@ -3146,8 +3140,8 @@ void codegen_emit(FILE *f, analysis_t *a, const codegen_opts_t *opts)
     EMIT("  gwrt_init();\n");
     if (a->runtime_types) {
         EMIT("  if(gw_hal)gw_hal->enable_raw();\n");
-        if(a->extern_count) EMIT("  gw.extern_eval=_gw_foreign_eval;\n");
     }
+    if(a->extern_count) EMIT("  gw.extern_eval=_gw_foreign_eval;\n");
     if (inline_arrays && !safe_mode) {
         for (int i = 0; i < a->array_count; i++) {
             array_info_t *ai = &a->arrays[i];

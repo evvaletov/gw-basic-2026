@@ -34,6 +34,7 @@ typedef struct {
     gw_valtype_t ret_type;
     gw_valtype_t arg_types[MAX_EXTERN_ARGS];
     int argc;
+    bool referenced;     /* static calls and delegated expressions */
 } extern_func_t;
 
 typedef struct {
