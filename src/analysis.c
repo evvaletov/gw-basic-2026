@@ -289,6 +289,46 @@ array_info_t *analysis_inlinable_array(analysis_t *a, const char *name, gw_valty
     return (ai && ai->inlinable && ai->dimmed) ? ai : NULL;
 }
 
+/* The census consumes OPEN and DIM without visiting their operands. Walk
+ * just those expression spans for foreign calls, respecting token payloads.
+ * BASIC FN names and OPEN's FOR mode AS clause are not value operands. */
+static void mark_extern_operands(analysis_t *a, uint8_t *p, uint8_t *end,
+                                 bool open_statement)
+{
+    while (p < end && *p) {
+        uint8_t tok = *p;
+        if (tok == TOK_REM || tok == TOK_SQUOTE) break;
+        if (tok == '"') {
+            p++;
+            while (p < end && *p && *p != '"') p++;
+            if (p < end && *p) p++;
+        } else if (tok == TOK_FN) {
+            char name[GW_NAME_SIZE];
+            p++;
+            while (p < end && *p == ' ') p++;
+            gw_scan_name(&p, name);
+            if (p < end && (*p == '$' || *p == '%' || *p == '!' || *p == '#')) p++;
+        } else if (open_statement && tok == TOK_FOR) {
+            p++;
+            while (p < end && *p == ' ') p++;
+            if (p < end && *p == TOK_INPUT) p++;
+            else while (p < end && (is_letter(*p) || *p == TOK_PREFIX_FE))
+                p += *p == TOK_PREFIX_FE ? 2 : 1;
+            while (p < end && *p == ' ') p++;
+            if (p < end && toupper(*p) == 'A') p++;
+            if (p < end && toupper(*p) == 'S') p++;
+        } else if (is_constant(tok)) skip_constant(&p);
+        else if (tok == TOK_PREFIX_FD || tok == TOK_PREFIX_FE || tok == TOK_PREFIX_FF) p += 2;
+        else if (is_letter(tok)) {
+            char name[GW_NAME_SIZE];
+            if (gw_scan_name(&p, name)) {
+                const extern_func_t *external = analysis_find_extern(a, name);
+                if (external) a->externs[external - a->externs].referenced = true;
+            } else p++;
+        } else p++;
+    }
+}
+
 static void scan_tokens(analysis_t *a, program_line_t *line)
 {
     uint8_t *p = line->tokens;
@@ -299,6 +339,7 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
      * multi_assign: stays true across commas (for READ A,B,C / INPUT A,B). */
     bool assign_ctx = true;  /* start of line = statement start */
     bool multi_assign = false;
+    int paren_depth = 0;
 
     while (p < end && *p) {
         uint8_t tok = *p;
@@ -307,7 +348,12 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
         if (tok == ' ') { p++; continue; }
 
         /* Colon = statement separator; next variable is assignment target */
-        if (tok == ':') { p++; assign_ctx = true; multi_assign = false; continue; }
+        if (tok == ':') { p++; assign_ctx = true; multi_assign = false; paren_depth = 0; continue; }
+
+        /* Subscripts are values even within READ/INPUT/SWAP destinations. */
+        if (tok == '(') { p++; paren_depth++; assign_ctx = false; continue; }
+        if (tok == ')') { p++; if (paren_depth) paren_depth--; assign_ctx = false; continue; }
+        if (tok == ',') { p++; assign_ctx = multi_assign && paren_depth == 0; continue; }
 
         /* Skip constants */
         if (is_constant(tok)) { skip_constant(&p); assign_ctx = false; continue; }
@@ -325,6 +371,28 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
         if (tok == TOK_DEFINT || tok == TOK_DEFSNG ||
             tok == TOK_DEFDBL || tok == TOK_DEFSTR) {
             while (p < end && *p && *p != ':' && *p != TOK_ELSE) p++;
+            assign_ctx = false;
+            continue;
+        }
+
+        /* A DEF FN header declares names; only its body contains operands. */
+        if (tok == TOK_DEF) {
+            uint8_t *next = p + 1;
+            while (next < end && *next == ' ') next++;
+            if (next < end && *next == TOK_FN) {
+                p = next + 1;
+                while (p < end && *p && *p != TOK_EQ && *p != ':' && *p != TOK_ELSE) p++;
+                if (p < end && *p == TOK_EQ) p++;
+                assign_ctx = false;
+                continue;
+            }
+        }
+        if (tok == TOK_FN) {
+            char name[GW_NAME_SIZE];
+            p++;
+            while (p < end && *p == ' ') p++;
+            gw_scan_name(&p, name);
+            if (p < end && (*p == '$' || *p == '%' || *p == '!' || *p == '#')) p++;
             assign_ctx = false;
             continue;
         }
@@ -347,6 +415,7 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
                 while (p < end && *p == ' ') p++;
                 if (p >= end || *p != '(') { disqualify_array(a, nm, type); break; }
                 p++;  /* ( */
+                uint8_t *bounds = p;
                 int dims[MAX_ARR_DIMS]; int nd = 0; bool ok = true;
                 int depth = 1; bool expect_num = true;
                 while (p < end && *p && depth > 0) {
@@ -365,6 +434,7 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
                     ok = false;
                     if (is_constant(t)) skip_constant(&p); else p++;
                 }
+                mark_extern_operands(a, bounds, p, false);
                 array_info_t *ai = find_array_info(a, nm, type);
                 if (ai) {
                     ai->inlinable = false;  /* redefinition -> runtime DD error */
@@ -426,6 +496,7 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
          * OUTPUT/INPUT/APPEND/RANDOM as variable names */
         if (tok == TOK_OPEN) {
             uint8_t *next = gw_statement_end(line, p);
+            mark_extern_operands(a, p + 1, next ? next : end, true);
             p = next ? next : end;
             assign_ctx = false;
             continue;
@@ -548,7 +619,9 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
             /* A declared extern is a function call, not a variable — don't add
              * it to the census.  Its argument expressions are scanned normally
              * by the surrounding loop. */
-            if (analysis_find_extern(a, full)) {
+            const extern_func_t *external = analysis_find_extern(a, full);
+            if (external && !assign_ctx) {
+                a->externs[external - a->externs].referenced = true;
                 if (p < end && (*p == '$' || *p == '%' || *p == '!' || *p == '#'))
                     p++;
                 assign_ctx = false;
@@ -570,9 +643,7 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
             } else {
                 analysis_add_var(a, name, type);
             }
-            /* In multi-assign context (READ/INPUT), keep assign_ctx for next var */
-            if (!multi_assign)
-                assign_ctx = false;
+            assign_ctx = false;
             continue;
         }
 
@@ -695,34 +766,6 @@ void analysis_run(analysis_t *a)
             buf[bi] = 0;
             if (ci_starts(buf, "$EXTERN"))
                 parse_extern_pragma(a, buf);
-        }
-    }
-
-    /* Foreign calls can occur in statements the variable census skips,
-     * such as OPEN. Scan executable tokens independently of that census. */
-    for (program_line_t *line = gw.prog_head; line; line = line->next) {
-        uint8_t *p = line->tokens;
-        while (*p) {
-            if (*p == TOK_REM || *p == TOK_SQUOTE) break;
-            if (*p == TOK_DATA) {
-                uint8_t *end = gw_statement_end(line, p);
-                if (!end) break;
-                p = end;
-            } else if (*p == '"') {
-                p++;
-                while (*p && *p != '"') p++;
-                if (*p) p++;
-            } else if (is_constant(*p)) skip_constant(&p);
-            else if (*p == TOK_PREFIX_FD || *p == TOK_PREFIX_FE || *p == TOK_PREFIX_FF) p += 2;
-            else if (is_letter(*p)) {
-                char name[GW_NAME_SIZE];
-                uint8_t *next = p;
-                if (gw_scan_name(&next, name)) {
-                    const extern_func_t *external = analysis_find_extern(a, name);
-                    if (external) a->externs[external - a->externs].referenced = true;
-                }
-                p = next > p ? next : p + 1;
-            } else p++;
         }
     }
 

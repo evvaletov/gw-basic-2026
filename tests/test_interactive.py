@@ -185,6 +185,16 @@ class InteractiveTests(unittest.TestCase):
         self.assertIn("READY", self.lines())
         self.assertNotIn("MUST NOT RUN", self.lines())
 
+    def test_nested_input_break_restores_parameters_and_roots(self):
+        self.load('10 A$="KEPT"\n20 DEF FNA$(A$)=LEFT$(A$,LEN(INPUT$(1)))\n'
+                  '30 PRINT "WAIT":PRINT FNA$("TEMP")\n')
+        self.command("RUN")
+        self.wait_for(lambda: "WAIT" in self.lines())
+        self.child.send("\x03")
+        self.wait_for(lambda: any("Break" in line for line in self.lines()))
+        self.command('B=FRE(""):B$=STRING$(200,88):PRINT "VALUE=[";A$;"]"')
+        self.wait_for(lambda: "VALUE=[KEPT]" in self.lines())
+
     def resize(self, rows, cols):
         self.screen.resize(lines=rows, columns=cols)
         self.child.setwinsize(rows, cols)

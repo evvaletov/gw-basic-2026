@@ -818,6 +818,7 @@ void tui_check_break(void)
         tui.break_flag = false;
         tui_puts("\nBreak\n");
         gw.running = false;
+        gw_eval_unwind();
         longjmp(gw_error_jmp, -1);
     }
 }

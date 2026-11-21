@@ -9,8 +9,8 @@
  * This reimplementation follows the same model.  The pool is a flat char
  * buffer.  gw_str_alloc() bumps a pointer; gw_str_free() is a no-op (just
  * nulls the descriptor).  Compaction runs at statement boundaries — at that
- * point the roots are the variable table and array storage. libgwrt also
- * registers live expression temporaries so explicit FRE collection can move
+ * point the roots are the variable table and array storage. Both evaluators
+ * register live expression temporaries so explicit FRE collection can move
  * them safely during evaluation.
  */
 
@@ -129,7 +129,7 @@ size_t strpool_free(void)
 /*
  * Compacting garbage collector.
  *
- * Walk every live string descriptor (variables, arrays and native roots). Copy live data
+ * Walk every live string descriptor (variables, arrays and expression roots). Copy live data
  * into a temporary buffer in order, then memcpy back and update pool_used.
  * String descriptors are updated in place to point at their new locations.
  */

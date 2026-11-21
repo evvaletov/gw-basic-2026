@@ -19,6 +19,8 @@ void gwrt_expr_begin(void);
 void gwrt_expr_root(gw_value_t *value);
 void gwrt_expr_end(void);
 void gwrt_expr_unwind(void);
+/* Restore temporary FN bindings and roots before an error or Break jump. */
+void gw_eval_unwind(void);
 #define GW_TEMP_BEGIN() gwrt_expr_begin()
 #define GW_TEMP_ROOT(value) gwrt_expr_root(value)
 #define GW_TEMP_END() gwrt_expr_end()

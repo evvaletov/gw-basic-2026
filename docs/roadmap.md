@@ -177,8 +177,8 @@ the article retains its v0.18.2 output (git-bug `415598e`).
 
 Current main also implements CGA `COLOR` background, palette and intensity
 selection in the interpreter and native compiler. `COLOR`, `PALETTE` and the
-emulated colour register redraw existing pixels immediately, and repeating a
-screen mode preserves its image and palette. Reference captures and error cases
+emulated colour register redraw existing pixels immediately, and repeating the
+active graphics mode preserves its image and palette. Reference captures and error cases
 use the pinned Microsoft-source interpreter; see the
 [graphics reference](language-reference.md#color-and-cga-palette-controls).
 This completes git-bug `1c9b047`; the changes await the next tagged release.

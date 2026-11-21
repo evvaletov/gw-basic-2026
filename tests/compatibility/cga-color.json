@@ -887,5 +887,13 @@
     "capture_source": "5 OPEN \"DATA.TXT\" FOR OUTPUT AS #1:ON ERROR GOTO 60000:DEF SEG=&H40\n100 SCREEN 0:SCREEN 2:E=0\n110 COLOR 32768\n120 PRINT #1,0;E;PEEK(&H66)\n140 SCREEN 0:SCREEN 2:E=0\n150 COLOR 1;2\n160 PRINT #1,1;E;PEEK(&H66)\n180 SCREEN 0:SCREEN 2:E=0\n190 COLOR 256\n200 PRINT #1,2;E;PEEK(&H66)\n50000 SCREEN 0:CLOSE:SYSTEM\n60000 E=ERR:RESUME NEXT\n",
     "raw_transcript_sha256": "3f3f129a846017849b132df35341affa90843cb0043988344c3e9288910a2868",
     "transcript": " 0  6  63 \r\n 1  5  63 \r\n 2  5  63 \r\n"
+  },
+  "fn_error_probe": {
+    "source_sha256": "fde0728cbf3ab89cdb9d8884a48e4aadcd487e626085f54d70b601c0bc920e23",
+    "reference_exe_sha256": "3d83e8d2bbc71e8b79e20c6cfb7bceba36c4dd4bda2a7af4c415cab6b3f3203c",
+    "raw_transcript_sha256": "31f00fcc2b250c6ab98acc81ce8e43710c636834bbea862e77dbc5dd82c1bb46",
+    "value": 7,
+    "capture_source": "5 OPEN \"DATA.TXT\" FOR OUTPUT AS #1\n10 X%=7\n20 DEF FNA(X%)=1/0\n30 SCREEN 1:ON ERROR GOTO 80\n40 COLOR FNA(17),0\n50 PRINT #1,X%:CLOSE:SYSTEM\n80 RESUME NEXT\n",
+    "transcript": " 7 \r\n"
   }
 }

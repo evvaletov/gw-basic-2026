@@ -268,14 +268,15 @@ This is not an EGA hardware emulation. `COLOR` with a supplied argument replaces
 the mappings for attributes 0-3. `OUT &H3D9` replaces entries 0-3 in mode 1 or
 0-1 in mode 2. Bare `PALETTE` restores the mode's default palette and resets
 its saved CGA settings to their defaults.
-Repeating the current `SCREEN` mode preserves the image and palette; changing
-mode starts with its defaults. These changes require a current source build.
+Repeating `SCREEN 1` or `SCREEN 2` while that graphics mode is active preserves
+its image and palette; changing mode starts with its defaults.
 
 In text mode, `COLOR [foreground][,[background][,border]]` accepts foreground
 0-31, background 0-15 and border 0-255. The current text renderer applies
 foreground 0-15 and background 0-7. Foreground 16-31, background 8-15 and border
 are accepted but have no visible effect.
-Compiled programs now apply these text colours through the same handler.
+Compiled programs apply these text colours through the same handler.
+The emulated `INP(&H3D9)` latch does not model text-mode border writes.
 
 ### Sprite Capture and Blit (GET / PUT)
 

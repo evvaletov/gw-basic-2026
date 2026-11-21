@@ -68,7 +68,8 @@ class GraphicsPalette(unittest.TestCase):
             return " ".join(SIXEL.sub("", result.stdout).split())
 
     def check_program(self, statements, expected_palettes, expected_text,
-                      redraws=None, same_pixels=False, trap_errors=False):
+                      redraws=None, same_pixels=False, trap_errors=False,
+                      error_handler="RESUME NEXT"):
         if redraws is None:
             redraws = [True] * len(expected_palettes)
         with tempfile.TemporaryDirectory(prefix="gw-palette-") as directory:
@@ -76,7 +77,7 @@ class GraphicsPalette(unittest.TestCase):
             source = root / "palette.bas"
             lines = (["ON ERROR GOTO 60000"] if trap_errors else []) + [*statements, "END"]
             source.write_text("".join(f"{10 * (i + 1)} {s}\n" for i, s in enumerate(lines))
-                              + ("60000 RESUME NEXT\n" if trap_errors else ""))
+                              + ("60000 " + error_handler + "\n" if trap_errors else ""))
 
             def run(command):
                 result = subprocess.run(command, cwd=root, text=True,
@@ -246,6 +247,24 @@ class GraphicsPalette(unittest.TestCase):
              'PRINT "SNAP"', "PRINT INP(&H3D9)", "END", "RESUME NEXT"],
             [{0: RGBI[1]}], "1")
 
+    def test_fn_parameters_restored_after_nested_error(self):
+        reference = json.loads((REPO / "tests/compatibility/cga-color.json").read_text())
+        self.check_program(
+            ["X%=7", "DEF FNA(X%)=1/0", "SCREEN 1", "COLOR FNA(17),0", "PRINT X%"],
+            [], str(reference["fn_error_probe"]["value"]), trap_errors=True)
+        self.check_program(
+            ['X%=7:S$="SAVED"',
+             'DEF FNB$(S$)=LEFT$(S$,1+0*FRE("")+1/0)',
+             'DEF FNA(X%)=LEN(FNB$("INNER"))', "SCREEN 1",
+             "COLOR FNA(17),0", 'PRINT X%;S$;INP(&H3D9)'],
+            [], "7 SAVED 48", trap_errors=True)
+
+    def test_fn_string_parameters_survive_collection(self):
+        self.check_program(
+            ['S$="SAVED"', 'DEF FNB$(S$)=LEFT$(S$,1+0*FRE(""))',
+             "SCREEN 1", 'COLOR VAL(FNB$("1")),0',
+             'PRINT S$;INP(&H3D9)'], [], "SAVED 1")
+
     def test_hosted_entries_start_with_fresh_graphics(self):
         for error in (False, True):
             source = ('10 SCREEN 1\n20 PRINT POINT(5,5);INP(&H3D9)\n'
@@ -290,6 +309,31 @@ class GraphicsPalette(unittest.TestCase):
             with self.subTest(flags=flags):
                 self.assertEqual(self.run_hosted(source, host, flags), "")
 
+    def test_unused_foreign_names_in_declarations_and_destinations(self):
+        host = '#include "gwrt.h"\nint palette_entry(int,char**);int main(void){return palette_entry(0,NULL);}\n'
+        cases = [
+            ('20 DEFINT Q\n30 PRINT 42\n', "42"),
+            ('20 DEF FNQ=17\n30 PRINT FNQ\n', "17"),
+            ('20 Q=42\n30 PRINT 17\n', "17"),
+            ('20 DEF FNA(Q)=17\n30 PRINT FNA(42)\n', "17"),
+            ('20 OPEN "x" FOR OUTPUT AS #1\n30 CLOSE:PRINT 17\n', "17"),
+        ]
+        for source, expected in cases:
+            with self.subTest(source=source):
+                prefix = "10 '$EXTERN Q() AS INTEGER\n11 '$EXTERN Output() AS INTEGER\n"
+                self.assertEqual(self.run_hosted(prefix + source, host, ["-O0"]), expected)
+
+    def test_foreign_calls_in_bounds_subscripts_and_fn_bodies(self):
+        source = ("10 '$EXTERN Getn() AS INTEGER\n"
+                  '20 DIM A%(Getn)\n30 A%(Getn)=42\n'
+                  '40 DEF FNA=Getn\n50 READ A%(Getn):DATA 17\n'
+                  '60 PRINT A%(FNA);Getn\n')
+        host = ('#include "gwrt.h"\nint palette_entry(int,char**);'
+                'int16_t Getn(void){return 2;}int main(void){return palette_entry(0,NULL);}\n')
+        for flags in (["-O0"], ["-O3", "--safe", "--inline-arrays"]):
+            with self.subTest(flags=flags):
+                self.assertEqual(self.run_hosted(source, host, flags), "17 2")
+
     def test_foreign_integer_error_releases_string_arguments(self):
         source = ("10 '$EXTERN Mix(STRING,INTEGER) AS INTEGER\n"
                   "20 SCREEN 1:ON ERROR GOTO 100\n"
@@ -321,6 +365,8 @@ class GraphicsPalette(unittest.TestCase):
         reference = json.loads((REPO / "tests/compatibility/cga-color.json").read_text())
         rows = [*reference["mode_probe"]["cases"],
                 *(dict(mode=1, **row) for row in reference["argument_probe"]["cases"]),
+                *(dict(mode=1, **row) for row in reference["extended_probe"]["cases"]),
+                *(dict(mode=2, **row) for row in reference["mode2_probe"]["cases"]),
                 *(dict(mode=0, **row) for row in reference["text_probe"]["cases"])]
         cases = {(row["mode"], row["args"]): row["error"] for row in rows if row["error"]}
         for (mode, args), number in cases.items():
@@ -353,9 +399,10 @@ class GraphicsPalette(unittest.TestCase):
                     mode = row.get("mode", 2 if name == "mode2_probe" else 1)
                     if name != "mode_probe":
                         statements.append("SCREEN 0")
-                    statements.extend([f"SCREEN {mode}", "COLOR " + row["args"], "PRINT INP(&H3D9)"])
-                    expected.append(str(row["bios_colour"]))
-                self.check_program(statements, [], " ".join(expected), trap_errors=True)
+                    statements.extend([f"SCREEN {mode}", "E=0", "COLOR " + row["args"], "PRINT E;INP(&H3D9)"])
+                    expected.extend([str(row["error"]), str(row["bios_colour"])])
+                self.check_program(statements, [], " ".join(expected), trap_errors=True,
+                                   error_handler="E=ERR:RESUME NEXT")
 
 
 if __name__ == "__main__":

@@ -112,7 +112,7 @@ void gfx_init(int mode)
 void gfx_shutdown(void)
 {
 #ifdef _M_I86
-    hfree(framebuf);
+    if (framebuf) hfree(framebuf);
 #else
     free(framebuf);
 #endif

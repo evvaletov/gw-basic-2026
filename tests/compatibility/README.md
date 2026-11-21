@@ -15,6 +15,8 @@ Its argument probe records comma limits, integer conversion, fractional values
 and trailing comments. It also retains an existing lexical difference: the
 original joins `1 2` into the literal 12, while the current tokenizer separates
 the digits. That row is recorded but excluded from the palette comparison.
+The text probe checks accepted operands and errors. Its BIOS colour column is
+recorded only; text-mode border writes are not emulated by the port latch.
 
 `semantics.json` contains 124 programs and output captured from Microsoft
 GW-BASIC source build (JWasm, 2023-10-03) on 2026-11-06 and 2026-11-07.

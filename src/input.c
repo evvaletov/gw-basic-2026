@@ -32,6 +32,7 @@ static char *read_input_line(bool no_cr)
         if (result == -2) {
             gw_hal->puts("\nBreak\n");
             gw.running = false;
+            gw_eval_unwind();
             longjmp(gw_error_jmp, -1);
         }
         if (result == -1) return NULL;
@@ -267,6 +268,7 @@ static void input_break(void)
     }
     if (gw_hal) gw_hal->puts("\nBreak\n");
     gw.running = false;
+    gw_eval_unwind();
     longjmp(gw_error_jmp, -1);
 }
 

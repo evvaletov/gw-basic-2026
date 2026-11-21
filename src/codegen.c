@@ -1490,13 +1490,10 @@ static void emit_str_expr(void)
 
 static void emit_stmt(void);
 
-/* Peek at the next expression to guess its result type.
- * Only returns VT_INT for pure integer atoms (no operators).
- * For anything involving operators, returns the variable/constant type. */
 /* Emit a call to a declared '$EXTERN C function.  tp is positioned at the
  * function name; this consumes the name and a parenthesised argument list,
  * emitting a GCC statement-expression that coerces each argument to its
- * declared C type, calls the function, frees any temporary C strings, and
+ * declared C type, calls the function using automatic C string buffers, and
  * yields the result.  String arguments cross as NUL-terminated char*; a
  * string return is copied into the BASIC string pool (the callee owns its
  * returned buffer — it is not freed here). */
@@ -1638,6 +1635,9 @@ static bool peek_is_string_expr(void)
     return result;
 }
 
+/* Peek at the next expression to guess its result type.
+ * Only returns VT_INT for pure integer atoms (no operators).
+ * For anything involving operators, returns the variable/constant type. */
 static gw_valtype_t peek_expr_type(void)
 {
     uint8_t *save = tp;
