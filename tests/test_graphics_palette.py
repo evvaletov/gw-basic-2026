@@ -121,7 +121,8 @@ class GraphicsPalette(unittest.TestCase):
         statements, expected, redraws = [], [], []
         for case in reference["cases"]:
             # Keep the reference's palette/mode sequence. Four single pixels
-            # replace its four stripes; the test compares the attribute map.
+            # replace its four stripes to isolate the attribute map from the
+            # existing variable-colour LINE parser limitation (8c77e53).
             command = case["command"].replace("GOSUB 64000", ":".join(pixels(1)))
             statements.extend([command, 'PRINT "SNAP"'])
             expected.append({i: tuple(c * 100 // 255 for c in rgb)

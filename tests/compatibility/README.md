@@ -1,6 +1,6 @@
 # Focused GW-BASIC semantics
 
-`cga-color.json` records 19 colour states captured from the pinned
+`cga-color.json` records 19 SCREEN 1 colour states captured from the pinned
 Microsoft-source build below in DOSBox-X with `machine=cga`. The fixture includes
 the BASIC source, executable and video hashes, sampled RGB values and screenshot
 hashes. A marker beneath four attribute stripes identifies each state in the
@@ -17,6 +17,13 @@ original joins `1 2` into the literal 12, while the current tokenizer separates
 the digits. That row is recorded but excluded from the palette comparison.
 The text probe checks accepted operands and errors. Its BIOS colour column is
 recorded only; text-mode border writes are not emulated by the port latch.
+The cumulative mode, extended-argument and mode-2 probes record latch values
+and error ordering; the FN-error probe checks restoration of a saved parameter.
+Mode-2 foreground selection through OUT and repeated SCREEN 2 image retention
+have model-based regression tests, without a pinned original visual capture.
+The replay replaces the capture's variable-colour LINE stripes with four PSET
+pixels to isolate palette behaviour from the existing LINE parser limitation
+(git-bug `8c77e53`).
 
 `semantics.json` contains 124 programs and output captured from Microsoft
 GW-BASIC source build (JWasm, 2023-10-03) on 2026-11-06 and 2026-11-07.
