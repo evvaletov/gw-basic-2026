@@ -1,6 +1,6 @@
 pkgbase = gwbasic-2026
 	pkgdesc = Line-numbered BASIC interpreter and ahead-of-time native compiler
-	pkgver = 0.18.2
+	pkgver = 0.18.3
 	pkgrel = 1
 	url = https://github.com/evvaletov/gw-basic-2026
 	arch = x86_64
@@ -13,7 +13,7 @@ pkgbase = gwbasic-2026
 	conflicts = gwbasic
 	options = staticlibs
 	options = !lto
-	source = https://github.com/evvaletov/gw-basic-2026/releases/download/v0.18.2/gwbasic-0.18.2-source.tar.gz
-	sha256sums = 81c6ca793290f7015187b7367a69451536c7c4814ba69303a472f79c8e2f49ea
+	source = https://github.com/evvaletov/gw-basic-2026/releases/download/v0.18.3/gwbasic-0.18.3-source.tar.gz
+	sha256sums = 5c4402a784e839bec1db4c35aa0c3f6c6d76d26ac87871bd2fa896d35ba23bdd
 
 pkgname = gwbasic-2026

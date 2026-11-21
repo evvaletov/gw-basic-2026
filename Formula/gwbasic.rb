@@ -1,9 +1,9 @@
 class Gwbasic < Formula
   desc "Line-numbered BASIC interpreter and ahead-of-time native compiler"
   homepage "https://github.com/evvaletov/gw-basic-2026"
-  url "https://github.com/evvaletov/gw-basic-2026/archive/12131e52fff5b7bc1afbbc50e90dd2ac3bb79ec7.tar.gz"
-  version "0.18.2"
-  sha256 "3b9081ff862bc10a8f5a8f3afa002b9517e37f8f502241bce88dfff0d10d3eca"
+  url "https://github.com/evvaletov/gw-basic-2026/releases/download/v0.18.3/gwbasic-0.18.3-source.tar.gz"
+  version "0.18.3"
+  sha256 "5c4402a784e839bec1db4c35aa0c3f6c6d76d26ac87871bd2fa896d35ba23bdd"
   license "MIT"
 
   depends_on "cmake" => :build

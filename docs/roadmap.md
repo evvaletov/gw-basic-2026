@@ -156,29 +156,40 @@ The Sixel palette defaults now follow the original SCREEN tables: black, light
 cyan, light magenta and high-intensity white in mode 1, and black and
 high-intensity white in mode 2.
 Interpreter and native regressions cover explicit palette overrides, resets,
-mode changes and stored pixel attributes. This correction is unreleased;
+mode changes and stored pixel attributes. The correction ships in v0.18.3;
 the article retains its v0.18.2 output (git-bug `415598e`).
 
 A focused announcement is posted on SDF's RETRO bboard under `evv`, dated
 21 November 2026 (git-bug `682425c`).
 
+Version 0.18.3 provides refreshed Linux, DOS16, DOS32, Apple Silicon and Intel
+macOS downloads from the same release commit. Homebrew and the Arch recipe use
+the checksum-verified source archive. The original-program corpus remains at
+76 cases from 36 listings, with the playable ports tested separately.
+
+Website publication and SDF synchronisation are automated through a persistent
+fifteen-minute service. Website updates require a successful Docs build at the
+current GitHub main commit; SDF receives main, release tags and git-bug refs.
+The service reports failures locally and resumes when its publishing host is
+online. See the [publication operations guide](https://github.com/evvaletov/gw-basic-2026/tree/main/publication)
+for deployment checks and recovery.
+
 Next priorities:
 
-1. Publish the next release with the palette correction and refresh the binary
-   packages and Homebrew formula (git-bug `e82ce91`).
-2. Automate valetov.com publication from the shared subsite source and make SDF
-   source, tag and git-bug synchronisation repeatable with failure reporting
-   (git-bug `0b511f7`). GitHub Pages publication is already automatic.
-3. Finish integration and validation of the scripted debugger, then add
+1. Finish integration and validation of the scripted debugger, then add
    interactive TUI controls for stepping, breakpoints and inspection
    (git-bug `32a637c`).
-4. Extend scripted gameplay coverage beyond the 36 original listings already
+2. Extend scripted gameplay coverage beyond the 36 original listings already
    covered, keeping adapted ports separate (git-bug `51679f0`).
+3. Complete original CGA `COLOR` background, palette/intensity selection and
+   redraw behaviour (git-bug `1c9b047`).
+4. Enforce the drawing-attribute ranges for SCREEN 1 and SCREEN 2, with
+   interpreter/native reference checks (git-bug `4d4aed0`).
 5. Complete the FreeDOS repository handoff through the existing maintainer
-   thread, using the validated FDNPKG package and any further requested checks
+   thread, using the validated FDNPKG route and any further requested checks
    (git-bug `ab8188c`).
 
-The tested AUR package awaits reopening of account registration. Homebrew and
+AUR publication remains pending account registration. Homebrew and
 `gwbasickernel` on PyPI are live; directory requests await maintainers. HN stays
 deferred, and Lobsters needs an invitation and an eligible account. Broader
 gameplay coverage remains open for 62 listings. Later implementation work

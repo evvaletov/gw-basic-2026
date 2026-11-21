@@ -20,18 +20,18 @@ sudo dnf install gcc make cmake pkgconf-pkg-config pulseaudio-libs-devel
 
 ## macOS binary downloads
 
-The macOS workflow prepares separate archives for Apple Silicon
-(`gwbasic-0.18.2-macos-arm64.tar.gz`) and Intel
-(`gwbasic-0.18.2-macos-x86_64.tar.gz`). Both require macOS 15 or later.
-Publication is separate; check the [v0.18.2 release assets](https://github.com/evvaletov/gw-basic-2026/releases/tag/v0.18.2)
-for available downloads.
+The release provides separate archives for Apple Silicon
+(`gwbasic-0.18.3-macos-arm64.tar.gz`) and Intel
+(`gwbasic-0.18.3-macos-x86_64.tar.gz`). Both require macOS 15 or later.
+Download them from the [v0.18.3 release assets](https://github.com/evvaletov/gw-basic-2026/releases/tag/v0.18.3)
+page.
 Download the matching `BUILD-macos-*.json` and `SHA256SUMS-macos-*` files into the
 same directory to verify the archive and its build record. For Apple Silicon:
 
 ```sh
 shasum -a 256 --check SHA256SUMS-macos-arm64
-tar -xzf gwbasic-0.18.2-macos-arm64.tar.gz
-cd gwbasic-0.18.2-macos-arm64
+tar -xzf gwbasic-0.18.3-macos-arm64.tar.gz
+cd gwbasic-0.18.3-macos-arm64
 bin/gwbasic hello.bas
 bin/gwbasic-compile hello.bas -c --runtime .
 ./hello
@@ -49,8 +49,7 @@ containing spaces. They do not cover the interactive editor or terminal graphics
 
 `BUILD.json` inside each archive records the source commit, architecture,
 dependencies and build environment. The separate `BUILD-macos-*.json` also
-records the extracted-package tests. The original release notes describe the
-earlier Linux and DOS downloads; the macOS archives use the same tagged source.
+records the extracted-package tests. All archives use the same tagged source.
 
 ## Building
 
@@ -77,7 +76,7 @@ Running `build/gwbasic` with no arguments launches the full-screen editor:
 
 ```
 $ build/gwbasic
-GW-BASIC 2026 0.18.2
+GW-BASIC 2026 0.18.3
 (C) Eremey Valetov 2026. MIT License.
 Based on Microsoft GW-BASIC assembly source.
 Ok
