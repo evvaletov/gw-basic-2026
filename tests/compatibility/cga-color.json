@@ -839,5 +839,53 @@
     "capture_source": "5 OPEN \"DATA.TXT\" FOR OUTPUT AS #1:ON ERROR GOTO 60000:DEF SEG=&H40\n100 SCREEN 0:E=0\n110 COLOR 7,0\n120 PRINT #1,0;E;PEEK(&H66)\n140 SCREEN 0:E=0\n150 COLOR 32\n160 PRINT #1,1;E;PEEK(&H66)\n180 SCREEN 0:E=0\n190 COLOR ,16\n200 PRINT #1,2;E;PEEK(&H66)\n220 SCREEN 0:E=0\n230 COLOR \n240 PRINT #1,3;E;PEEK(&H66)\n260 SCREEN 0:E=0\n270 COLOR 31,15,255\n280 PRINT #1,4;E;PEEK(&H66)\n300 SCREEN 0:E=0\n310 COLOR ,\n320 PRINT #1,5;E;PEEK(&H66)\n340 SCREEN 0:E=0\n350 COLOR 7,0,256\n360 PRINT #1,6;E;PEEK(&H66)\n50000 SCREEN 0:CLOSE:SYSTEM\n60000 E=ERR:RESUME NEXT\n",
     "raw_transcript_sha256": "c9558cf1337977a866be48c39d89a5b0bfb006d2d59ddb6061e360a600a109e8",
     "transcript": " 0  0  48 \r\n 1  5  48 \r\n 2  5  48 \r\n 3  5  48 \r\n 4  0  63 \r\n 5  0  47 \r\n 6  5  47 \r\n"
+  },
+  "extended_probe": {
+    "cases": [
+      {
+        "args": "5,1,1",
+        "error": 5,
+        "bios_colour": 48
+      },
+      {
+        "args": "1,256",
+        "error": 5,
+        "bios_colour": 48
+      },
+      {
+        "args": "VAL(LEFT$(\"1\",1+0*FRE(\"\")+0*LEN(STRING$(80,50)))),0",
+        "error": 0,
+        "bios_colour": 1
+      }
+    ],
+    "source_sha256": "306ceb0b59016273f8ccfa2c85e32a7e53685382d2a022d6034877e02a69cb42",
+    "reference_exe_sha256": "3d83e8d2bbc71e8b79e20c6cfb7bceba36c4dd4bda2a7af4c415cab6b3f3203c",
+    "capture_source": "5 OPEN \"DATA.TXT\" FOR OUTPUT AS #1:ON ERROR GOTO 60000:DEF SEG=&H40\n100 SCREEN 0:SCREEN 1:E=0\n110 COLOR 5,1,1\n120 PRINT #1,0;E;PEEK(&H66)\n140 SCREEN 0:SCREEN 1:E=0\n150 COLOR 1,256\n160 PRINT #1,1;E;PEEK(&H66)\n180 SCREEN 0:SCREEN 1:E=0\n190 COLOR VAL(LEFT$(\"1\",1+0*FRE(\"\")+0*LEN(STRING$(80,50)))),0\n200 PRINT #1,2;E;PEEK(&H66)\n50000 SCREEN 0:CLOSE:SYSTEM\n60000 E=ERR:RESUME NEXT\n",
+    "raw_transcript_sha256": "c93beb7a24a2371c92aaa57cad3bec4e9ee4c7efcca88b222e3c7f99d997a625",
+    "transcript": " 0  5  48 \r\n 1  5  48 \r\n 2  0  1 \r\n"
+  },
+  "mode2_probe": {
+    "cases": [
+      {
+        "args": "32768",
+        "error": 6,
+        "bios_colour": 63
+      },
+      {
+        "args": "1;2",
+        "error": 5,
+        "bios_colour": 63
+      },
+      {
+        "args": "256",
+        "error": 5,
+        "bios_colour": 63
+      }
+    ],
+    "source_sha256": "e9f2cb2c7cb2934e09e200a2d71cb96a9632e5ef7c4e20c168e28d29baff2926",
+    "reference_exe_sha256": "3d83e8d2bbc71e8b79e20c6cfb7bceba36c4dd4bda2a7af4c415cab6b3f3203c",
+    "capture_source": "5 OPEN \"DATA.TXT\" FOR OUTPUT AS #1:ON ERROR GOTO 60000:DEF SEG=&H40\n100 SCREEN 0:SCREEN 2:E=0\n110 COLOR 32768\n120 PRINT #1,0;E;PEEK(&H66)\n140 SCREEN 0:SCREEN 2:E=0\n150 COLOR 1;2\n160 PRINT #1,1;E;PEEK(&H66)\n180 SCREEN 0:SCREEN 2:E=0\n190 COLOR 256\n200 PRINT #1,2;E;PEEK(&H66)\n50000 SCREEN 0:CLOSE:SYSTEM\n60000 E=ERR:RESUME NEXT\n",
+    "raw_transcript_sha256": "3f3f129a846017849b132df35341affa90843cb0043988344c3e9288910a2868",
+    "transcript": " 0  6  63 \r\n 1  5  63 \r\n 2  5  63 \r\n"
   }
 }

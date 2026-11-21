@@ -548,9 +548,7 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
             /* A declared extern is a function call, not a variable — don't add
              * it to the census.  Its argument expressions are scanned normally
              * by the surrounding loop. */
-            const extern_func_t *external = analysis_find_extern(a, full);
-            if (external) {
-                a->externs[external - a->externs].referenced = true;
+            if (analysis_find_extern(a, full)) {
                 if (p < end && (*p == '$' || *p == '%' || *p == '!' || *p == '#'))
                     p++;
                 assign_ctx = false;
@@ -697,6 +695,34 @@ void analysis_run(analysis_t *a)
             buf[bi] = 0;
             if (ci_starts(buf, "$EXTERN"))
                 parse_extern_pragma(a, buf);
+        }
+    }
+
+    /* Foreign calls can occur in statements the variable census skips,
+     * such as OPEN. Scan executable tokens independently of that census. */
+    for (program_line_t *line = gw.prog_head; line; line = line->next) {
+        uint8_t *p = line->tokens;
+        while (*p) {
+            if (*p == TOK_REM || *p == TOK_SQUOTE) break;
+            if (*p == TOK_DATA) {
+                uint8_t *end = gw_statement_end(line, p);
+                if (!end) break;
+                p = end;
+            } else if (*p == '"') {
+                p++;
+                while (*p && *p != '"') p++;
+                if (*p) p++;
+            } else if (is_constant(*p)) skip_constant(&p);
+            else if (*p == TOK_PREFIX_FD || *p == TOK_PREFIX_FE || *p == TOK_PREFIX_FF) p += 2;
+            else if (is_letter(*p)) {
+                char name[GW_NAME_SIZE];
+                uint8_t *next = p;
+                if (gw_scan_name(&next, name)) {
+                    const extern_func_t *external = analysis_find_extern(a, name);
+                    if (external) a->externs[external - a->externs].referenced = true;
+                }
+                p = next > p ? next : p + 1;
+            } else p++;
         }
     }
 

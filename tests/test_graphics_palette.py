@@ -45,7 +45,7 @@ def points(mode):
 
 
 class GraphicsPalette(unittest.TestCase):
-    def run_hosted(self, source, host, flags):
+    def run_hosted(self, source, host, flags, sanitize=False):
         with tempfile.TemporaryDirectory(prefix="gw-palette-host-") as directory:
             root = Path(directory)
             bas, generated, provider, exe = [root / name for name in
@@ -59,22 +59,24 @@ class GraphicsPalette(unittest.TestCase):
             pkg = subprocess.run(["pkg-config", "--libs", "libpulse-simple"],
                                  capture_output=True, text=True)
             libs = shlex.split(pkg.stdout) if pkg.returncode == 0 else []
-            subprocess.run(["gcc", flags[0], str(generated), str(provider), str(BUILD / "libgwrt.a"),
+            checks = ["-fsanitize=address,undefined", "-fno-sanitize-recover=all"] if sanitize else []
+            subprocess.run(["gcc", flags[0], *checks, str(generated), str(provider), str(BUILD / "libgwrt.a"),
                             "-I" + str(REPO / "include"), "-lm", "-pthread", *libs, "-o", str(exe)],
                            check=True, capture_output=True, timeout=30)
-            result = subprocess.run([str(exe)], capture_output=True, text=True, timeout=30)
+            result = subprocess.run([str(exe)], cwd=root, capture_output=True, text=True, timeout=30)
             self.assertEqual(result.returncode, 0, result.stderr)
             return " ".join(SIXEL.sub("", result.stdout).split())
 
     def check_program(self, statements, expected_palettes, expected_text,
-                      redraws=None, same_pixels=False):
+                      redraws=None, same_pixels=False, trap_errors=False):
         if redraws is None:
             redraws = [True] * len(expected_palettes)
         with tempfile.TemporaryDirectory(prefix="gw-palette-") as directory:
             root = Path(directory)
             source = root / "palette.bas"
-            source.write_text("".join(f"{10 * (i + 1)} {s}\n"
-                                      for i, s in enumerate([*statements, "END"])))
+            lines = (["ON ERROR GOTO 60000"] if trap_errors else []) + [*statements, "END"]
+            source.write_text("".join(f"{10 * (i + 1)} {s}\n" for i, s in enumerate(lines))
+                              + ("60000 RESUME NEXT\n" if trap_errors else ""))
 
             def run(command):
                 result = subprocess.run(command, cwd=root, text=True,
@@ -213,7 +215,8 @@ class GraphicsPalette(unittest.TestCase):
 
     def test_color_trailing_comments(self):
         self.check_program(
-            ["SCREEN 1", *pixels(1), "COLOR 17,0 ' comment: COLOR 0,1",
+            ["SCREEN 1", *pixels(1), "PSET (1,0),1 ' comment: PRINT 999",
+             "COLOR 17,0 ' comment: COLOR 0,1",
              'PRINT "SNAP"', "COLOR ,1 ' keep background", 'PRINT "SNAP"',
              "COLOR , ' unchanged", 'PRINT "SNAP"', points(1)],
             [palette(1, 10, 12, 14), palette(1, 11, 13, 15), palette(1, 11, 13, 15)],
@@ -234,6 +237,14 @@ class GraphicsPalette(unittest.TestCase):
                      "ON ERROR GOTO 100", 'COLOR FRE("")*0' + tail,
                      'B$=STRING$(80,89)', "PRINT A$", "END", "RESUME NEXT"],
                     [], "KEPT")
+
+    def test_nested_collection_and_temporary_error_unwind(self):
+        self.check_program(
+            ["SCREEN 1", "ON ERROR GOTO 100", "FOR I=1 TO 180",
+             'COLOR VAL(LEFT$("1",1/0)),0', "NEXT",
+             'COLOR VAL(LEFT$("1",1+0*FRE("")+0*LEN(STRING$(80,50)))),0',
+             'PRINT "SNAP"', "PRINT INP(&H3D9)", "END", "RESUME NEXT"],
+            [{0: RGBI[1]}], "1")
 
     def test_hosted_entries_start_with_fresh_graphics(self):
         for error in (False, True):
@@ -262,6 +273,33 @@ class GraphicsPalette(unittest.TestCase):
                     prefix = ("5 IF 0 THEN DEFINT Z\n" if dynamic else
                               "5 '$EXTERN Unused(INTEGER) AS INTEGER\n")
                     self.assertEqual(self.run_hosted(prefix + source, host, flags), "18 18")
+
+    def test_foreign_function_used_only_by_open(self):
+        source = ("10 '$EXTERN FileName() AS STRING\n"
+                  "11 '$EXTERN Unused() AS STRING\n"
+                  '12 DATA Unused,"Unused"\n'
+                  "13 REM Unused()\n"
+                  '20 OPEN FileName() FOR OUTPUT AS #1\n'
+                  '30 PRINT #1,"OK":CLOSE #1:END\n')
+        host = ('#include "gwrt.h"\n#include <string.h>\nint palette_entry(int,char**);\n'
+                'const char *FileName(void){return "output.txt";}\n'
+                'int main(void){if(palette_entry(0,NULL))return 1;'
+                'FILE *f=fopen("output.txt","r");char s[32];'
+                'if(!f || !fgets(s,sizeof s,f))return 2;fclose(f);return strncmp(s,"OK",2)!=0;}\n')
+        for flags in (["-O0"], ["-O3", "--safe", "--inline-arrays"]):
+            with self.subTest(flags=flags):
+                self.assertEqual(self.run_hosted(source, host, flags), "")
+
+    def test_foreign_integer_error_releases_string_arguments(self):
+        source = ("10 '$EXTERN Mix(STRING,INTEGER) AS INTEGER\n"
+                  "20 SCREEN 1:ON ERROR GOTO 100\n"
+                  '30 FOR I=1 TO 180:PRINT Mix("x",32768)\n'
+                  '40 COLOR Mix("x",32768),0\n'
+                  '50 NEXT:PRINT "DONE":END\n100 RESUME NEXT\n')
+        host = ('#include "gwrt.h"\n#include <stdlib.h>\nint palette_entry(int,char**);\n'
+                'int16_t Mix(const char *s,int16_t n){(void)s;(void)n;abort();}\n'
+                'int main(void){return palette_entry(0,NULL);}\n')
+        self.assertEqual(self.run_hosted(source, host, ["-O0"], sanitize=True), "DONE")
 
     def test_palette_and_color_redraw_without_drawing(self):
         self.check_program(
@@ -303,6 +341,21 @@ class GraphicsPalette(unittest.TestCase):
     def test_text_color_output(self):
         self.check_program(["SCREEN 0", "COLOR 7,0", 'PRINT "OK"'], [],
                            "\x1b[37m\x1b[40mOK")
+
+    def test_recorded_probe_latches_after_success_and_error(self):
+        reference = json.loads((REPO / "tests/compatibility/cga-color.json").read_text())
+        for name in ("mode_probe", "argument_probe", "extended_probe", "mode2_probe"):
+            with self.subTest(probe=name):
+                statements, expected = [], []
+                for row in reference[name]["cases"]:
+                    if row["args"] == "1 2":
+                        continue  # Recorded, existing numeric-space lexical difference.
+                    mode = row.get("mode", 2 if name == "mode2_probe" else 1)
+                    if name != "mode_probe":
+                        statements.append("SCREEN 0")
+                    statements.extend([f"SCREEN {mode}", "COLOR " + row["args"], "PRINT INP(&H3D9)"])
+                    expected.append(str(row["bios_colour"]))
+                self.check_program(statements, [], " ".join(expected), trap_errors=True)
 
 
 if __name__ == "__main__":

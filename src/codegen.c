@@ -1537,8 +1537,9 @@ static void emit_extern_call(const extern_func_t *ef)
     EMIT("({ ");
     for (int i = 0; i < n; i++) {
         if (argt[i] == VT_STR)
-            EMIT("gw_string_t _s%d = (%s); char *_a%d = gw_str_to_cstr(&_s%d);"
-                 " gw_str_free(&_s%d); ", i, argbuf[i], i, i, i);
+            EMIT("gw_string_t _s%d = (%s); char _a%d[256];"
+                 " if(_s%d.len)memcpy(_a%d,_s%d.data,_s%d.len);_a%d[_s%d.len]=0;"
+                 " gw_str_free(&_s%d); ", i, argbuf[i], i, i, i, i, i, i, i, i);
         else if (argt[i] == VT_INT)
             EMIT("int16_t _a%d = gw_cint((double)(%s)); ", i, argbuf[i]);
         else
@@ -1553,17 +1554,11 @@ static void emit_extern_call(const extern_func_t *ef)
     for (int i = 0; i < n; i++) { if (i) EMIT(", "); EMIT("_a%d", i); }
     EMIT("); ");
     if (ef->ret_type == VT_STR) {
-        /* Copy the result into the string pool BEFORE freeing the C-string arg
-         * temporaries — a callee may legitimately return (a pointer into) one
-         * of its char* arguments (e.g. an in-place trim), so freeing first
-         * would be a use-after-free. */
+        /* A callee can return an alias of an argument. Copy it before the
+         * automatic argument buffers leave scope. */
         EMIT("gw_string_t _ret = gw_str_from_cstr(_r ? _r : \"\"); ");
-        for (int i = 0; i < n; i++)
-            if (argt[i] == VT_STR) EMIT("free(_a%d); ", i);
         EMIT("_ret; })");
     } else {
-        for (int i = 0; i < n; i++)
-            if (argt[i] == VT_STR) EMIT("free(_a%d); ", i);
         EMIT("_r; })");
     }
 }

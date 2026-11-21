@@ -93,7 +93,9 @@ interpreter, LOAD, and compiler. It builds a small ASan/UBSan test helper.
 across repeated SCREEN statements, with and without the debugger. Pixels at
 the bottom-right of modes 1 and 2 exercise offsets beyond signed 16-bit index
 arithmetic. Two mode-2 pixels 65536 bytes apart check for address aliasing.
-The 16-bit build allocates this buffer outside the near heap.
+The 16-bit build allocates this buffer outside the near heap and uses a 16 KiB
+stack for nested expression evaluation. The guest test also collects strings
+while an outer expression holds a temporary string.
 These checks cover stored graphics state; the DOS text HAL
 does not display the framebuffer.
 

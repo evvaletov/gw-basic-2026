@@ -262,17 +262,19 @@ In mode 2, bits 0-3 select the foreground; the background stays black.
 writes, so a later `COLOR` can replace an earlier `OUT` setting. `INP(&H3D9)`
 returns the emulated latch; a physical CGA register is write-only.
 
-`COLOR`, `OUT &H3D9` and `PALETTE` redraw existing pixels immediately. The
-renderer combines these CGA controls with RGBI `PALETTE` remapping; this is not
-an EGA hardware emulation. `COLOR` with a supplied argument replaces the mappings
-for attributes 0-3. Bare `PALETTE` restores the mode's default palette and resets
+`COLOR`, `OUT &H3D9` and `PALETTE` redraw existing pixels immediately. They write
+the same RGBI palette map; the latest write determines each entry's colour.
+This is not an EGA hardware emulation. `COLOR` with a supplied argument replaces
+the mappings for attributes 0-3. `OUT &H3D9` replaces entries 0-3 in mode 1 or
+0-1 in mode 2. Bare `PALETTE` restores the mode's default palette and resets
 its saved CGA settings to their defaults.
 Repeating the current `SCREEN` mode preserves the image and palette; changing
 mode starts with its defaults. These changes require a current source build.
 
 In text mode, `COLOR [foreground][,[background][,border]]` accepts foreground
 0-31, background 0-15 and border 0-255. The current text renderer applies
-foreground 0-15 and background 0-7; blink and border rendering remain limited.
+foreground 0-15 and background 0-7. Foreground 16-31, background 8-15 and border
+are accepted but have no visible effect.
 Compiled programs now apply these text colours through the same handler.
 
 ### Sprite Capture and Blit (GET / PUT)

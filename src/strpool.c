@@ -24,6 +24,60 @@ static size_t pool_size;
 static size_t pool_used;
 static int pin_count;
 
+/* Expression temporaries must move with a compacting collection. Frames record
+ * the roots that were live on entry, so nested expressions can return values
+ * without leaving pointers to expired C locals in the collector. */
+static gw_value_t **expression_roots;
+static size_t root_count, root_capacity;
+static size_t *expression_frames;
+static size_t frame_count, frame_capacity;
+
+void gwrt_expr_begin(void)
+{
+    if (frame_count == frame_capacity) {
+        size_t capacity = frame_capacity ? 2 * frame_capacity : 16;
+        size_t *frames = realloc(expression_frames, capacity * sizeof(*frames));
+        if (!frames) gw_error(ERR_OM);
+        expression_frames = frames; frame_capacity = capacity;
+    }
+    expression_frames[frame_count++] = root_count;
+}
+
+void gwrt_expr_root(gw_value_t *value)
+{
+    if (root_count == root_capacity) {
+        size_t capacity = root_capacity ? 2 * root_capacity : 32;
+        gw_value_t **roots = realloc(expression_roots, capacity * sizeof(*roots));
+        if (!roots) gw_error(ERR_OM);
+        expression_roots = roots; root_capacity = capacity;
+    }
+    expression_roots[root_count++] = value;
+}
+
+void gwrt_expr_end(void)
+{
+    if (frame_count) root_count = expression_frames[--frame_count];
+}
+
+void gwrt_expr_unwind(void)
+{
+    free(expression_roots); free(expression_frames);
+    expression_roots = NULL; expression_frames = NULL;
+    root_count = root_capacity = frame_count = frame_capacity = 0;
+}
+
+void gwrt_collect_roots(char *pool, char *scratch, size_t *offset)
+{
+    for (size_t i = 0; i < root_count; i++) {
+        gw_value_t *value = expression_roots[i];
+        if (value->type == VT_STR && value->sval.len && value->sval.data && strpool_owns(value->sval.data)) {
+            memcpy(scratch + *offset, value->sval.data, value->sval.len);
+            value->sval.data = pool + *offset;
+            *offset += value->sval.len;
+        }
+    }
+}
+
 void strpool_init(size_t size)
 {
     pool = malloc(size);
@@ -34,6 +88,7 @@ void strpool_init(size_t size)
 
 void strpool_shutdown(void)
 {
+    gwrt_expr_unwind();
     free(pool);
     pool = NULL;
     pool_size = pool_used = 0;
@@ -41,6 +96,7 @@ void strpool_shutdown(void)
 
 void strpool_reset(size_t size)
 {
+    gwrt_expr_unwind();
     if (size == 0) size = pool_size;
     if (size != pool_size) {
         free(pool);
@@ -112,11 +168,8 @@ void strpool_gc(void)
         }
     }
 
-#ifdef GW_NATIVE_RUNTIME
-    /* Generated expressions register the addresses of their live descriptors. */
-    extern void gwrt_collect_roots(char *, char *, size_t *);
+    /* Evaluators register the addresses of their live descriptors. */
     gwrt_collect_roots(pool, tmp, &offset);
-#endif
     memcpy(pool, tmp, offset);
     pool_used = offset;
     free(tmp);
