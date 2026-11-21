@@ -152,18 +152,31 @@ The technical article [Compiling GW-BASIC and drawing in Jupyter](https://valeto
 is public on valetov.com. Its examples use v0.18.2 and gwbasickernel 0.1.0;
 downloadable outputs, a notebook and source references accompany it.
 
+The Sixel palette defaults now follow the original SCREEN tables: black, light
+cyan, light magenta and high-intensity white in mode 1, and black and
+high-intensity white in mode 2.
+Interpreter and native regressions cover explicit palette overrides, resets,
+mode changes and stored pixel attributes. This correction is unreleased;
+the article retains its v0.18.2 output (git-bug `415598e`).
+
+A focused announcement is posted on SDF's RETRO bboard under `evv`, dated
+21 November 2026 (git-bug `682425c`).
+
 Next priorities:
 
-1. Prepare a focused retrocomputing/DOS community announcement under the
-   selected venue's current rules (git-bug `682425c`).
-2. Complete the FreeDOS repository route after maintainers reply to the sent
-   enquiry, including any requested FDNPKG/FDIMPLES checks (git-bug `ab8188c`).
-3. Make SDF source, tag and git-bug synchronisation repeatable with failure
-   reporting (git-bug `0b511f7`).
+1. Publish the next release with the palette correction and refresh the binary
+   packages and Homebrew formula (git-bug `e82ce91`).
+2. Automate valetov.com publication from the shared subsite source and make SDF
+   source, tag and git-bug synchronisation repeatable with failure reporting
+   (git-bug `0b511f7`). GitHub Pages publication is already automatic.
+3. Finish integration and validation of the scripted debugger, then add
+   interactive TUI controls for stepping, breakpoints and inspection
+   (git-bug `32a637c`).
 4. Extend scripted gameplay coverage beyond the 36 original listings already
    covered, keeping adapted ports separate (git-bug `51679f0`).
-5. Validate and correct the default SCREEN 1 palette against original GW-BASIC;
-   the published article records the released mapping (git-bug `415598e`).
+5. Complete the FreeDOS repository handoff through the existing maintainer
+   thread, using the validated FDNPKG package and any further requested checks
+   (git-bug `ab8188c`).
 
 The tested AUR package awaits reopening of account registration. Homebrew and
 `gwbasickernel` on PyPI are live; directory requests await maintainers. HN stays

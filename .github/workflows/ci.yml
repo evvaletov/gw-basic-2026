@@ -34,6 +34,9 @@ jobs:
           python3 tests/test_line_numbers.py
           python3 tests/test_dos_runtime.py
 
+      - name: Graphics palette regressions
+        run: python3 tests/test_graphics_palette.py
+
       - name: Interpreter tests (audio disabled)
         env:
           PULSE_SERVER: unix:/tmp/gwbasic-ci-no-audio-server

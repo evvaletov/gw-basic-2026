@@ -42,6 +42,15 @@ static void reset_palette(void)
 {
     for (int i = 0; i < 16; i++)
         palette_map[i] = i;
+
+    /* GW-BASIC SCREEN defaults: attributes are not RGBI color indexes. */
+    if (screen_mode == 1) {
+        palette_map[1] = 11;  /* light cyan */
+        palette_map[2] = 13;  /* light magenta */
+        palette_map[3] = 15;  /* high-intensity white */
+    } else if (screen_mode == 2) {
+        palette_map[1] = 15;  /* high-intensity white */
+    }
 }
 
 bool gfx_active(void) { return framebuf != NULL; }
