@@ -29,11 +29,14 @@ jobs:
 
       - run: pip install -r publication/requirements.txt
 
-      - name: Build documentation with warnings as errors
-        run: python -m sphinx -W --keep-going -n -d docs/_build/doctrees -b html docs docs/_build/html
+      - name: Check publication recovery and mirror safeguards
+        run: python tests/test_publication.py
 
       - name: Build valetov.com from the same documentation
         run: python publication/build_site.py --output build/valetov-site
+
+      - name: Validate the real deployment archive
+        run: python publication/check_site_archive.py build/valetov-site
 
       - name: Install example build dependencies
         run: |
@@ -62,13 +65,12 @@ jobs:
         with:
           name: valetov-static-site
           path: build/valetov-site
-          include-hidden-files: true
           if-no-files-found: error
 
       - uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         with:
-          path: docs/_build/html
+          path: build/valetov-site/gwbasic
 
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'

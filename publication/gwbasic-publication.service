@@ -1,0 +1,11 @@
+[Unit]
+Description=Publish GW-BASIC documentation and synchronise the SDF mirror
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 %h/.local/lib/gwbasic-publication/sync_publication.py
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+EnvironmentFile=%h/.config/gwbasic-publication.env
+TimeoutStartSec=15min
+UMask=0077
+
