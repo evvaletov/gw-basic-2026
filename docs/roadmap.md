@@ -5,7 +5,7 @@
 Integrated into main: statement step/continue, breakpoints,
 pure variable/constant-index watches, named inspection checkpoints and native
 file/FIELD views. The [debugger guide](debugger.md) includes the command contract
-and a FORTRAN text-exchange example. POSIX and both DOS targets are supported;
+and a FORTRAN text-exchange example. POSIX and both DOS targets are supported.
 A POSIX terminal controller adds source, latest-value and event panes with
 interactive stepping, breakpoints and inspection. It runs in a second terminal
 so BASIC retains its keyboard and graphics display. The shared FORTRAN/BASIC
@@ -202,7 +202,7 @@ Next priorities:
 4. Complete the FreeDOS repository handoff through the existing maintainer
    thread, using the validated FDNPKG route and any further requested checks
    (git-bug `ab8188c`).
-5. Add real step-over/finish semantics and use the debugger protocol for VS Code
+5. Add step-over/finish semantics and use the debugger protocol for VS Code
    integration (git-bug `32a637c`).
 
 AUR publication remains pending account registration. Homebrew and

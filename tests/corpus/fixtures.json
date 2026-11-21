@@ -1000,7 +1000,7 @@
       "expected": "expected/bowling-1-player.txt",
       "features": [
         "ten frames",
-        "1 players",
+        "one player",
         "pin diagrams",
         "score arrays",
         "spares and gutters"
@@ -1013,7 +1013,7 @@
       "expected": "expected/bowling-4-player.txt",
       "features": [
         "ten frames",
-        "4 players",
+        "four players",
         "pin diagrams",
         "score arrays",
         "strikes and spares"

@@ -136,6 +136,11 @@ the larger local semantic matrices remain useful release checks.
 
 ### Compatibility Testing
 
+`python3 tests/test_debug.py` checks the scripted interpreter monitor.
+After installing `tests/requirements.txt`, `python3 tests/test_debug_tui.py`
+checks the controller in separate pseudo-terminals. After both DOS builds,
+`python3 tests/run_dos_debug.py` checks the monitor and guest screen in FreeDOS.
+
 The curated corpus has 96 scripted cases from forty-six original *BASIC
 Computer Games* listings. Each interpreter run and each of six compiler modes
 must match a checked-in Microsoft GW-BASIC transcript. Compiled output must also

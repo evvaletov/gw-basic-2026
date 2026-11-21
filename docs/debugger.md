@@ -47,11 +47,11 @@ Ctrl-C in the program terminal cancels the supervised run.
 
 Each run requires a new session directory. It contains a private command FIFO,
 an entry-source snapshot, the event log and the exit status. Only one controller
-can attach at a time. A finished session can be reopened for inspection; start
-a fresh run to debug again after detaching. The viewer retains the latest 120
+can attach at a time. Once the first inspector exits or crashes, reopening is
+read-only; start a fresh run to debug again. The viewer retains the latest 120
 events and 16 values in memory; the complete log remains on disk until you
-remove the session directory. Keep both terminals at least 50 columns wide and
-the inspector at least 16 rows high.
+remove the session directory. Keep the inspector at least 50 columns wide and
+18 rows high.
 
 The source pane highlights a line; the displayed offset identifies the exact
 statement in token bytes. It is not a source-column highlight. The pane shows
@@ -66,8 +66,8 @@ build/gwbasic --debug-script examples/debug-media/commands.txt --debug-output tr
 ```
 
 This example reads `exchange.txt` in the working directory. Copy the fixture
-from `examples/debug-media/exchange.txt`, or export it from the FORTRAN example
-as described in the [coordination handoff](fortran-debug-media-handoff.md).
+from `examples/debug-media/exchange.txt`. It uses printable ASCII, one record per
+line, for text exchange with FORTRAN 704.
 Choose a new debug output filename on each run. Commands and output use separate
 files; they do not enter the guest keyboard buffer or draw over its display.
 On DOS the same options work with short filenames, e.g. `CMD.TXT` and `LOG.TXT`.
@@ -105,8 +105,8 @@ files. `inspect file NUMBER OFFSET COUNT` shows mode, logical byte position,
 record length, input cursor, EOF state, FIELD mappings and up to 64 bytes of the
 current random-file buffer. NUMBER is 1–15; OFFSET is 0–9999 in this initial
 monitor. Inspection neither seeks nor reads the host file. FIELD variables are
-copies managed by the native runtime: the mapping and buffer display do not
-claim pointer aliasing or synchronise variable changes into the record buffer.
+copies managed by the native runtime. Inspection shows the mapping and buffer
+without synchronising variable changes into the record buffer.
 
 `checkpoint NAME` / `snapshot NAME` write immutable log entries containing the
 current registered watches and bounded state/file views. They do not restore
@@ -122,11 +122,11 @@ coordinated backlog. The shared v1 contract describes the underlying line
 monitor; the POSIX controller above is a separate frontend over that protocol.
 
 Run `python3 tests/test_debug.py` for the focused POSIX tests. After both DOS
-builds, `python3 tests/run_dos_debug.py` checks actual execution and guest screen
+builds, `python3 tests/run_dos_debug.py` checks execution and guest screen
 preservation in FreeDOS/QEMU. It normally uses the pinned official boot floppy.
 On a QEMU build without floppy support, supply `--system-disk /path/to/freedos.qcow2`;
 the runner creates disposable overlays and verifies the base hash is unchanged.
-For the real terminal-controller tests, install `tests/requirements.txt` and
+For the terminal-controller tests, install `tests/requirements.txt` and
 run `python3 tests/test_debug_tui.py`. They exercise separate pseudo-terminals,
 guest input and Sixel output, calls, watches, file views, resizing, exclusive
 attachment, detachment, signal cleanup and terminal restoration.

@@ -82,6 +82,15 @@ class Debug(unittest.TestCase):
         self.assertIn(f"line=10 offset={offset}", log)
         self.assertIn("resume eof", log)
 
+    def test_distinct_multidimensional_elements(self):
+        source = "10 DIM A%(2,3):A%(1,2)=17:A%(2,1)=29\n20 PRINT A%(1,2);A%(2,1):SYSTEM\n"
+        normal, _ = self.run_basic(source)
+        debug, log = self.run_basic(source,
+            "break 20\ncontinue\ninspect A%(1,2)\ninspect A%(2,1)\ncontinue\n")
+        self.assertEqual(debug.stdout, normal.stdout)
+        self.assertIn("value A%(1,2) bounds=0:2,0:3 integer=17", log)
+        self.assertIn("value A%(2,1) bounds=0:2,0:3 integer=29", log)
+
     def test_field_and_file_inspection_is_pure(self):
         source = """10 OPEN "R",#1,"data.bin",8
 20 FIELD #1,4 AS A$,4 AS B$
@@ -129,7 +138,9 @@ class Debug(unittest.TestCase):
         self.assertIn("error breakpoint", log)
         self.assertNotIn("value A%", log.split("stop 2")[1])
         commands = "".join(f"watch I{i}\n" for i in range(16)) + "unwatch I15\nwatch I16\ncontinue\n"
-        self.run_basic("10 SYSTEM\n", commands)
+        _, log = self.run_basic("10 SYSTEM\n", commands)
+        self.assertIn("value I16 default single=0", log)
+        self.assertNotIn("error watch", log)
 
     def test_command_read_and_log_write_failures(self):
         src = self.work / "main.bas"; src.write_text("10 PRINT 7:SYSTEM\n")

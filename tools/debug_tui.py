@@ -33,20 +33,33 @@ def run(args):
         raise ValueError("the source pane needs ASCII BASIC, at most 1 MiB")
     session = args.session.absolute()
     session.mkdir(mode=0o700)  # A fresh directory prevents accidental log reuse.
-    (session / "source.bas").write_bytes(source)
-    os.mkfifo(session / "commands", 0o600)
-    write_json(session / "session.json", {"source": str(args.source.absolute())})
-    command = shlex.join([sys.executable, str(Path(__file__).resolve()), "attach", str(session)])
-    print(f"Debugger: in another terminal run\n  {command}\n"
-          "Waiting for the controller; Ctrl-C cancels this run.", file=sys.stderr, flush=True)
     child = None
     result = 2
 
     previous = {sig: signal.signal(sig, interrupted) for sig in (signal.SIGTERM, signal.SIGHUP)}
     try:
+        (session / "source.bas").write_bytes(source)
+        os.mkfifo(session / "commands", 0o600)
+        write_json(session / "session.json", {"source": str(args.source.absolute())})
+        command = shlex.join([sys.executable, str(Path(__file__).resolve()), "attach", str(session)])
+        print(f"Debugger: in another terminal run\n  {command}\n"
+              "Waiting for the controller; Ctrl-C cancels this run.", file=sys.stderr, flush=True)
         child = subprocess.Popen([str(args.binary.absolute()), "--debug-script", str(session / "commands"),
                                   "--debug-output", str(session / "events"), str(session / "source.bas")])
-        result = child.wait()
+        while True:
+            try:
+                result = child.wait(timeout=.1)
+                break
+            except subprocess.TimeoutExpired:
+                # Detaching before the interpreter opens its FIFO still means
+                # resume: briefly connect a writer so fopen can return EOF.
+                if (session / "detached").exists() and not (session / "events").exists():
+                    try:
+                        fd = os.open(session / "commands", os.O_WRONLY | os.O_NONBLOCK)
+                        os.close(fd)
+                    except OSError as exc:
+                        if exc.errno != errno.ENXIO:
+                            raise
     except KeyboardInterrupt:
         result = 130
     finally:
@@ -76,18 +89,22 @@ class Controller:
         self.pending = b""
         self.events = deque(maxlen=120)
         self.values = {}
+        self.scroll = 0
         self.location = None
         self.paused = False
-        self.finished = False
-        self.message = "Waiting for BASIC to open the command channel"
-        self.source = (session / "source.bas").read_text("ascii").splitlines()
-        self.lines = [int(m[1]) if (m := re.match(r"\s*(\d+)", line)) else -1 for line in self.source]
+        self.finished = (session / "controller-started").exists()
+        self.message = ("Read-only session; start a fresh run to debug again" if self.finished else
+                        "Waiting for BASIC to open the command channel")
+        self.source = [line.rstrip("\r") for line in (session / "source.bas").read_bytes().decode("ascii").split("\n")]
+        self.rows = {int(m[1]): row for row, line in enumerate(self.source)
+                     if (m := re.match(r"\s*(\d+)", line))}
 
     def close(self):
+        if not self.finished:
+            (self.session / "detached").touch()
         if self.fd is not None:
             os.close(self.fd)  # EOF disables the monitor, including breakpoints.
             self.fd = None
-            (self.session / "detached").touch()
         if self.log:
             self.log.close()
 
@@ -132,14 +149,16 @@ class Controller:
             stop = re.fullmatch(r"stop (\d+) line=(\d+) offset=(\d+) depth=(\d+)", text)
             if stop:
                 self.location = tuple(int(x) for x in stop.groups())
-                self.paused = not self.finished
+                self.paused = self.fd is not None and not self.finished
                 if self.paused:
                     self.message = "Paused before the highlighted line; offset counts token bytes"
             elif text.startswith("value "):
                 _, name, value = text.split(" ", 2)
-                if name not in self.values and len(self.values) == 16:
-                    del self.values[next(iter(self.values))]
+                name = name.upper()
+                self.values.pop(name, None)
                 self.values[name] = value
+                if len(self.values) > 16:
+                    del self.values[next(iter(self.values))]
 
     def send(self, command):
         if not self.paused or self.fd is None or self.finished:
@@ -181,18 +200,19 @@ class Controller:
                 except curses.error:
                     pass  # A resize can invalidate the dimensions mid-draw.
 
-        if height < 16 or width < 50:
-            put(0, "Resize to 50x16 or larger; q detaches")
+        if height < 18 or width < 50:
+            put(0, "Resize to 50x18 or larger; q detaches")
             put(1, self.message)
         else:
-            put(0, "GW-BASIC debugger   " + ("FINISHED" if self.finished else "PAUSED" if self.paused else "RUNNING / WAITING"), curses.A_BOLD)
+            put(0, "GW-BASIC debugger   " + ("VIEW ONLY" if self.finished else "PAUSED" if self.paused else "RUNNING / WAITING"), curses.A_BOLD)
             location = self.location
             put(1, f"Stop {location[0]}  line {location[1]}  token offset {location[2]}  GOSUB depth {location[3]}" if location else "No stop yet")
-            current = self.lines.index(location[1]) if location and location[1] in self.lines else 0
-            start = max(0, current - 2)
+            put(2, "Entry source (initial snapshot)")
+            current = self.rows.get(location[1]) if location else None
+            start = max(0, current - 2) if current is not None else 0
             for row, line in enumerate(self.source[start:start + 5], 3):
                 put(row, ("> " if start + row - 3 == current else "  ") + line,
-                    curses.A_REVERSE if location and start + row - 3 == current else 0)
+                    curses.A_REVERSE if start + row - 3 == current else 0)
             put(8, "Latest values (up to 16; :inspect state / :inspect file N OFFSET COUNT)", curses.A_BOLD)
             value_rows = min(len(self.values), max(1, (height - 15) // 3))
             for row, (name, value) in enumerate(list(self.values.items())[-value_rows:], 9):
@@ -205,14 +225,19 @@ class Controller:
             for row, event in enumerate(visible, event_start + 1):
                 put(row, event)
             put(height - 3, self.message)
-            put(height - 2, "s step | c continue | b break | w watch | i inspect | p checkpoint | : command | q detach")
+            put(height - 2, "s step | c continue | b break | w/u watch | i inspect | p checkpoint | : command | q detach")
         put(height - 1, ":" + entry if entry is not None else "q detaches and resumes BASIC without further stops")
         screen.refresh()
 
     def interact(self, screen):
-        curses.curs_set(0)
+        try:
+            curses.curs_set(0)
+        except curses.error:
+            pass  # Some terminal descriptions cannot hide the cursor.
         screen.timeout(100)
-        self.scroll = 0
+        # A later controller may inspect the log but must not replay a stale
+        # stop as live control after the first controller exits or crashes.
+        (self.session / "controller-started").touch()
         entry = None
         prefixes = {"b": "break ", "w": "watch ", "u": "unwatch ", "i": "inspect ", "p": "checkpoint ", ":": ""}
         while True:

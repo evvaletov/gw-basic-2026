@@ -96,7 +96,7 @@ C compiler. Python 3 and a POSIX host are required.
 
 ## Reference capture
 
-`expected/` contains captures from 2026-11-06, 2026-11-07, 2026-11-13 and
+`expected/` contains captures from 2026-11-06, 2026-11-07, 2026-11-13,
 2026-11-14 and 2026-11-21 using a local
 Microsoft GW-BASIC source build (JWasm, 2023-10-03) under DOSBox-X. The pinned
 executable is not retail 3.23; these captures do not establish retail identity. `reference.json` records executable, adapter, source, input, transformed

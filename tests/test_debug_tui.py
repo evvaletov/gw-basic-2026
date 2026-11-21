@@ -167,12 +167,16 @@ class DebugTUI(unittest.TestCase):
     def test_single_controller_resize_signal_and_eof(self):
         guest, controller = self.launch("10 INPUT A%\n20 PRINT A%:SYSTEM\n")
         self.command(controller, "break 20", "break line=20")
+        self.command(controller, "watch A%", "value A% default integer=0")
         duplicate = subprocess.run([sys.executable, str(TOOL), "attach", str(self.session)],
                                    capture_output=True, env=ENV, timeout=5)
         self.assertEqual(duplicate.returncode, 2)
         self.assertIn(b"already has a controller", duplicate.stderr)
         controller.resize(5, 20)
         self.wait(lambda: "Resize" in controller.text(), "small terminal not handled")
+        controller.resize(18, 50)
+        self.wait(lambda: any("value A%" in line for line in controller.screen.display[12:14]),
+                  "minimum viewport hides inspection events")
         controller.resize(28, 100)
         controller.process.send_signal(signal.SIGTERM)
         self.wait(lambda: controller.process.poll() is not None, "controller did not handle SIGTERM")
@@ -184,7 +188,7 @@ class DebugTUI(unittest.TestCase):
         self.assertEqual(len(re.findall(r"^stop ", self.trace(), re.M)), 1)
         self.assertIn("resume eof", self.trace())
         viewer = self.terminal([sys.executable, str(TOOL), "attach", str(self.session)])
-        self.wait(lambda: "FINISHED" in viewer.text(), "finished trace could not be opened")
+        self.wait(lambda: "VIEW ONLY" in viewer.text(), "finished trace could not be opened")
         viewer.send("q")
         self.wait(lambda: viewer.process.poll() is not None, "finished viewer did not close")
 
@@ -200,6 +204,90 @@ class DebugTUI(unittest.TestCase):
         with self.assertRaises(OSError) as error:
             os.open(self.session / "commands", os.O_WRONLY | os.O_NONBLOCK)
         self.assertEqual(error.exception.errno, errno.ENXIO)
+
+    def test_signal_at_readiness_publication_records_result(self):
+        source = self.work / "main.bas"
+        source.write_text("10 SYSTEM\n")
+        code = '''import os, signal, sys
+import debug_tui as app
+original = app.write_json
+def publish_and_cancel(path, data):
+    original(path, data)
+    if path.name == "session.json":
+        os.kill(os.getpid(), signal.SIGTERM)
+app.write_json = publish_and_cancel
+sys.exit(app.main())
+'''
+        result = subprocess.run([sys.executable, "-c", code, "run", "--binary", str(BIN),
+                                 "--session", str(self.session), str(source)],
+                                env=dict(ENV, PYTHONPATH=str(ROOT / "tools")),
+                                capture_output=True, timeout=5)
+        self.assertEqual(result.returncode, 130, result.stderr)
+        self.assertTrue((self.session / "session.json").exists())
+        self.assertEqual(json.loads((self.session / "result.json").read_text())["returncode"], 130)
+
+    def test_detach_before_interpreter_opens_fifo(self):
+        delayed = self.work / "delayed-basic"
+        delayed.write_text("#!" + sys.executable + "\nimport os,sys,time\ntime.sleep(1)\n"
+                           f"os.execv({str(BIN)!r}, [{str(BIN)!r}, *sys.argv[1:]])\n")
+        delayed.chmod(0o755)
+        source = self.work / "main.bas"
+        source.write_text('10 PRINT "DETACHED":SYSTEM\n')
+        guest = self.terminal([sys.executable, str(TOOL), "run", "--binary", str(delayed),
+                               "--session", str(self.session), str(source)])
+        self.wait(lambda: (self.session / "session.json").exists(), "session did not start")
+        controller = self.terminal([sys.executable, str(TOOL), "attach", str(self.session)])
+        self.wait(lambda: "Waiting for BASIC" in controller.text(), "controller did not wait for the FIFO")
+        controller.send("q")
+        self.wait(lambda: controller.process.poll() is not None, "early detach did not close")
+        self.wait(lambda: guest.process.poll() is not None, "early detach stranded BASIC at FIFO open")
+        self.assertEqual(guest.process.returncode, 0)
+        self.assertIn("resume eof", self.trace())
+        self.assertIn(b"DETACHED", guest.output)
+
+    def test_last_duplicate_label_and_recent_values(self):
+        guest, controller = self.launch('10 PRINT "OLD"\n10 PRINT "NEW"\n15 REM NOTE\f10 PRINT "FAKE"\n20 SYSTEM\n')
+        self.wait(lambda: '> 10 PRINT "NEW"' in controller.text(), "discarded duplicate label highlighted")
+        for index in range(16):
+            self.command(controller, f"inspect I{index}%", f"value I{index}% default integer=0")
+        controller.send(":inspect i0%\n")
+        self.wait(lambda: self.trace().upper().count("VALUE I0%") == 2, "reinspection missing")
+        self.command(controller, "inspect I16%", "value I16% default integer=0")
+        self.wait(lambda: "I0% default" in "\n".join(controller.screen.display[9:13]) and
+                  "I16% default" in "\n".join(controller.screen.display[9:13]), "recent values evicted or hidden")
+        controller.send("q")
+        self.wait(lambda: guest.process.poll() is not None, "duplicate-label program did not finish")
+        self.assertIn(b"NEW", guest.output)
+        self.assertNotIn(b"OLD", guest.output)
+        self.assertNotIn(b"FAKE", guest.output)
+
+    def test_killed_controller_cannot_replay_a_live_stop(self):
+        guest, controller = self.launch("10 INPUT A%\n20 PRINT A%:SYSTEM\n")
+        controller.send("c")
+        self.wait(lambda: b"? " in guest.output, "BASIC input prompt missing")
+        controller.process.kill()
+        controller.process.wait(timeout=5)
+        viewer = self.terminal([sys.executable, str(TOOL), "attach", str(self.session)])
+        self.wait(lambda: "VIEW ONLY" in viewer.text(), "reopened controller treated an old stop as live")
+        viewer.send("s")
+        self.wait(lambda: "Controls are available when BASIC is paused" in viewer.text(), "read-only control was not rejected")
+        guest.send("31\n")
+        self.wait(lambda: guest.process.poll() is not None, "BASIC input was blocked after controller crash")
+        self.assertEqual(guest.process.returncode, 0)
+        self.assertEqual(len(re.findall(r"^stop ", self.trace(), re.M)), 1)
+        viewer.send("q")
+        self.wait(lambda: viewer.process.poll() is not None, "viewer did not close")
+
+    def test_unmapped_stop_does_not_highlight_unrelated_entry_line(self):
+        (self.work / "later.bas").write_text('99 PRINT "LATER":SYSTEM\n')
+        guest, controller = self.launch('10 CHAIN "later.bas"\n20 SYSTEM\n')
+        controller.send("s")
+        self.wait(lambda: "line=99" in self.trace(), "CHAIN did not stop in the replacement program")
+        self.wait(lambda: "line 99 " in controller.text(), "replacement stop not displayed")
+        self.assertFalse(any(line.startswith("> ") for line in controller.screen.display[3:8]))
+        controller.send("q")
+        self.wait(lambda: guest.process.poll() is not None, "CHAIN program did not finish")
+        self.assertIn(b"LATER", guest.output)
 
     def test_bad_executable_and_session_reuse(self):
         source = self.work / "main.bas"

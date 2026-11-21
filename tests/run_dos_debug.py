@@ -8,7 +8,8 @@ import tempfile
 
 import run_dos_runtime as dos
 
-SOURCE = '''10 CLS:PRINT "GUEST SCREEN"
+SOURCE = '''5 DIM M%(2,3):M%(1,2)=17:M%(2,1)=29
+10 CLS:PRINT "GUEST SCREEN"
 20 A%=1:GOSUB 100
 30 SCREEN 1
 40 PSET (4,5),2
@@ -21,7 +22,7 @@ SOURCE = '''10 CLS:PRINT "GUEST SCREEN"
 90 OPEN "CHECK.TXT" FOR OUTPUT AS #2:PRINT #2,A%;C%:CLOSE #2:SYSTEM
 100 A%=A%+1:RETURN
 '''
-COMMANDS = "watch A%\nwatch C%\nwatch A$\n" + "checkpoint guest\ninspect file 1 0 8\nstep\n"*32
+COMMANDS = "watch A%\nwatch C%\nwatch A$\nwatch M%(1,2)\nwatch M%(2,1)\n" + "checkpoint guest\ninspect file 1 0 8\nstep\n"*36
 
 
 def main():
@@ -48,8 +49,12 @@ def main():
             dos.put(part, work, "DEBUG.BAS", dos.dos_text(SOURCE))
             dos.put(part, work, "CMD.TXT", dos.dos_text(COMMANDS))
             dos.put(part, work, "DBGTEST.BAT", dos.dos_text(
-                "@ECHO OFF\nBASIC DEBUG.BAS\nCOPY CHECK.TXT PLAIN.TXT\nCOPY FIELD.BIN PLAIN.BIN\n"
-                "BASIC --debug-script CMD.TXT --debug-output LOG.TXT DEBUG.BAS\nECHO DEBUG-DONE\n"))
+                "@ECHO OFF\nBASIC DEBUG.BAS\nIF ERRORLEVEL 1 GOTO FAILED\n"
+                "REN CHECK.TXT PLAIN.TXT\nREN FIELD.BIN PLAIN.BIN\n"
+                "IF EXIST CHECK.TXT GOTO FAILED\nIF EXIST FIELD.BIN GOTO FAILED\n"
+                "BASIC --debug-script CMD.TXT --debug-output LOG.TXT DEBUG.BAS\n"
+                "IF ERRORLEVEL 1 GOTO FAILED\nECHO DEBUG-DONE\nGOTO FINISHED\n"
+                ":FAILED\nECHO DEBUG-FAILED\n:FINISHED\n"))
             overlay = None
             if args.system_disk:
                 overlay = work/"system.qcow2"
@@ -63,7 +68,8 @@ def main():
                     prompt = "D:\\>"
                     vm.wait(lambda ls: prompt in ls, "data-drive")
                 vm.command("DBGTEST")
-                lines = vm.wait(lambda ls: "DEBUG-DONE" in ls and prompt in ls, "done", 45)
+                lines = vm.wait(lambda ls: any(s in ls for s in ("DEBUG-DONE", "DEBUG-FAILED")) and prompt in ls, "done", 45)
+                assert "DEBUG-DONE" in lines and "DEBUG-FAILED" not in lines, lines
                 assert any("GUEST SCREEN" in line and "2" in line for line in lines), lines
                 assert not any("checkpoint" in line or "value A%" in line for line in lines), lines
             finally:
@@ -78,6 +84,8 @@ def main():
             log = captures["LOG.TXT"].decode("ascii")
             assert "line=100 offset=0 depth=1" in log
             assert "value C% integer=2" in log
+            assert "value M%(1,2) bounds=0:2,0:3 integer=17" in log
+            assert "value M%(2,1) bounds=0:2,0:3 integer=29" in log
             assert "field A file=1 offset=0 length=4" in log
             assert "checkpoint guest" in log
             report[mode] = {"status": "passed", "binary_sha256": dos.digest(binary),
