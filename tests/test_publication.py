@@ -345,6 +345,39 @@ d.install(sys.stdin.buffer.read(),Path(sys.argv[2]),Path(sys.argv[3]))
         self.assert_restored()
         self.assertFalse((self.state / 'website.json').exists())
 
+    def test_main_reversion_after_failed_verification_cannot_reuse_old_cache(self):
+        sha = 'b' * 40
+
+        def command(args, **kwargs):
+            if args[:3] == ['gh', 'run', 'list']:
+                return json.dumps([dict(databaseId=123, status='completed', conclusion='success', headSha=sha)])
+            if args[:3] == ['gh', 'run', 'download']:
+                shutil.copytree(self.payload, args[-1], dirs_exist_ok=True)
+                return b''
+            if args[:2] == ['git', 'ls-remote']:
+                return sha + '\trefs/heads/main\n'
+            if args[0] == 'ssh':
+                return json.dumps(deploy.install(kwargs['input'], self.root, self.state)).encode()
+            raise AssertionError(args)
+
+        def public(url, **kwargs):
+            return io.BytesIO((self.root / unquote(urlsplit(url).path).lstrip('/')).read_bytes())
+
+        name = 'gwbasic/language-reference.html'
+        original = (self.payload / name).read_bytes()
+        with patch.object(sync, 'run', side_effect=command), patch.object(sync, 'lease', no_lease), patch.object(sync.urllib.request, 'urlopen', side_effect=public):
+            sync.deploy_site(self.state, sha)
+            sha = 'c' * 40
+            (self.payload / name).write_text('candidate outside the four idle pages')
+            with patch.object(sync, 'verify_public', side_effect=RuntimeError('HTTP failure')):
+                with self.assertRaisesRegex(RuntimeError, 'HTTP failure'):
+                    sync.deploy_site(self.state, sha)
+            self.assertFalse((self.state / 'website.json').exists())
+            sha = 'b' * 40
+            (self.payload / name).write_bytes(original)
+            self.assertEqual(sync.deploy_site(self.state, sha)['status'], 'installed')
+        self.assertEqual((self.root / name).read_bytes(), original)
+
     def test_host_receipt_survives_failed_public_verification(self):
         receipts = iter([dict(status='installed', source_commit='b' * 40, backup='/private/backup'),
                          dict(status='unchanged', source_commit='b' * 40)])

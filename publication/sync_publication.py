@@ -179,6 +179,9 @@ def deploy_site(state, sha):
             if current != sha:
                 return dict(status='main-advanced', source_commit=sha)
             contact()
+            # A lost reply may still mean the host changed. An older verified
+            # SHA must not regain its idle shortcut after an upstream rollback.
+            last.unlink(missing_ok=True)
             receipt = json.loads(run(ssh(state) + [WEB_HOST, 'sudo -n -u apache /usr/local/libexec/gwbasic-deploy'], input=data))
             last_install = state / 'last-install.json'
             previous = json.loads(last_install.read_text()) if last_install.exists() else {}

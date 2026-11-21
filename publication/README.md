@@ -67,8 +67,9 @@ cat ~/.local/state/gwbasic-publication/status.json
 ```
 
 Each run records stage results and exits nonzero on failure. A mirror failure
-does not suppress a website check. `website.json` retains the last verified
-manifest; `last-install.json` records the host receipt before HTTPS verification
+does not suppress a website check. `website.json` caches a fully verified
+publication and is cleared before another installation starts.
+`last-install.json` records the host receipt before HTTPS verification
 and retains its backup path across unchanged retries.
 The host records that path with the committed manifest, so a retry also returns
 it if the original SSH reply was lost.
