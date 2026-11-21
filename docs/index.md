@@ -22,7 +22,8 @@ the [language reference](language-reference.md).
 These pages follow development on `main`. Release downloads contain the source
 and features of their tagged version. The [source repository](https://github.com/evvaletov/gw-basic-2026)
 and [issue tracker](https://github.com/evvaletov/gw-basic-2026/issues) are on GitHub.
-The same documentation is also published on [GitHub Pages](https://evvaletov.github.io/gw-basic-2026/).
+This documentation is published at [valetov.com/gwbasic](https://valetov.com/gwbasic/)
+and mirrored on [GitHub Pages](https://evvaletov.github.io/gw-basic-2026/).
 See [Eremey Valetov's site](https://valetov.com/) for other writing.
 
 ## Highlights

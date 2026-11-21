@@ -20,13 +20,18 @@ assets and index; no database or external search service is needed.
 The Docs workflow builds both copies and uploads `valetov-static-site` for
 review. Successful `main` builds deploy GitHub Pages. Publishing valetov.com
 uses the existing server; the workflow does not deploy there.
+Republish the valetov.com build when documentation changes on `main` to keep
+the canonical copy current.
 
 Before publishing, back up the files that will be replaced and check for
-concurrent updates. Copy the generated `gwbasic/`, `articles/`, `index.html`,
-`robots.txt` and `sitemap.xml` to the existing document root, preserving the
-site's favicons and any unrelated content. Stage complete directories before
-switching them into place, and verify public pages, search and downloads after
-publication. The builder does not modify Apache or deploy files itself.
+concurrent updates. Stage the complete generated `gwbasic/` directory before
+switching it into place. Copy generated article files individually into
+`articles/gw-basic-2026/`, preserving sibling articles. For a documentation-only
+update, verify that the five existing article downloads remain byte-for-byte
+unchanged. Replace `index.html`, `robots.txt` and `sitemap.xml` individually,
+preserving the site's favicons and unrelated content. Publish new pages before
+the navigation that links to them, then verify public pages, search and downloads.
+The builder does not modify Apache or deploy files itself.
 
 The earlier `publication/compiler-jupyter/build_site.py` command forwards to
 this builder, so article updates also retain the project subsite. Article source

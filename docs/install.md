@@ -17,7 +17,7 @@ Compare your download with the matching checksum file on the release page.
 See the [macOS download instructions](getting-started.md#macos-binary-downloads)
 and [DOS setup](getting-started.md#building-for-dos-freedos) for platform details.
 The 16-bit DOS build needs no extender; the 32-bit build uses DOS/4GW.
-The macOS archives disable audio and are not notarised.
+The macOS builds have audio disabled and are not notarised.
 You can also [build from source](getting-started.md#building).
 
 ## Homebrew on Linux and macOS
@@ -35,7 +35,7 @@ Tools provide that command through Clang on macOS.
 
 ## Jupyter notebooks
 
-Install the native interpreter first, using Homebrew or a source build. The
+Install the native interpreter first, using a release archive, Homebrew or a source build. The
 Python package does not include it. On Linux or macOS with Python 3.10 or later:
 
 ```sh
