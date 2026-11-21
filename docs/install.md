@@ -1,18 +1,18 @@
 # Install and download
 
 GW-BASIC 2026 includes an interpreter, an ahead-of-time compiler and a Jupyter
-kernel. The [v0.18.2 release](https://github.com/evvaletov/gw-basic-2026/releases/tag/v0.18.2)
+kernel. The [v0.18.3 release](https://github.com/evvaletov/gw-basic-2026/releases/tag/v0.18.3)
 provides the following archives, with build records and SHA-256 checksums.
 Compare your download with the matching checksum file on the release page.
 
 | Platform | Archive |
 | --- | --- |
-| Linux x86-64 | [gwbasic-0.18.2-linux-x86_64.tar.gz](https://github.com/evvaletov/gw-basic-2026/releases/download/v0.18.2/gwbasic-0.18.2-linux-x86_64.tar.gz) |
-| macOS 15 or later, Apple Silicon | [gwbasic-0.18.2-macos-arm64.tar.gz](https://github.com/evvaletov/gw-basic-2026/releases/download/v0.18.2/gwbasic-0.18.2-macos-arm64.tar.gz) |
-| macOS 15 or later, Intel | [gwbasic-0.18.2-macos-x86_64.tar.gz](https://github.com/evvaletov/gw-basic-2026/releases/download/v0.18.2/gwbasic-0.18.2-macos-x86_64.tar.gz) |
-| DOS / FreeDOS, 16-bit real mode | [gwbasic-0.18.2.zip](https://github.com/evvaletov/gw-basic-2026/releases/download/v0.18.2/gwbasic-0.18.2.zip) |
-| DOS / FreeDOS, 32-bit protected mode | [gwbasic-0.18.2-dos32.zip](https://github.com/evvaletov/gw-basic-2026/releases/download/v0.18.2/gwbasic-0.18.2-dos32.zip) |
-| Source | [gwbasic-0.18.2-source.tar.gz](https://github.com/evvaletov/gw-basic-2026/releases/download/v0.18.2/gwbasic-0.18.2-source.tar.gz) |
+| Linux x86-64 | [gwbasic-0.18.3-linux-x86_64.tar.gz](https://github.com/evvaletov/gw-basic-2026/releases/download/v0.18.3/gwbasic-0.18.3-linux-x86_64.tar.gz) |
+| macOS 15 or later, Apple Silicon | [gwbasic-0.18.3-macos-arm64.tar.gz](https://github.com/evvaletov/gw-basic-2026/releases/download/v0.18.3/gwbasic-0.18.3-macos-arm64.tar.gz) |
+| macOS 15 or later, Intel | [gwbasic-0.18.3-macos-x86_64.tar.gz](https://github.com/evvaletov/gw-basic-2026/releases/download/v0.18.3/gwbasic-0.18.3-macos-x86_64.tar.gz) |
+| DOS / FreeDOS, 16-bit real mode | [gwbasic-0.18.3.zip](https://github.com/evvaletov/gw-basic-2026/releases/download/v0.18.3/gwbasic-0.18.3.zip) |
+| DOS / FreeDOS, 32-bit protected mode | [gwbasic-0.18.3-dos32.zip](https://github.com/evvaletov/gw-basic-2026/releases/download/v0.18.3/gwbasic-0.18.3-dos32.zip) |
+| Source | [gwbasic-0.18.3-source.tar.gz](https://github.com/evvaletov/gw-basic-2026/releases/download/v0.18.3/gwbasic-0.18.3-source.tar.gz) |
 
 See the [macOS download instructions](getting-started.md#macos-binary-downloads)
 and [DOS setup](getting-started.md#building-for-dos-freedos) for platform details.
