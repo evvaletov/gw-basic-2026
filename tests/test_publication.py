@@ -249,10 +249,11 @@ d.install(sys.stdin.buffer.read(),Path(sys.argv[2]),Path(sys.argv[3]))
                 lease.assert_not_called()
 
     def test_successful_backup_retention_is_bounded(self):
+        backups = []
         for version in range(7):
             (self.payload / 'index.html').write_text('navigation ' + str(version))
-            deploy.install(self.archive(), self.root, self.state)
-        self.assertEqual(len(list(self.state.glob('backup-*'))), 5)
+            backups.append(Path(deploy.install(self.archive(), self.root, self.state)['backup']))
+        self.assertEqual(set(self.state.glob('backup-*')), set(backups[-5:]))
 
     def test_unchanged_retry_prunes_after_exit_at_commit_boundary(self):
         for version in range(5):
@@ -277,9 +278,15 @@ d.install(sys.stdin.buffer.read(),Path(sys.argv[2]),Path(sys.argv[3]))
                                   str(self.root), str(self.state)], input=self.archive(), timeout=30)
         self.assertEqual(process.returncode, 99)
         self.assertFalse((self.state / 'pending.json').exists())
-        self.assertEqual(len(list(self.state.glob('backup-*'))), 6)
-        self.assertEqual(deploy.install(self.archive(), self.root, self.state)['status'], 'unchanged')
-        self.assertEqual(len(list(self.state.glob('backup-*'))), 5)
+        committed = json.loads((self.state / 'current.json').read_text())
+        backups = sorted(self.state.glob('backup-*'))
+        self.assertEqual(len(backups), 6)
+        receipt = deploy.install(self.archive(), self.root, self.state)
+        self.assertEqual(receipt['status'], 'unchanged')
+        self.assertEqual(set(self.state.glob('backup-*')), set(backups[-5:]))
+        self.assertEqual(Path(receipt['backup']), backups[-1])
+        self.assertEqual(receipt['backup'], committed['backup'])
+        self.assertEqual((backups[-1] / 'index.html').read_text(), 'navigation 4')
 
     def test_controller_installs_exact_artifact_and_verifies_public_bytes(self):
 
@@ -353,6 +360,42 @@ d.install(sys.stdin.buffer.read(),Path(sys.argv[2]),Path(sys.argv[3]))
             with self.assertRaisesRegex(RuntimeError, 'Public HTTPS bytes differ'):
                 sync.verify_public(manifest)
             self.assertEqual(get.call_args.args[0], 'https://valetov.com/gwbasic/a%20%23b.html')
+
+    def test_lost_host_reply_replaces_previous_commit_receipt_before_http_failure(self):
+        old = deploy.install(self.archive(), self.root, self.state)
+        deploy.save(self.state / 'last-install.json', dict(old, source_commit='a' * 40))
+        previous_index = (self.payload / 'index.html').read_bytes()
+        (self.payload / 'index.html').write_text('new publication after lost reply')
+        lost_reply = []
+
+        def command(args, **kwargs):
+            if args[:3] == ['gh', 'run', 'list']:
+                return json.dumps([dict(databaseId=124, status='completed', conclusion='success', headSha='c' * 40)])
+            if args[:3] == ['gh', 'run', 'download']:
+                shutil.copytree(self.payload, args[-1], dirs_exist_ok=True)
+                return b''
+            if args[:2] == ['git', 'ls-remote']:
+                return 'c' * 40 + '\trefs/heads/main\n'
+            if args[0] == 'ssh':
+                receipt = deploy.install(kwargs['input'], self.root, self.state)
+                if not lost_reply:
+                    lost_reply.append(receipt)
+                    raise subprocess.TimeoutExpired('ssh', 240)
+                return json.dumps(receipt).encode()
+            raise AssertionError(args)
+
+        with patch.object(sync, 'run', side_effect=command), patch.object(sync, 'lease', no_lease), patch.object(sync, 'verify_public', side_effect=RuntimeError('HTTP mismatch')):
+            with self.assertRaises(subprocess.TimeoutExpired):
+                sync.deploy_site(self.state, 'c' * 40)
+            with self.assertRaisesRegex(RuntimeError, 'HTTP mismatch'):
+                sync.deploy_site(self.state, 'c' * 40)
+        saved = json.loads((self.state / 'last-install.json').read_text())
+        self.assertEqual(saved['source_commit'], 'c' * 40)
+        self.assertEqual(saved['backup'], lost_reply[0]['backup'])
+        self.assertNotEqual(saved['backup'], old['backup'])
+        self.assertEqual(saved['workflow_run'], 124)
+        self.assertEqual((Path(saved['backup']) / 'index.html').read_bytes(), previous_index)
+        self.assertFalse((self.state / 'website.json').exists())
 
 
 @contextmanager

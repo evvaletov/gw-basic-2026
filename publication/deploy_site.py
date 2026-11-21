@@ -174,8 +174,14 @@ def install(data, root, state):
         if any(meta['files'][name] != before['files'][name] for name in ASSETS):
             raise ValueError('Historical article evidence changed; requires a separate reviewed update')
         if meta['files'] == before['files']:
+            meta.pop('backup', None)
+            if 'backup' in before:
+                meta['backup'] = before['backup']
             save(state / 'current.json', meta)
-            return dict(status='unchanged', source_commit=meta['source_commit'])
+            receipt = dict(status='unchanged', source_commit=meta['source_commit'])
+            if 'backup' in meta:
+                receipt['backup'] = meta['backup']
+            return receipt
         prepare(payload / 'gwbasic', root / 'index.html')
         backup = state / ('backup-' + str(time.time_ns()))
         backup.mkdir(mode=0o700)
@@ -194,6 +200,7 @@ def install(data, root, state):
                 replace_file(payload / name, root / name, root / 'index.html')
             if inventory(root) != meta['files']:
                 raise RuntimeError('Published files differ from manifest')
+            meta['backup'] = str(backup)
             save(state / 'current.json', meta)
             save(backup / 'completed.json', dict(source_commit=meta['source_commit']))
             (state / 'pending.json').unlink()

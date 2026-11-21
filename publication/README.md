@@ -70,6 +70,8 @@ Each run records stage results and exits nonzero on failure. A mirror failure
 does not suppress a website check. `website.json` retains the last verified
 manifest; `last-install.json` records the host receipt before HTTPS verification
 and retains its backup path across unchanged retries.
+The host records that path with the committed manifest, so a retry also returns
+it if the original SSH reply was lost.
 For unchanged source, four main pages are checked without downloading a CI
 artifact. A matching SDF mirror is checked without taking a transaction lease
 or pushing. Pending Docs runs defer publication; a failed run reports failure.

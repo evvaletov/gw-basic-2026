@@ -181,7 +181,8 @@ def deploy_site(state, sha):
             contact()
             receipt = json.loads(run(ssh(state) + [WEB_HOST, 'sudo -n -u apache /usr/local/libexec/gwbasic-deploy'], input=data))
             last_install = state / 'last-install.json'
-            if receipt['status'] == 'installed' or not last_install.exists():
+            previous = json.loads(last_install.read_text()) if last_install.exists() else {}
+            if receipt.get('backup') or previous.get('source_commit') != sha:
                 save(last_install, dict(receipt, workflow_run=run_id))
             contact()
             verify_public(manifest, contact)
