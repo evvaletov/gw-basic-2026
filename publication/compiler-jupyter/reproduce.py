@@ -58,7 +58,7 @@ def main():
             "# GW-BASIC 2026: persistent state and graphics\n\n"
             "Executed with v0.18.2 and gwbasickernel 0.1.0. "
             "Run the cells in order. The graphics cell clears the stored program.\n\n"
-            "Article: https://valetov.com/articles/gw-basic-2026/", id="introduction"),
+            "Article: https://retroprogramming.org/articles/gw-basic-2026/", id="introduction"),
         nbformat.v4.new_code_cell("A=6", id="set-variable"),
         nbformat.v4.new_code_cell("PRINT A*7", id="read-variable"),
         nbformat.v4.new_code_cell("NEW\n" + circles + "\nRUN", id="draw-circles"),

@@ -14,7 +14,7 @@ the [language reference](language-reference.md).
 - [Install and download](install.md): release archives, Homebrew and the Jupyter kernel.
 - [Getting started](getting-started.md): build, run and compile your first program.
 - [Demos](demos.md): the FreeDOS editor, native compilation and notebook graphics.
-- [Compiling GW-BASIC and drawing in Jupyter](https://valetov.com/articles/gw-basic-2026/):
+- [Compiling GW-BASIC and drawing in Jupyter](https://retroprogramming.org/articles/gw-basic-2026/):
   a technical walkthrough with executed examples from v0.18.2.
 
 ![GW-BASIC running the squares program in the FreeDOS full-screen editor](images/freedos-editor.png)
@@ -22,9 +22,9 @@ the [language reference](language-reference.md).
 These pages follow development on `main`. Release downloads contain the source
 and features of their tagged version. The [source repository](https://github.com/evvaletov/gw-basic-2026)
 and [issue tracker](https://github.com/evvaletov/gw-basic-2026/issues) are on GitHub.
-This documentation is published at [valetov.com/gwbasic](https://valetov.com/gwbasic/)
+This documentation is published at [retroprogramming.org/gwbasic](https://retroprogramming.org/gwbasic/)
 and mirrored on [GitHub Pages](https://evvaletov.github.io/gw-basic-2026/).
-See [Eremey Valetov's site](https://valetov.com/) for other writing.
+See [Retroprogramming](https://retroprogramming.org/) for the project collection.
 
 ## Highlights
 

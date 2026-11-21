@@ -144,7 +144,7 @@ def verify_public(manifest, contact=None, names=None):
         expected = manifest['files'][name]
         if contact and number % 10 == 0:
             contact()
-        with urllib.request.urlopen('https://valetov.com/' + quote(name, safe='/'), timeout=20) as response:
+        with urllib.request.urlopen('https://retroprogramming.org/' + quote(name, safe='/'), timeout=20) as response:
             actual = hashlib.sha256(response.read()).hexdigest()
         if actual != expected:
             raise RuntimeError('Public HTTPS bytes differ: ' + name)
@@ -172,9 +172,9 @@ def deploy_site(state, sha):
     with tempfile.TemporaryDirectory(prefix='site-', dir=state) as temp:
         site = Path(temp)
         run(['gh', 'run', 'download', str(run_id), '--repo', REPO,
-             '--name', 'valetov-static-site', '--dir', site])
+             '--name', 'retroprogramming-static-site', '--dir', site])
         data, manifest = package_site(site, sha, run_id)
-        with lease(state, 'website/valetov.com') as contact:
+        with lease(state, 'website/retroprogramming.org') as contact:
             current = run(['git', 'ls-remote', ORIGIN, 'refs/heads/main'], text=True).split()[0]
             if current != sha:
                 return dict(status='main-advanced', source_commit=sha)

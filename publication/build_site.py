@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build valetov.com with the article and the shared GW-BASIC documentation."""
+"""Build retroprogramming.org with the article and the shared GW-BASIC documentation."""
 import argparse
 from html import escape
 import json
@@ -14,7 +14,7 @@ from markdown_it import MarkdownIt
 HERE = Path(__file__).resolve().parent
 ARTICLE = HERE / "compiler-jupyter"
 DOCS = HERE.parent / "docs"
-ORIGIN = "https://valetov.com"
+ORIGIN = "https://retroprogramming.org"
 ARTICLE_PATH = "/articles/gw-basic-2026/"
 URL = ORIGIN + ARTICLE_PATH
 DESCRIPTION = "Follow GW-BASIC 2026 from a BASIC listing through generated C, then from a persistent interpreter through Sixel to inline Jupyter graphics."
@@ -29,15 +29,15 @@ def page(title, body, canonical, *, article=False):
         data = {"@context": "https://schema.org", "@type": "TechArticle",
                 "headline": title, "description": DESCRIPTION, "url": URL,
                 "datePublished": DATE, "image": URL + "graphics.png",
-                "author": {"@type": "Person", "name": "Eremey Valetov", "url": ORIGIN + "/"}}
+                "author": {"@type": "Person", "name": "Eremey Valetov", "url": "https://valetov.com/"}}
         structured = '<script type="application/ld+json">' + json.dumps(data).replace("<", "\\u003c") + '</script>'
-    description = DESCRIPTION if article else "Software notes and experiments by Eremey Valetov."
+    description = DESCRIPTION if article else "Classic languages and utilities, rebuilt for modern systems. Projects by Eremey Valetov."
     return f'''<!doctype html>
 <html lang="en-GB">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{escape(title)} | Eremey Valetov</title>
+<title>{escape(title)} | Retroprogramming</title>
 <meta name="description" content="{escape(description, quote=True)}">
 <meta name="author" content="Eremey Valetov">
 <link rel="canonical" href="{canonical}">
@@ -52,9 +52,9 @@ def page(title, body, canonical, *, article=False):
 </head>
 <body>
 <a class="skip" href="#content">Skip to content</a>
-<header><a href="/">Eremey Valetov</a><span><a href="/gwbasic/">GW-BASIC 2026</a></span></header>
+<header><a href="/">Retroprogramming</a><span><a href="/gwbasic/">GW-BASIC 2026</a></span></header>
 <main id="content">{body}</main>
-<footer><a href="https://github.com/evvaletov">GitHub</a> &middot; <a href="/">valetov.com</a></footer>
+<footer><a href="https://github.com/evvaletov">GitHub</a> &middot; <a href="/">retroprogramming.org</a></footer>
 </body>
 </html>
 '''
@@ -83,7 +83,7 @@ def main():
     for name in FILES:
         shutil.copyfile(ARTICLE / name, article_dir / name)
     (article_dir / "index.html").write_text(page(title, body_html, URL, article=True), encoding="utf-8")
-    home = f'''<h1>Eremey Valetov</h1><p>Software notes and experiments.</p>
+    home = f'''<h1>Retroprogramming</h1><p>Classic software, alive today.</p>
 <section class="entry"><h2><a href="/gwbasic/">GW-BASIC 2026</a></h2>
 <p>A C11 reimplementation of GW-BASIC with a native compiler, DOS builds and a Jupyter kernel.</p>
 <p><a href="/gwbasic/install.html">Install and download</a> &middot;
@@ -92,7 +92,7 @@ def main():
 <section class="entry"><h2><a href="{ARTICLE_PATH}">{escape(title)}</a></h2>
 <p class="meta"><time datetime="{DATE}">{DATE_TEXT}</time></p>
 <p>{escape(DESCRIPTION)}</p></section>'''
-    (args.output / "index.html").write_text(page("Software notes", home, ORIGIN + "/"), encoding="utf-8")
+    (args.output / "index.html").write_text(page("Classic software, alive today", home, ORIGIN + "/"), encoding="utf-8")
     urls = [ORIGIN + "/", URL] + [
         ORIGIN + "/gwbasic/" + path.relative_to(args.output / "gwbasic").as_posix()
         for path in sorted((args.output / "gwbasic").rglob("*.html"))

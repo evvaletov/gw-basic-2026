@@ -32,11 +32,11 @@ jobs:
       - name: Check publication recovery and mirror safeguards
         run: python tests/test_publication.py
 
-      - name: Build valetov.com from the same documentation
-        run: python publication/build_site.py --output build/valetov-site
+      - name: Build retroprogramming.org from the same documentation
+        run: python publication/build_site.py --output build/retroprogramming-site
 
       - name: Validate the real deployment archive
-        run: python publication/check_site_archive.py build/valetov-site
+        run: python publication/check_site_archive.py build/retroprogramming-site
 
       - name: Install example build dependencies
         run: |
@@ -63,14 +63,14 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: valetov-static-site
-          path: build/valetov-site
+          name: retroprogramming-static-site
+          path: build/retroprogramming-site
           if-no-files-found: error
 
       - uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         with:
-          path: build/valetov-site/gwbasic
+          path: build/retroprogramming-site/gwbasic
 
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'

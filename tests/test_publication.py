@@ -435,7 +435,7 @@ else: d.recover(root,state)
         with patch.object(sync.urllib.request, 'urlopen', return_value=io.BytesIO(b'wrong')) as get:
             with self.assertRaisesRegex(RuntimeError, 'Public HTTPS bytes differ'):
                 sync.verify_public(manifest)
-            self.assertEqual(get.call_args.args[0], 'https://valetov.com/gwbasic/a%20%23b.html')
+            self.assertEqual(get.call_args.args[0], 'https://retroprogramming.org/gwbasic/a%20%23b.html')
 
     def test_lost_host_reply_replaces_previous_commit_receipt_before_http_failure(self):
         old = deploy.install(self.archive(), self.root, self.state)

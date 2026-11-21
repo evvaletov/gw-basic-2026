@@ -1,14 +1,14 @@
-# Publishing valetov.com
+# Publishing retroprogramming.org
 
-The public GW-BASIC subsite is https://valetov.com/gwbasic/. Its documentation
+The public GW-BASIC subsite is https://retroprogramming.org/gwbasic/. Its documentation
 comes from `docs/`, which also builds the GitHub Pages mirror. Both copies use
-the valetov.com URLs as their canonical addresses.
+the retroprogramming.org URLs as their canonical addresses.
 
 From the repository root, in a Python virtual environment:
 
 ```sh
 python -m pip install -r publication/requirements.txt
-python publication/build_site.py --output build/valetov-site
+python publication/build_site.py --output build/retroprogramming-site
 ```
 
 Choose a new or empty output directory for each build. The builder runs Sphinx
@@ -18,7 +18,7 @@ stay outside the published directory. Search runs in the browser with Sphinx's J
 
 The Docs workflow builds the assembled site once and uses its `gwbasic/`
 subtree for GitHub Pages. Successful `main` builds deploy Pages and upload
-`valetov-static-site`. The publication service checks every fifteen minutes
+`retroprogramming-static-site`. The publication service checks every fifteen minutes
 for a successful Docs push run at the current GitHub `main` commit. It sends
 that artifact to the existing Apache host, then compares every public file
 with its SHA-256 manifest. It also synchronises `main`, `v*` release tags,
@@ -49,7 +49,7 @@ GWBASIC_LEASE_SCRIPT=/path/to/resource_lease.py
 The coordinator runs the shared resource-lease helper with `--resource`,
 `--owner` and `--expected-seconds` arguments. Its JSON `state` is `ACQUIRED` on
 connection and `HELD` after `renew 300` or `status`; it releases on `release` or
-EOF. Publishers take `website/valetov.com`; mirror writers take
+EOF. Publishers take `website/retroprogramming.org`; mirror writers take
 `repository/git.sdf.org/evv/gw-basic-2026`. Manual changes use the same leases.
 Both the publishing host and web host also take local file locks. The private
 bare source cache never reads or changes a developer checkout.
@@ -137,9 +137,28 @@ retrying or restoring a backup. Stop the timer for planned maintenance with
 
 The builder does not modify Apache or deploy files itself. Run
 `python3 tests/test_publication.py` for recovery, validation and real-Git mirror
-checks, and `python3 publication/check_site_archive.py build/valetov-site` to
+checks, and `python3 publication/check_site_archive.py build/retroprogramming-site` to
 validate a real build. The Docs workflow runs both.
 
 The earlier `publication/compiler-jupyter/build_site.py` command forwards to
 this builder, so article updates also retain the project subsite. Article source
 and evidence regeneration instructions are in [compiler-jupyter](compiler-jupyter/README.md).
+
+## Domain migration
+
+The canonical site moved from `valetov.com` to `retroprogramming.org` in
+November 2026. Keep the `/gwbasic/` and `/articles/gw-basic-2026/` paths
+unchanged, and retain permanent redirects for those paths on the old domains.
+The five historical article downloads retain their original bytes, including
+the old article URL in the notebook; the redirect keeps that link usable.
+
+For the host cutover, stop the publication timer and take both the old
+`website/valetov.com` and new `website/retroprogramming.org` leases. Back up
+the installed publisher, host configuration and private deployment state.
+Copy the existing static site to the new document root, preserve its ownership
+and SELinux labels, and initialise a separate deployment state for that root.
+Update the installed publisher and host configuration together, then archive
+the old `website.json` and `last-install.json` outside the active state path.
+Once DNS and HTTPS work on the new domain, publish and verify the successful
+Docs build before enabling redirects and restarting the timer.
+Do not change unrelated virtual hosts or the old site's personal content.

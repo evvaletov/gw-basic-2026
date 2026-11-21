@@ -9,7 +9,7 @@ exclude_patterns = []
 
 html_theme = "furo"
 html_title = "GW-BASIC 2026"
-html_baseurl = "https://valetov.com/gwbasic/"
+html_baseurl = "https://retroprogramming.org/gwbasic/"
 
 html_theme_options = {
     "source_repository": "https://github.com/evvaletov/gw-basic-2026",

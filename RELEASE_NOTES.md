@@ -21,7 +21,7 @@ Checkers ports. Downloads cover Linux, DOS and both macOS architectures.
 - macOS archives, Homebrew installation, an Arch package recipe and the
   separately distributed `gwbasickernel` Python package were added between
   releases. The project documentation and compiler/Jupyter article are at
-  <https://valetov.com/gwbasic/> and <https://valetov.com/articles/gw-basic-2026/>.
+  <https://retroprogramming.org/gwbasic/> and <https://retroprogramming.org/articles/gw-basic-2026/>.
   The article retains its recorded v0.18.2 examples.
 
 The reference interpreter is a pinned build of Microsoft's GW-BASIC assembly

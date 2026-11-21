@@ -164,8 +164,8 @@ CP437 glyphs, and restores terminal settings on default termination signals
 during input. The documentation runner enforces strict fences, bounds live logs,
 and cleans up its process groups after successful and failed commands.
 
-The technical article [Compiling GW-BASIC and drawing in Jupyter](https://valetov.com/articles/gw-basic-2026/)
-is public on valetov.com. Its examples use v0.18.2 and gwbasickernel 0.1.0;
+The technical article [Compiling GW-BASIC and drawing in Jupyter](https://retroprogramming.org/articles/gw-basic-2026/)
+is public on retroprogramming.org. Its examples use v0.18.2 and gwbasickernel 0.1.0;
 downloadable outputs, a notebook and source references accompany it.
 
 The Sixel palette defaults now follow the original SCREEN tables: black, light

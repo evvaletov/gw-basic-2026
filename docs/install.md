@@ -50,6 +50,6 @@ Choose **GW-BASIC 2026** as the notebook kernel. It finds `gwbasic` on `PATH`;
 otherwise set the `GWBASIC` environment variable to the interpreter's absolute
 path before starting JupyterLab.
 
-The [compiler and Jupyter article](https://valetov.com/articles/gw-basic-2026/)
+The [compiler and Jupyter article](https://retroprogramming.org/articles/gw-basic-2026/)
 includes a downloadable notebook and explains how Sixel graphics become inline
 images. The [demos](demos.md) give commands for reproducing the screenshots.

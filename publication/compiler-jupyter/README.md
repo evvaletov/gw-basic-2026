@@ -1,6 +1,6 @@
 # Compiler and Jupyter article
 
-Canonical publication: https://valetov.com/articles/gw-basic-2026/
+Canonical publication: https://retroprogramming.org/articles/gw-basic-2026/
 
 `article.md` is the article's source. The [site builder](../README.md) renders it
 with the shared stylesheet and builds the home page, GW-BASIC documentation,
@@ -12,7 +12,7 @@ From the repository root:
 
 ```sh
 python3 -m pip install -r publication/requirements.txt
-python3 publication/build_site.py --output build/valetov-site
+python3 publication/build_site.py --output build/retroprogramming-site
 ```
 
 Use a new or empty output directory. The original article-build command forwards

@@ -8,7 +8,7 @@ The interpreter implements the language in C11 and aims to reproduce the
 original behavior. Hardware access uses emulation or device stubs; see the
 [language reference](docs/language-reference.md) for their limits.
 
-[Project site and documentation](https://valetov.com/gwbasic/) ·
+[Project site and documentation](https://retroprogramming.org/gwbasic/) ·
 [GitHub Pages mirror](https://evvaletov.github.io/gw-basic-2026/) ·
 [Release downloads](https://github.com/evvaletov/gw-basic-2026/releases)
 
@@ -40,7 +40,7 @@ The executable prints the same table of squares as the interpreter. `build/squar
 
 See [Reproducing the demos](docs/demos.md) for installation, commands, capture details and limitations.
 
-[Compiling GW-BASIC and drawing in Jupyter](https://valetov.com/articles/gw-basic-2026/)
+[Compiling GW-BASIC and drawing in Jupyter](https://retroprogramming.org/articles/gw-basic-2026/)
 walks through the generated C and the notebook's Sixel-to-PNG output, with examples
 run against v0.18.2.
 
