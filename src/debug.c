@@ -163,6 +163,30 @@ static void values(void) {
     for (int i = 0; i < nw; i++) value(watches[i]);
 }
 
+/* Keep a partially received command across a handled signal. Reads from the
+   POSIX controller are atomic, but a user-supplied FIFO may arrive in chunks. */
+static int read_command(char line[256]) {
+    size_t n = 0;
+    int too_long = 0;
+    for (;;) {
+        errno = 0;
+        int c = fgetc(commands);
+        if (c == EOF) {
+            if (ferror(commands)) {
+                if (errno == EINTR) { clearerr(commands); continue; }
+                io_error();
+            }
+            if (!n && !too_long) return 0;
+            break;
+        }
+        if (n == 255) too_long = 1;
+        if (c == '\n') break;
+        if (n < 255) line[n++] = (char)c;
+    }
+    line[n] = 0;
+    return too_long ? -1 : 1;
+}
+
 static void monitor(void) {
     if (!commands || !gw.running || !gw.cur_line) return;
     int offset = (int)(gw.text_ptr - gw.cur_line->tokens);
@@ -175,15 +199,14 @@ static void monitor(void) {
     char line[256];
     for (;;) {
         flush_debug();
-        if (!fgets(line, sizeof line, commands)) {
-            if (ferror(commands)) io_error();
+        int command = read_command(line);
+        if (!command) {
             fputs("resume eof\n", out); flush_debug();
             FILE *f = commands; commands = NULL;
             if (fclose(f)) io_error();
             return;
         }
-        if (!strchr(line, '\n') && !feof(commands)) {
-            int c; while ((c = fgetc(commands)) != '\n' && c != EOF) {}
+        if (command < 0) {
             fputs("error command-too-long\n", out); continue;
         }
         size_t length = strlen(line);

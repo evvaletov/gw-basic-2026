@@ -29,16 +29,23 @@ def write_json(path, data):
 
 
 def run(args):
-    source = args.source.read_bytes()
+    with args.source.open("rb") as source_file:
+        source = source_file.read(1024 * 1024 + 1)
     if len(source) > 1024 * 1024 or b"\0" in source or any(b > 127 for b in source):
         raise ValueError("the source pane needs ASCII BASIC, at most 1 MiB")
     session = args.session.absolute()
     session.mkdir(mode=0o700)  # A fresh directory prevents accidental log reuse.
     child = None
     result = 2
+    cancelled = False
     saved_terminal = termios.tcgetattr(sys.stdin) if sys.stdin.isatty() else None
 
-    previous = {sig: signal.signal(sig, interrupted) for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)}
+    def cancel(signum, frame):
+        nonlocal cancelled
+        cancelled = True
+
+    # A signal must not interrupt the assignment after Popen has made a child.
+    previous = {sig: signal.signal(sig, cancel) for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)}
     try:
         (session / "source.bas").write_bytes(source)
         os.mkfifo(session / "commands", 0o600)
@@ -46,16 +53,17 @@ def run(args):
         command = shlex.join([sys.executable, str(Path(__file__).resolve()), "attach", str(session)])
         print(f"Debugger: in another terminal run\n  {command}\n"
               "Waiting for the controller; x cancels there, q detaches.", file=sys.stderr, flush=True)
-        child = subprocess.Popen([str(args.binary.absolute()), "--debug-script", str(session / "commands"),
-                                  "--debug-output", str(session / "events"), str(session / "source.bas")])
-        while True:
+        if not cancelled:
+            child = subprocess.Popen([str(args.binary.absolute()), "--debug-script", str(session / "commands"),
+                                      "--debug-output", str(session / "events"), str(session / "source.bas")])
+        while child is not None:
+            if cancelled or (session / "cancel").exists():
+                result = 130
+                break
             try:
                 result = child.wait(timeout=.1)
                 break
             except subprocess.TimeoutExpired:
-                if (session / "cancel").exists():
-                    result = 130
-                    break
                 # A killed controller cannot publish its detach marker. The
                 # kernel lock establishes whether the first inspector is gone.
                 if (session / "controller-started").exists() and not (session / "events").exists():
@@ -75,6 +83,8 @@ def run(args):
                     except OSError as exc:
                         if exc.errno != errno.ENXIO:
                             raise
+        if cancelled:
+            result = 130
     except KeyboardInterrupt:
         result = 130
     finally:
@@ -246,7 +256,7 @@ class Controller:
             for row, line in enumerate(self.source[start:start + 5], 3):
                 put(row, ("> " if start + row - 3 == current else "  ") + line,
                     curses.A_REVERSE if start + row - 3 == current else 0)
-            put(8, "Values at this stop (up to 16; :inspect state / :inspect file N OFFSET COUNT)", curses.A_BOLD)
+            put(8, "Values at this stop (newest visible; max 16)", curses.A_BOLD)
             value_rows = min(len(self.values), max(1, (height - 15) // 3))
             for row, (name, value) in enumerate(list(self.values.items())[-value_rows:], 9):
                 put(row, name + " " + value)
@@ -258,7 +268,7 @@ class Controller:
             for row, event in enumerate(visible, event_start + 1):
                 put(row, event)
             put(height - 3, self.message)
-            put(height - 2, "s step | c continue | b break | w/u watch | i inspect | p checkpoint | : command | q detach")
+            put(height - 2, "s step c cont b break w/u watch i inspect p snap :")
         hint = "q close (read-only)" if self.finished else "q detach/resume | x cancel the BASIC run"
         if self.cancelling:
             hint = "Waiting for BASIC to exit"

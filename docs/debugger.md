@@ -47,6 +47,8 @@ the answer in the program terminal. `q` and a controller interruption close
 the command channel; the interpreter processes EOF at its next stop and
 disables all breakpoints. Detachment does not terminate the BASIC program.
 Use `x` in the inspector to cancel, including while BASIC is paused.
+Keep the launcher running: forcibly killing it prevents cancellation and cleanup;
+closing the remaining inspector can then resume BASIC through command-channel EOF.
 
 Each run requires a new session directory. It contains a private command FIFO,
 an entry-source snapshot, the event log and the exit status. Only one controller
@@ -64,6 +66,8 @@ statement in token bytes. It is not a source-column highlight. The pane shows
 the saved entry file and does not follow `LOAD`, `CHAIN` or program edits.
 The controller sends the existing v1 line commands and never evaluates BASIC
 expressions or implements file/device semantics itself.
+Names are looked up literally. For example, `inspect TIMER` looks for a variable
+named `TIMER`; it does not read the clock.
 
 ## Scripted monitor
 

@@ -233,7 +233,6 @@ No RPM, COPR project or official repository submission has been made yet.
    [EPEL package request process](https://docs.fedoraproject.org/en-US/epel/epel-package-request/)
    in force at submission time. COPR success is useful build evidence; official
    inclusion still depends on review, policy compliance and a maintainer.
-   Fedora describes the [Fedora-first route for new EPEL packages](https://fedoraproject.org/wiki/EPEL_Package_Maintainers).
 
 ## Longer-Term Plans
 

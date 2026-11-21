@@ -250,6 +250,59 @@ sys.exit(app.main())
         self.wait(lambda: "Waiting for BASIC" in controller.text(), "controller did not wait for the FIFO")
         return guest, controller, gate
 
+    def test_signal_as_process_creation_returns_reaps_child(self):
+        source = self.work / "main.bas"
+        source.write_text("10 SYSTEM\n")
+        pidfile = self.work / "child.pid"
+        code = '''import os, signal, subprocess, sys
+from pathlib import Path
+import debug_tui as app
+def cancel_on_return(frame, event, arg):
+    if frame.f_code is subprocess.Popen.__init__.__code__ and event == "return":
+        sys.settrace(None)
+        Path(os.environ["CHILD_PID_PATH"]).write_text(str(frame.f_locals["self"].pid))
+        os.kill(os.getpid(), signal.SIGTERM)
+    return cancel_on_return
+sys.settrace(cancel_on_return)
+sys.exit(app.main())
+'''
+        result = subprocess.run([sys.executable, "-c", code, "run", "--binary", str(BIN),
+                                 "--session", str(self.session), str(source)],
+                                env=dict(ENV, PYTHONPATH=str(ROOT / "tools"), CHILD_PID_PATH=str(pidfile)),
+                                capture_output=True, timeout=5)
+        pid = int(pidfile.read_text())
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            pass
+        else:
+            os.kill(pid, signal.SIGKILL)
+            self.fail("cancellation orphaned the child during launch")
+        self.assertEqual(result.returncode, 130, result.stderr)
+        self.assertEqual(json.loads((self.session / "result.json").read_text())["returncode"], 130)
+        with self.assertRaises(OSError) as error:
+            os.open(self.session / "commands", os.O_WRONLY | os.O_NONBLOCK)
+        self.assertEqual(error.exception.errno, errno.ENXIO)
+
+    @unittest.skipUnless(Path("/proc/self/statm").exists(), "Linux address-space measurement")
+    def test_source_size_rejection_uses_bounded_memory(self):
+        source = self.work / "oversized.bas"
+        with source.open("wb") as stream:
+            stream.truncate(64 * 1024 * 1024)
+        code = '''import os, resource, sys
+from pathlib import Path
+import debug_tui as app
+baseline = int(Path("/proc/self/statm").read_text().split()[0]) * os.sysconf("SC_PAGE_SIZE")
+limit = baseline + 16 * 1024 * 1024
+resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
+sys.exit(app.main())
+'''
+        result = subprocess.run([sys.executable, "-c", code, "run", "--session", str(self.session), str(source)],
+                                env=dict(ENV, PYTHONPATH=str(ROOT / "tools")), capture_output=True, timeout=5)
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertIn(b"at most 1 MiB", result.stderr)
+        self.assertFalse(self.session.exists())
+
     def test_detach_before_interpreter_opens_fifo(self):
         guest, controller, gate = self.launch_waiting()
         controller.send("q")
@@ -290,6 +343,74 @@ sys.exit(app.main())
         self.assertEqual(termios.tcgetattr(guest.slave), guest.before)
         controller.send("q")
         self.wait(lambda: controller.process.poll() is not None, "controller did not close")
+
+    def test_cancel_after_end_restores_guest_screen(self):
+        guest, controller = self.launch('10 PRINT "FINISHED"\n20 END\n')
+        controller.send("c")
+        self.wait(lambda: b"\x1b[?1049h" in guest.output and b"Ok" in guest.output,
+                  "BASIC did not enter its command screen")
+        controller.send("x")
+        self.wait(lambda: guest.process.poll() is not None and controller.process.poll() is not None,
+                  "cancel at the command screen did not finish")
+        self.assertEqual(guest.process.returncode, 130)
+        self.assertEqual(guest.output.count(b"\x1b[?1049h"), guest.output.count(b"\x1b[?1049l"))
+        self.assertIn(b"\x1b[0m\x1b[0 q\x1b[?25h", guest.output)
+        self.assertEqual(termios.tcgetattr(guest.slave), guest.before)
+
+    def test_native_editor_exits_restore_screen_and_terminal(self):
+        source = self.work / "main.bas"
+        source.write_text("10 END\n")
+        for number in (signal.SIGTERM, signal.SIGHUP, signal.SIGQUIT, None):
+            with self.subTest(signal=number):
+                guest = self.terminal([str(BIN), str(source)])
+                self.wait(lambda: b"\x1b[?1049h" in guest.output and b"Ok" in guest.output and
+                          not termios.tcgetattr(guest.slave)[3] & termios.ICANON,
+                          "BASIC did not enter its command screen")
+                if number is None:
+                    guest.send("SYSTEM\r")
+                else:
+                    guest.process.send_signal(number)
+                self.wait(lambda: guest.process.poll() is not None, "editor ignored termination")
+                self.assertEqual(guest.process.returncode, -number if number is not None else 0)
+                self.assertEqual(guest.output.count(b"\x1b[?1049h"), guest.output.count(b"\x1b[?1049l"))
+                self.assertIn(b"\x1b[0m\x1b[0 q\x1b[?25h", guest.output)
+                self.assertEqual(termios.tcgetattr(guest.slave), guest.before)
+
+    def test_monitor_read_survives_handled_signal_after_editor_run(self):
+        source = self.work / "main.bas"
+        source.write_text("10 END\n")
+        fifo = self.work / "commands"
+        log = self.work / "events"
+        os.mkfifo(fifo)
+        guest = self.terminal([str(BIN), "--debug-script", str(fifo), "--debug-output", str(log), str(source)])
+        fd = None
+        def connect():
+            nonlocal fd
+            try:
+                fd = os.open(fifo, os.O_WRONLY | os.O_NONBLOCK)
+                return True
+            except OSError as exc:
+                if exc.errno != errno.ENXIO:
+                    raise
+                return False
+        self.wait(connect, "monitor did not open its FIFO")
+        self.addCleanup(os.close, fd)
+        os.write(fd, b"break 10\ncontinue\n")
+        self.wait(lambda: b"Ok" in guest.output, "BASIC did not return to its editor")
+        guest.send("RUN\r")
+        self.wait(lambda: log.exists() and "stop 2 " in log.read_text(), "second RUN did not stop")
+        os.write(fd, b"inspect ")
+        time.sleep(.05)
+        guest.process.send_signal(signal.SIGINT)
+        time.sleep(.05)
+        guest.drain()
+        self.assertIsNone(guest.process.poll(), guest.output)
+        self.assertNotIn(b"debugger I/O failure", guest.output)
+        os.write(fd, b"A%\n")
+        self.wait(lambda: "value A% default integer=0" in log.read_text(), "partial command was lost")
+        guest.process.terminate()
+        self.wait(lambda: guest.process.poll() is not None, "BASIC did not exit")
+        self.assertEqual(guest.process.returncode, -signal.SIGTERM)
 
     def test_native_monitor_log_failure_restores_terminal(self):
         source = self.work / "main.bas"
