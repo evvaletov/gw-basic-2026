@@ -341,6 +341,29 @@ sys.exit(app.main())
         self.assertEqual(termios.tcgetattr(guest.slave), guest.before)
         self.assertEqual(termios.tcgetattr(controller.slave), controller.before)
 
+    def test_interrupt_after_cancel_does_not_resume_a_paused_statement(self):
+        guest, controller = self.launch('10 PRINT "MUST NOT EXECUTE":SYSTEM\n')
+        guest.process.send_signal(signal.SIGSTOP)
+        try:
+            controller.send("x")
+            self.wait(lambda: (self.session / "cancel").exists(), "cancel request missing")
+            controller.send("\x03")
+            time.sleep(.15)
+            for terminal in self.terminals:
+                terminal.drain()
+            self.assertIsNone(controller.process.poll(), "inspector dropped the writer before cancellation")
+            self.assertNotIn("resume eof", self.trace())
+            self.assertNotIn(b"MUST NOT EXECUTE", guest.output)
+            self.assertFalse((self.session / "detached").exists())
+        finally:
+            guest.process.send_signal(signal.SIGCONT)
+        self.wait(lambda: guest.process.poll() is not None and controller.process.poll() is not None,
+                  "cancellation did not finish after the supervisor resumed")
+        self.assertEqual(guest.process.returncode, 130)
+        self.assertNotIn(b"MUST NOT EXECUTE", guest.output)
+        self.assertEqual(termios.tcgetattr(guest.slave), guest.before)
+        self.assertEqual(termios.tcgetattr(controller.slave), controller.before)
+
     def test_inspector_quit_key_restores_terminal_and_resumes_guest(self):
         guest, controller = self.launch('10 PRINT "RESUMED":SYSTEM\n')
         controller.send("\x1c")  # The terminal's literal Ctrl-\\ quit character.

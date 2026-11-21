@@ -141,7 +141,22 @@ class Controller:
                      if (m := re.match(r"[ \t]*(\d+)", line))}
 
     def close(self):
-        if self.started and not self.finished:
+        cancelled = (self.session / "cancel").exists()
+        if cancelled and self.fd is not None:
+            # Cancellation owns the writer until BASIC is gone. An inspector
+            # interruption must not turn a pending cancel into FIFO EOF/resume.
+            previous = {sig: signal.signal(sig, signal.SIG_IGN)
+                        for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP, signal.SIGQUIT)}
+            try:
+                poller = select.poll()
+                poller.register(self.fd, select.POLLERR | select.POLLHUP)
+                while not (self.session / "result.json").exists():
+                    if poller.poll(100):
+                        break
+            finally:
+                for sig, handler in previous.items():
+                    signal.signal(sig, handler)
+        if self.started and not self.finished and not cancelled:
             (self.session / "detached").touch()
         if self.fd is not None:
             os.close(self.fd)  # EOF disables the monitor, including breakpoints.
@@ -275,7 +290,7 @@ class Controller:
             put(height - 2, "s step c cont b brk w/u watch i inspect p snap :")
         hint = "q close (read-only)" if self.finished else "q detach/resume | x cancel the BASIC run"
         if self.cancelling:
-            hint = "Waiting for BASIC; Ctrl-C closes inspector"
+            hint = "Waiting for BASIC to exit before closing"
         put(height - 1, ":" + entry if entry is not None else hint)
         screen.refresh()
 
@@ -348,8 +363,13 @@ def attach(args):
             # if this viewer acquires the lock before the supervisor checks it.
             (session / "detached").touch()
         controller = Controller(session)
-        previous = {sig: signal.signal(sig, interrupted)
-                    for sig in (signal.SIGTERM, signal.SIGHUP, signal.SIGQUIT)}
+        def interrupt_controller(signum, frame):
+            # The durable request is authoritative even if a signal arrives
+            # between publishing it and updating the display flag.
+            if not (session / "cancel").exists():
+                interrupted(signum, frame)
+        previous = {sig: signal.signal(sig, interrupt_controller)
+                    for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP, signal.SIGQUIT)}
         try:
             curses.wrapper(controller.interact)
         finally:

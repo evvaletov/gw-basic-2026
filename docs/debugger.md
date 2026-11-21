@@ -3,6 +3,9 @@
 The interpreter has a scripted line monitor on POSIX, DOS16 and DOS32. It can
 step through statements and GOSUBs, stop at breakpoints, watch variables and
 constant-index array elements, and export named inspection checkpoints.
+Stops occur during numbered program execution. Unnumbered commands in a source
+file execute while it loads and can run before the first stop; use numbered
+listings when you need to inspect the program before execution.
 The POSIX TUI uses this monitor from a second terminal. These features are
 available in current source builds; the v0.18.3 downloads predate them.
 
@@ -43,12 +46,15 @@ listings must be converted before using this controller.
 | `x` | Cancel the BASIC run |
 
 Monitor commands are available at a stop. After stepping an `INPUT` statement, enter
-the answer in the program terminal. `q` and a controller interruption close
+the answer in the program terminal. Outside cancellation, `q` and a controller interruption close
 the command channel; the interpreter processes EOF at its next stop and
 disables all breakpoints. Detachment does not terminate the BASIC program.
 Use `x` in the inspector to cancel, including while BASIC is paused.
-Keep the launcher running: forcibly killing it prevents cancellation and cleanup;
-closing the remaining inspector can then resume BASIC through command-channel EOF.
+Once cancellation is requested, normal inspector shutdown waits for BASIC to
+exit and keeps the command channel open. External commands
+started by `SHELL` can outlive BASIC. Keep the launcher running: forcibly killing
+it prevents cancellation and cleanup. If it is killed during cancellation,
+terminate BASIC separately so the inspector can close.
 
 Each run requires a new session directory. It contains a private command FIFO,
 an entry-source snapshot, the event log and the exit status. Only one controller
@@ -109,6 +115,8 @@ show their defined BASIC defaults, without creating them. Absent arrays show
 `array-not-allocated`, without triggering auto-DIM. Watch names are resolved
 against the current DEF type unless a suffix is supplied. Expressions, variable
 subscripts, functions and RNG/time calls are not evaluated.
+There are 16 watch slots, with at most 79 characters per reference, and 16
+breakpoint slots. The full command limit is 254 characters.
 
 `inspect state` shows variable/array counts, loop and GOSUB depths, and open
 files. `inspect file NUMBER OFFSET COUNT` shows mode, logical byte position,
