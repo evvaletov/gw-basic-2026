@@ -21,3 +21,12 @@ test
 gwbasickernel.egg-info/
 __pycache__/
 *.pyc
+
+# Local agent instructions and handoffs
+AGENTS.md
+agents.md
+CLAUDE.md
+GEMINI.md
+CODEX.md
+GROK.md
+docs/fortran-debug-media-handoff.md

@@ -5,7 +5,7 @@ copyright = "2026, Eremey Valetov"
 extensions = ["myst_parser"]
 source_suffix = {".md": "markdown"}
 myst_heading_anchors = 3
-exclude_patterns = ["fortran-debug-media-handoff.md"]
+exclude_patterns = []
 
 html_theme = "furo"
 html_title = "GW-BASIC 2026"
