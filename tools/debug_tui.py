@@ -45,7 +45,8 @@ def run(args):
         cancelled = True
 
     # A signal must not interrupt the assignment after Popen has made a child.
-    previous = {sig: signal.signal(sig, cancel) for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)}
+    previous = {sig: signal.signal(sig, cancel)
+                for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP, signal.SIGQUIT)}
     try:
         (session / "source.bas").write_bytes(source)
         os.mkfifo(session / "commands", 0o600)
@@ -101,7 +102,10 @@ def run(args):
             try:
                 termios.tcsetattr(sys.stdin, termios.TCSANOW, saved_terminal)
             except termios.error as exc:
-                print(f"debugger: cannot restore program terminal: {exc}", file=sys.stderr)
+                try:
+                    os.write(sys.stderr.fileno(), f"debugger: cannot restore program terminal: {exc}\n".encode())
+                except OSError:
+                    pass  # The terminal may have closed; still record the result.
                 result = 2
         result = result if result >= 0 else 128 - result
         write_json(session / "result.json", {"returncode": result})
@@ -345,7 +349,7 @@ def attach(args):
             (session / "detached").touch()
         controller = Controller(session)
         previous = {sig: signal.signal(sig, interrupted)
-                    for sig in (signal.SIGTERM, signal.SIGHUP)}
+                    for sig in (signal.SIGTERM, signal.SIGHUP, signal.SIGQUIT)}
         try:
             curses.wrapper(controller.interact)
         finally:
@@ -369,7 +373,7 @@ def main():
     args = parser.parse_args()
     try:
         return args.action(args)
-    except (OSError, ValueError, curses.error) as exc:
+    except (OSError, ValueError, curses.error, termios.error) as exc:
         print(f"debugger: {exc}", file=sys.stderr)
         return 2
     except KeyboardInterrupt:

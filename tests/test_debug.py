@@ -82,6 +82,18 @@ class Debug(unittest.TestCase):
         self.assertIn(f"line=10 offset={offset}", log)
         self.assertIn("resume eof", log)
 
+    def test_command_limit_is_independent_of_line_ending(self):
+        for length in (254, 255):
+            for ending in ("\n", "\r\n", ""):
+                with self.subTest(length=length, ending=repr(ending)):
+                    command = "capabilities".ljust(length) + ending
+                    _, log = self.run_basic("10 SYSTEM\n", command)
+                    if length == 254:
+                        self.assertIn("capabilities ", log)
+                        self.assertNotIn("error command-too-long", log)
+                    else:
+                        self.assertIn("error command-too-long", log)
+
     def test_distinct_multidimensional_elements(self):
         source = "10 DIM A%(2,3):A%(1,2)=17:A%(2,1)=29\n20 PRINT A%(1,2);A%(2,1):SYSTEM\n"
         normal, _ = self.run_basic(source)

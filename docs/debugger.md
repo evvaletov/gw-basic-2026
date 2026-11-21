@@ -124,8 +124,7 @@ execution, capture all memory or replay external effects. EOF resumes and
 turns off debugging. Unsupported commands produce debugger diagnostics.
 
 The monitor supports the interpreter only. Compiled BASIC's runtime has no debug
-hook; source maps and instrumentation are future work. BASIC has no drum,
-punch-card or cassette-image backend. External clocks, sound and event devices
+hook; source maps and instrumentation are future work. External clocks, sound and event devices
 continue during pauses; debugging a timing-sensitive program can affect its
 behaviour. Graphical source/file views, step-over and finish remain future work.
 The shared v1 contract describes the underlying line

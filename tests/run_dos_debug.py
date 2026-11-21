@@ -87,6 +87,8 @@ def main():
             assert "value M%(1,2) bounds=0:2,0:3 integer=17" in log
             assert "value M%(2,1) bounds=0:2,0:3 integer=29" in log
             assert "field A file=1 offset=0 length=4" in log
+            assert "buffer offset=0 hex=5445535431323334" in log
+            assert "error " not in log
             assert "checkpoint guest" in log
             report[mode] = {"status": "passed", "binary_sha256": dos.digest(binary),
                             "checks": ["calls", "watches", "checkpoints", "FIELD bytes", "graphics POINT", "guest screen", "normal/debug equivalence"]}

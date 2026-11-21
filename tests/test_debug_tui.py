@@ -49,6 +49,8 @@ class Terminal:
             self.process.send_signal(signal.SIGWINCH)
 
     def drain(self):
+        if self.master is None:
+            return
         try:
             while True:
                 data = os.read(self.master, 65536)
@@ -70,6 +72,10 @@ class Terminal:
     def text(self):
         return "\n".join(self.screen.display)
 
+    def hangup(self):
+        os.close(self.master)
+        self.master = None
+
     def close(self):
         if self.process.poll() is None:
             self.process.terminate()
@@ -78,7 +84,8 @@ class Terminal:
             except subprocess.TimeoutExpired:
                 self.process.kill()
                 self.process.wait(timeout=2)
-        os.close(self.master)
+        if self.master is not None:
+            os.close(self.master)
         os.close(self.slave)
 
 
@@ -334,6 +341,45 @@ sys.exit(app.main())
         self.assertEqual(termios.tcgetattr(guest.slave), guest.before)
         self.assertEqual(termios.tcgetattr(controller.slave), controller.before)
 
+    def test_inspector_quit_key_restores_terminal_and_resumes_guest(self):
+        guest, controller = self.launch('10 PRINT "RESUMED":SYSTEM\n')
+        controller.send("\x1c")  # The terminal's literal Ctrl-\\ quit character.
+        self.wait(lambda: controller.process.poll() is not None and guest.process.poll() is not None,
+                  "quit key did not detach and resume")
+        self.assertEqual(controller.process.returncode, 130)
+        self.assertEqual(guest.process.returncode, 0)
+        self.assertIn(b"RESUMED", guest.output)
+        self.assertEqual(termios.tcgetattr(controller.slave), controller.before)
+        self.assertEqual(controller.output.count(b"\x1b[?1049h"), controller.output.count(b"\x1b[?1049l"))
+
+    def test_direct_monitor_default_signals_restore_raw_terminal(self):
+        source = self.work / "main.bas"
+        source.write_text('10 PRINT "MUST NOT EXECUTE":SYSTEM\n')
+        for number in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT, signal.SIGQUIT):
+            with self.subTest(signal=number):
+                fifo, log = self.work / f"commands-{number}", self.work / f"events-{number}"
+                os.mkfifo(fifo)
+                guest = self.terminal([str(BIN), "--debug-script", str(fifo), "--debug-output", str(log), str(source)])
+                fd = None
+                def connect():
+                    nonlocal fd
+                    try:
+                        fd = os.open(fifo, os.O_WRONLY | os.O_NONBLOCK)
+                        return True
+                    except OSError as exc:
+                        if exc.errno != errno.ENXIO:
+                            raise
+                        return False
+                self.wait(connect, "monitor did not open its FIFO")
+                self.addCleanup(os.close, fd)
+                self.wait(lambda: log.exists() and "stop 1 " in log.read_text(), "first stop missing")
+                guest.process.send_signal(number)
+                self.wait(lambda: guest.process.poll() is not None, "native monitor did not terminate")
+                self.assertEqual(guest.process.returncode, -number)
+                self.assertNotIn(b"MUST NOT EXECUTE", guest.output)
+                self.assertNotIn(b"\x1b[?1049l", guest.output)
+                self.assertEqual(termios.tcgetattr(guest.slave), guest.before)
+
     def test_terminate_runner_at_stop_restores_guest_terminal(self):
         guest, controller = self.launch('10 PRINT "MUST NOT EXECUTE":SYSTEM\n')
         guest.process.terminate()
@@ -343,6 +389,17 @@ sys.exit(app.main())
         self.assertEqual(termios.tcgetattr(guest.slave), guest.before)
         controller.send("q")
         self.wait(lambda: controller.process.poll() is not None, "controller did not close")
+
+    def test_closed_guest_terminal_still_records_exit(self):
+        guest, controller = self.launch('10 PRINT "MUST NOT EXECUTE":SYSTEM\n')
+        guest.hangup()
+        self.wait(lambda: guest.process.poll() is not None, "closed terminal stranded the runner")
+        result = json.loads((self.session / "result.json").read_text())
+        self.assertEqual(result["returncode"], guest.process.returncode)
+        self.assertIn(result["returncode"], (2, 130))
+        self.wait(lambda: "BASIC exited" in controller.text(), "inspector did not receive the exit status")
+        controller.send("q")
+        self.wait(lambda: controller.process.poll() is not None, "inspector did not close")
 
     def test_cancel_after_end_restores_guest_screen(self):
         guest, controller = self.launch('10 PRINT "FINISHED"\n20 END\n')

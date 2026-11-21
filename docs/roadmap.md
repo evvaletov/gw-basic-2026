@@ -4,7 +4,7 @@
 
 Integrated into main: statement step/continue, breakpoints,
 pure variable/constant-index watches, named inspection checkpoints and native
-file/FIELD views. The [debugger guide](debugger.md) includes the command contract
+file/FIELD views. The [debugger guide](debugger.md) links the command contract
 and a FORTRAN text-exchange example. POSIX and both DOS targets are supported.
 A POSIX terminal controller adds source, latest-value and event panes with
 interactive stepping, breakpoints and inspection. It runs in a second terminal
@@ -230,7 +230,7 @@ No RPM, COPR project or official repository submission has been made yet.
    installation instructions separate from official Fedora/EPEL availability.
 4. Arrange ongoing package maintenance, submit the package for Fedora review,
    then request and maintain the appropriate EPEL branches. Follow the
-   [EPEL package request process](https://docs.fedoraproject.org/en-US/epel/epel-package-request/)
+   process in the [current EPEL documentation](https://docs.fedoraproject.org/en-US/epel/)
    in force at submission time. COPR success is useful build evidence; official
    inclusion still depends on review, policy compliance and a maintainer.
 

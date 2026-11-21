@@ -179,12 +179,13 @@ static int read_command(char line[256]) {
             if (!n && !too_long) return 0;
             break;
         }
-        if (n == 255) too_long = 1;
         if (c == '\n') break;
         if (n < 255) line[n++] = (char)c;
+        else too_long = 1;
     }
+    if (n && line[n-1] == '\r') n--;
     line[n] = 0;
-    return too_long ? -1 : 1;
+    return too_long || n > 254 ? -1 : 1;
 }
 
 static void monitor(void) {
@@ -209,9 +210,6 @@ static void monitor(void) {
         if (command < 0) {
             fputs("error command-too-long\n", out); continue;
         }
-        size_t length = strlen(line);
-        if (length && line[length-1] == '\n') line[--length] = 0;
-        if (length && line[length-1] == '\r') line[--length] = 0;
         if (strchr(line, '\r')) { fputs("error invalid-command\n", out); continue; }
         char *p = line; while (isspace((unsigned char)*p)) p++;
         if (!*p || *p == '#') continue;
