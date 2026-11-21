@@ -175,6 +175,14 @@ Interpreter and native regressions cover explicit palette overrides, resets,
 mode changes and stored pixel attributes. The correction ships in v0.18.3;
 the article retains its v0.18.2 output (git-bug `415598e`).
 
+Current main also implements CGA `COLOR` background, palette and intensity
+selection in the interpreter and native compiler. `COLOR`, `PALETTE` and the
+emulated colour register redraw existing pixels immediately, and repeating a
+screen mode preserves its image and palette. Reference captures and error cases
+use the pinned Microsoft-source interpreter; see the
+[graphics reference](language-reference.md#color-and-cga-palette-controls).
+This completes git-bug `1c9b047`; the changes await the next tagged release.
+
 A focused announcement is posted on SDF's RETRO bboard under `evv`, dated
 21 November 2026 (git-bug `682425c`).
 
@@ -193,10 +201,10 @@ for deployment checks and recovery.
 
 Next priorities:
 
-1. Complete original CGA `COLOR` background, palette/intensity selection and
-   redraw behaviour (git-bug `1c9b047`).
-2. Enforce the drawing-attribute ranges for SCREEN 1 and SCREEN 2, with
+1. Enforce the drawing-attribute ranges for SCREEN 1 and SCREEN 2, with
    interpreter/native reference checks (git-bug `4d4aed0`).
+2. Cut a tested release containing the debugger and graphics corrections, with
+   refreshed binaries and package recipes (git-bug `e82ce91`).
 3. Prepare an RPM spec and source package, validate Fedora/Enterprise Linux
    builds, then publish a COPR pilot towards Fedora/EPEL inclusion (path below).
 4. Complete the FreeDOS repository handoff through the existing maintainer

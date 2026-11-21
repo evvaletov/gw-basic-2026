@@ -2483,9 +2483,7 @@ static void emit_stmt(void)
 
     /* COLOR */
     if (tok == TOK_COLOR) {
-        advance();
-        EMIT("  /* COLOR */\n");
-        while (cur() && cur() != ':' && cur() != 0) tp++;
+        emit_delegate_stmt(tp, false);
         return;
     }
 

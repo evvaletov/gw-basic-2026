@@ -1,4 +1,4 @@
-10 REM VIEW / WINDOW / PALETTE test
+10 REM VIEW / WINDOW coordinate test
 20 SCREEN 2
 30 REM === Test WINDOW (Cartesian, Y-up) ===
 40 WINDOW (0,0)-(100,100)
@@ -34,7 +34,6 @@
 340 PRINT "VP PMAP(10,1)="; PMAP(10,1)
 350 WINDOW
 360 VIEW
-370 REM === Test PALETTE (just reset, no visual check) ===
-380 PALETTE
+370 REM PALETTE redraws are checked by test_graphics_palette.py
 390 SCREEN 0
-400 PRINT "VIEW/WINDOW/PALETTE OK"
+400 PRINT "VIEW/WINDOW OK"

@@ -2788,26 +2788,32 @@ inline_statement:
     /* COLOR */
     if (tok == TOK_COLOR) {
         gw_chrget();
-        int fg = gw_eval_int();
-        int bg = -1;
-        gw_skip_spaces();
-        if (gw_chrgot() == ',') {
-            gw_chrget();
+        int args[3] = {-1, -1, -1}, count = 0;
+        while (1) {
             gw_skip_spaces();
-            if (gw_chrgot() != ',' && gw_chrgot() != 0 && gw_chrgot() != ':')
-                bg = gw_eval_int();
-            /* Skip optional border parameter */
-            gw_skip_spaces();
-            if (gw_chrgot() == ',') {
-                gw_chrget();
-                gw_skip_spaces();
-                if (gw_chrgot() != 0 && gw_chrgot() != ':')
-                    gw_eval_int();
+            uint8_t next = gw_chrgot();
+            if (!next || next == ':' || next == TOK_ELSE) break;
+            if (count == 3) gw_error(ERR_FC);
+            if (next != ',') {
+                args[count] = gw_eval_int();
+                if (args[count] < 0 || args[count] > 255) gw_error(ERR_FC);
             }
+            count++;
+            gw_skip_spaces();
+            next = gw_chrgot();
+            if (!next || next == ':' || next == TOK_ELSE) break;
+            if (next != ',') gw_error(ERR_FC);
+            gw_chrget();
         }
-        if (gfx_active()) {
-            gfx_set_color(fg);
-        } else if (tui.active) {
+        if (!count || gfx_get_mode() == 2) gw_error(ERR_FC);
+        if (gfx_get_mode() == 1) {
+            if (count > 2) gw_error(ERR_FC);
+            gfx_color(args[0], args[1]);
+            return;
+        }
+        int fg = args[0], bg = args[1];
+        if (fg > 31 || bg > 15) gw_error(ERR_FC);
+        if (tui.active) {
             /* TUI mode: update current attribute for subsequent output */
             if (fg >= 0 && fg < 16)
                 tui.current_attr = (tui.current_attr & 0xF0) | (fg & 0x0F);

@@ -216,6 +216,9 @@ Graphics mode is activated with `SCREEN 1` (320x200, 4 colors) or
 `SCREEN 2` (640x200, monochrome). Drawing commands render to an internal
 framebuffer and output through Sixel graphics. Use a terminal with Sixel support
 enabled to see the rendered image.
+Sixel rendering is available on POSIX. DOS builds retain framebuffer and palette
+state for graphics operations, but do not render pixels through the BIOS text
+display. The 16-bit build allocates the framebuffer outside the near heap.
 
 `SCREEN 1` starts with black, light cyan, light magenta and high-intensity white
 for attributes 0-3. `SCREEN 2` starts with black and high-intensity white for
@@ -232,9 +235,38 @@ they can render additional colors. Range handling is tracked in git-bug `4d4aed0
 - `PAINT (x,y), fill, border` -- flood fill
 - `DRAW string` -- turtle graphics mini-language (U/D/L/R/E/F/G/H, M, C, S, B, N)
 - `POINT (x,y)` -- read the stored pixel attribute
-- `COLOR fg[,bg]` -- select drawing attribute `fg`. In graphics mode, `bg` is
-  accepted but ignored. The original `SCREEN 1` background/palette selection
-  is tracked in git-bug `1c9b047`.
+
+### COLOR and CGA palette controls
+
+In `SCREEN 1`, `COLOR [background][,[palette]]` changes the displayed colours
+without changing stored pixel attributes or the default drawing attribute.
+Both arguments accept byte values (0-255), following the pinned 1983
+Microsoft-source interpreter. The background's low four bits select an RGBI
+colour; bit 4 selects low or high intensity for attributes 1-3. Higher bits are
+ignored. An even palette value selects green/red/brown, and an odd value selects
+cyan/magenta/white, with the chosen intensity applied to all three colours.
+For example, `COLOR 0,1` selects black with low-intensity cyan/magenta/white;
+`COLOR 16,1` selects black with their bright variants.
+
+Omitted arguments retain their previous settings: `COLOR ,0` changes only the
+palette selection. `COLOR ,` leaves the display unchanged. Bare `COLOR`, values
+outside the byte range, a third argument in mode 1, and any `COLOR` statement in
+mode 2 raise "Illegal function call". These forms are tested in the interpreter
+and native compiler. The native compiler uses the shared statement handler.
+
+`OUT &H3D9,value` writes the emulated CGA colour register. In mode 1, bits 0-3
+select the background, bit 4 selects intensity and bit 5 selects the palette.
+In mode 2, bits 0-3 select the foreground; the background stays black.
+`COLOR` retains its BIOS-style saved settings separately from direct register
+writes, so a later `COLOR` can replace an earlier `OUT` setting. `INP(&H3D9)`
+returns the emulated latch; a physical CGA register is write-only.
+
+`COLOR`, `OUT &H3D9` and `PALETTE` redraw existing pixels immediately. The
+renderer combines these CGA controls with RGBI `PALETTE` remapping; this is not
+an EGA hardware emulation. A non-empty `COLOR` replaces custom palette mappings.
+Bare `PALETTE` restores both the mode's palette and its saved CGA settings.
+Repeating the current `SCREEN` mode preserves the image and palette; changing
+mode starts with its defaults. These changes require a current source build.
 
 ### Sprite Capture and Blit (GET / PUT)
 
@@ -266,8 +298,8 @@ matching the original GW-BASIC representation.
   Y increases downward.  Without arguments, resets to physical coordinates.
 - `PALETTE [attribute, color]` -- remap a color attribute to a different
   physical RGBI color (0-15). Without arguments, restores the current screen
-  mode's default palette. Entering a screen mode also resets its palette.
-  Palette changes are displayed by the next drawing command.
+  mode's default palette. Changing screen mode also resets its palette.
+  Palette changes redraw the image immediately.
 - `PMAP(coordinate, function)` -- convert between logical and physical
   coordinates.  Function 0/1 = logical→physical X/Y; 2/3 = physical→logical X/Y.
 

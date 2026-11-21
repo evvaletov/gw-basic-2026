@@ -1,0 +1,547 @@
+{
+  "machine": "cga",
+  "reference_exe_sha256": "3d83e8d2bbc71e8b79e20c6cfb7bceba36c4dd4bda2a7af4c415cab6b3f3203c",
+  "source_sha256": "00eb5cfc7553bfb2413ba1b673e5bf8608df1155987ee2e69e01acb434a0cb60",
+  "method": "DOSBox-X CGA video; six-bit state marker below the four sampled attribute stripes; majority of stable frames for each state",
+  "cases": [
+    {
+      "id": "initial",
+      "command": "SCREEN 0:SCREEN 1:GOSUB 64000",
+      "rgb": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          85,
+          255,
+          255
+        ],
+        [
+          255,
+          85,
+          255
+        ],
+        [
+          255,
+          255,
+          255
+        ]
+      ],
+      "frames": 6,
+      "png_sha256": "a4e1ff36ca3ecbbde075368030a242cfab120523ba28a7df4b30efab89a33655"
+    },
+    {
+      "id": "palette0",
+      "command": "COLOR ,0",
+      "rgb": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          85,
+          255,
+          85
+        ],
+        [
+          255,
+          85,
+          85
+        ],
+        [
+          255,
+          255,
+          85
+        ]
+      ],
+      "frames": 6,
+      "png_sha256": "b1839b617703b882355afca0bf78dcb1d1b381e70e314cbdb2d97be4e465f9cb"
+    },
+    {
+      "id": "palette1",
+      "command": "COLOR ,1",
+      "rgb": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          85,
+          255,
+          255
+        ],
+        [
+          255,
+          85,
+          255
+        ],
+        [
+          255,
+          255,
+          255
+        ]
+      ],
+      "frames": 6,
+      "png_sha256": "9086733e0261b4ab9b61bd7031608e9b1ed2000ed633c4dd0f0e9aa985903e05"
+    },
+    {
+      "id": "background1-low",
+      "command": "COLOR 1",
+      "rgb": [
+        [
+          0,
+          0,
+          170
+        ],
+        [
+          0,
+          170,
+          170
+        ],
+        [
+          170,
+          0,
+          170
+        ],
+        [
+          170,
+          170,
+          170
+        ]
+      ],
+      "frames": 6,
+      "png_sha256": "124e142a2ef5601428300d2588e47d8e2896f863b06f1d50c0d888185c597f7e"
+    },
+    {
+      "id": "background15-low",
+      "command": "COLOR 15",
+      "rgb": [
+        [
+          255,
+          255,
+          255
+        ],
+        [
+          0,
+          170,
+          170
+        ],
+        [
+          170,
+          0,
+          170
+        ],
+        [
+          170,
+          170,
+          170
+        ]
+      ],
+      "frames": 6,
+      "png_sha256": "bfa2c49fcc316549e8923ba33bc89d55345c60d1e012162c768189a651c35a6d"
+    },
+    {
+      "id": "background0-bright",
+      "command": "COLOR 16",
+      "rgb": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          85,
+          255,
+          255
+        ],
+        [
+          255,
+          85,
+          255
+        ],
+        [
+          255,
+          255,
+          255
+        ]
+      ],
+      "frames": 6,
+      "png_sha256": "7014f6cf5d06f75e99dec818219d7c01c50aeb2656d44ba64978f7277b3562c3"
+    },
+    {
+      "id": "background15-bright",
+      "command": "COLOR 31",
+      "rgb": [
+        [
+          255,
+          255,
+          255
+        ],
+        [
+          85,
+          255,
+          255
+        ],
+        [
+          255,
+          85,
+          255
+        ],
+        [
+          255,
+          255,
+          255
+        ]
+      ],
+      "frames": 6,
+      "png_sha256": "2f78cf8c67ea9b4e657c6b5509fa13c551fa7160072710669d2512a94360e0c4"
+    },
+    {
+      "id": "background-high-byte",
+      "command": "COLOR 255,2",
+      "rgb": [
+        [
+          255,
+          255,
+          255
+        ],
+        [
+          85,
+          255,
+          85
+        ],
+        [
+          255,
+          85,
+          85
+        ],
+        [
+          255,
+          255,
+          85
+        ]
+      ],
+      "frames": 6,
+      "png_sha256": "dc9cf71f75d8952a292b0f69b5eed7949d6c6417a7728db813473fdb3b7e64fa"
+    },
+    {
+      "id": "same-screen",
+      "command": "SCREEN 1",
+      "rgb": [
+        [
+          255,
+          255,
+          255
+        ],
+        [
+          85,
+          255,
+          85
+        ],
+        [
+          255,
+          85,
+          85
+        ],
+        [
+          255,
+          255,
+          85
+        ]
+      ],
+      "frames": 6,
+      "png_sha256": "ae598ab32b2c964a467dce40d7ae6e73e9ed2005862ae66154cc5a53a1f38696"
+    },
+    {
+      "id": "out-low0",
+      "command": "OUT &H3D9,0",
+      "rgb": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          170,
+          0
+        ],
+        [
+          170,
+          0,
+          0
+        ],
+        [
+          170,
+          85,
+          0
+        ]
+      ],
+      "frames": 6,
+      "png_sha256": "b15288edf1aa1c55774b9d9f82148c9c8bde6c63296622f97a07ba1623e2be79"
+    },
+    {
+      "id": "out-bright0",
+      "command": "OUT &H3D9,16",
+      "rgb": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          85,
+          255,
+          85
+        ],
+        [
+          255,
+          85,
+          85
+        ],
+        [
+          255,
+          255,
+          85
+        ]
+      ],
+      "frames": 6,
+      "png_sha256": "0de63072dbbe3d1f12214636e00c8ec54dd1c065ed673b60ae22c1a62bb57333"
+    },
+    {
+      "id": "out-low1",
+      "command": "OUT &H3D9,32",
+      "rgb": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          170,
+          170
+        ],
+        [
+          170,
+          0,
+          170
+        ],
+        [
+          170,
+          170,
+          170
+        ]
+      ],
+      "frames": 5,
+      "png_sha256": "26a9f7bfd4079b4c028c08ba931c29c4b57a5cdbf4debc84a1816d9123651e55"
+    },
+    {
+      "id": "out-bright1",
+      "command": "OUT &H3D9,48",
+      "rgb": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          85,
+          255,
+          255
+        ],
+        [
+          255,
+          85,
+          255
+        ],
+        [
+          255,
+          255,
+          255
+        ]
+      ],
+      "frames": 5,
+      "png_sha256": "96e2fdf076d1d153089cfa5f69587dab9be3f5d76aaaa6ff20cc51d4953564ed"
+    },
+    {
+      "id": "out-background",
+      "command": "OUT &H3D9,63",
+      "rgb": [
+        [
+          255,
+          255,
+          255
+        ],
+        [
+          85,
+          255,
+          255
+        ],
+        [
+          255,
+          85,
+          255
+        ],
+        [
+          255,
+          255,
+          255
+        ]
+      ],
+      "frames": 5,
+      "png_sha256": "4fc5557f2df5f7f1dfbf51f0188936ed47d4cfa7d41e2d58e0dfa9b5f4a2e072"
+    },
+    {
+      "id": "out-shadow-probe",
+      "command": "OUT &H3D9,1",
+      "rgb": [
+        [
+          0,
+          0,
+          170
+        ],
+        [
+          0,
+          170,
+          0
+        ],
+        [
+          170,
+          0,
+          0
+        ],
+        [
+          170,
+          85,
+          0
+        ]
+      ],
+      "frames": 5,
+      "png_sha256": "5d390a68c16648100c061155278ab2c9b9cc832775277ed50c6981a5f9baaa0c"
+    },
+    {
+      "id": "color-after-out",
+      "command": "COLOR ,1",
+      "rgb": [
+        [
+          255,
+          255,
+          255
+        ],
+        [
+          85,
+          255,
+          255
+        ],
+        [
+          255,
+          85,
+          255
+        ],
+        [
+          255,
+          255,
+          255
+        ]
+      ],
+      "frames": 5,
+      "png_sha256": "ea7f49f58f8443c575721dc6c9c8b92a166ab0645c8d64d9be89b8e12916d1f0"
+    },
+    {
+      "id": "color0",
+      "command": "COLOR 0,0",
+      "rgb": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          170,
+          0
+        ],
+        [
+          170,
+          0,
+          0
+        ],
+        [
+          170,
+          85,
+          0
+        ]
+      ],
+      "frames": 5,
+      "png_sha256": "56e02b6f5d0625f50f70df6b5227572f4e10288debef4a01c373907b32eca5da"
+    },
+    {
+      "id": "same-screen0",
+      "command": "SCREEN 1",
+      "rgb": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          170,
+          0
+        ],
+        [
+          170,
+          0,
+          0
+        ],
+        [
+          170,
+          85,
+          0
+        ]
+      ],
+      "frames": 7,
+      "png_sha256": "d0a407e6585cdcd4db4726cc2cb558addb0efff1588cc7029a17c6943edbfa71"
+    },
+    {
+      "id": "mode-reentry",
+      "command": "SCREEN 0:SCREEN 1:GOSUB 64000",
+      "rgb": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          85,
+          255,
+          255
+        ],
+        [
+          255,
+          85,
+          255
+        ],
+        [
+          255,
+          255,
+          255
+        ]
+      ],
+      "frames": 6,
+      "png_sha256": "aebc3eb4615b054920f1e10cb07da4c02e9b860b3fcee1751b7349a5a2d8c0fa"
+    }
+  ],
+  "capture_source": "10 SCREEN 0:SCREEN 1:GOSUB 64000:N=1:GOSUB 65000\n20 COLOR ,0:N=2:GOSUB 65000\n30 COLOR ,1:N=3:GOSUB 65000\n40 COLOR 1:N=4:GOSUB 65000\n50 COLOR 15:N=5:GOSUB 65000\n60 COLOR 16:N=6:GOSUB 65000\n70 COLOR 31:N=7:GOSUB 65000\n80 COLOR 255,2:N=8:GOSUB 65000\n90 SCREEN 1:N=9:GOSUB 65000\n100 OUT &H3D9,0:N=10:GOSUB 65000\n110 OUT &H3D9,16:N=11:GOSUB 65000\n120 OUT &H3D9,32:N=12:GOSUB 65000\n130 OUT &H3D9,48:N=13:GOSUB 65000\n140 OUT &H3D9,63:N=14:GOSUB 65000\n150 OUT &H3D9,1:N=15:GOSUB 65000\n160 COLOR ,1:N=16:GOSUB 65000\n170 COLOR 0,0:N=17:GOSUB 65000\n180 SCREEN 1:N=18:GOSUB 65000\n190 SCREEN 0:SCREEN 1:GOSUB 64000:N=19:GOSUB 65000\n60000 SCREEN 0:SYSTEM\n64000 FOR C=0 TO 3:LINE (C*80,40)-(C*80+79,100),C,BF:NEXT C:RETURN\n65000 FOR B=0 TO 5:C=2:IF N AND 2^B THEN C=1\n65010 LINE (B*20,170)-(B*20+19,185),C,BF:NEXT B\n65020 FOR J=1 TO 5000:NEXT J:RETURN\n",
+  "capture_videos": {
+    "basic_000.avi": "5d9c73879c2a703d7ba004f399c27cfeb44c9422882a30308c401cc9c12375ce",
+    "basic_001.avi": "771ddd41a36646afc6c9df7cdaa9e51e65d92c6ba50e5520a5cba112fb821615"
+  },
+  "reference_build": "Microsoft GW-BASIC source build, JWasm 2023-10-03; not retail 3.23",
+  "manual": "https://ftpmirror.your.org/pub/misc/bitsavers/pdf/microsoft/gw-basic/410130013-320-R01-0686_Microsoft_GW-BASIC_Interpreter_Users_Reference_1986.pdf"
+}

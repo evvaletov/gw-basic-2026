@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Check SCREEN defaults and PALETTE resets in interpreted and native Sixel output."""
+"""Check CGA colours and immediate redraws in interpreted and native output."""
 from pathlib import Path
+import json
 import re
 import subprocess
 import tempfile
@@ -24,6 +25,14 @@ OVERRIDES = {
     1: {0: (66, 0, 0), 1: (0, 66, 0), 2: (66, 0, 0), 3: (66, 33, 0)},
     2: {0: (66, 0, 0), 1: (0, 66, 0)},
 }
+RGBI = [(0, 0, 0), (0, 0, 66), (0, 66, 0), (0, 66, 66),
+        (66, 0, 0), (66, 0, 66), (66, 33, 0), (66, 66, 66),
+        (33, 33, 33), (33, 33, 100), (33, 100, 33), (33, 100, 100),
+        (100, 33, 33), (100, 33, 100), (100, 100, 33), (100, 100, 100)]
+
+
+def palette(*indices):
+    return {attr: RGBI[colour] for attr, colour in enumerate(indices)}
 
 
 def pixels(mode):
@@ -35,7 +44,10 @@ def points(mode):
 
 
 class GraphicsPalette(unittest.TestCase):
-    def check_program(self, statements, expected_palettes, expected_text):
+    def check_program(self, statements, expected_palettes, expected_text,
+                      redraws=None, same_pixels=False):
+        if redraws is None:
+            redraws = [True] * len(expected_palettes)
         with tempfile.TemporaryDirectory(prefix="gw-palette-") as directory:
             root = Path(directory)
             source = root / "palette.bas"
@@ -57,19 +69,40 @@ class GraphicsPalette(unittest.TestCase):
             ]:
                 with self.subTest(backend=backend):
                     output = run(command)
-                    # Each marker follows a drawing command, which flushes a frame.
-                    # Check the last frame before each marker; intermediate frames
-                    # depend on how many pixels the BASIC program has drawn so far.
+                    # A marker immediately after COLOR/OUT/PALETTE must see the
+                    # changed frame without a later drawing command hiding a lag.
                     sections = output.split("SNAP\n")
                     self.assertEqual(len(sections), len(expected_palettes) + 1)
-                    for section, expected in zip(sections, expected_palettes):
+                    last_frame = None
+                    payload = None
+                    for section, expected, redraw in zip(sections, expected_palettes, redraws):
                         frames = SIXEL.findall(section)
-                        self.assertTrue(frames, "missing Sixel frame")
+                        self.assertEqual(bool(frames), redraw, "unexpected/missing immediate redraw")
+                        if frames:
+                            last_frame = frames[-1]
+                        self.assertIsNotNone(last_frame)
                         actual = {int(a): (int(r), int(g), int(b))
-                                  for a, r, g, b in COLOUR.findall(frames[-1])}
+                                  for a, r, g, b in COLOUR.findall(last_frame)}
                         self.assertEqual(actual, expected)
+                        current = COLOUR.sub("", last_frame)
+                        if same_pixels and payload is not None:
+                            self.assertEqual(current, payload, "palette change altered pixel attributes")
+                        payload = current
                     text = SIXEL.sub("", output).replace("SNAP\n", "")
                     self.assertEqual(" ".join(text.split()), expected_text)
+
+    def test_pinned_cga_reference_frames(self):
+        reference = json.loads((REPO / "tests/compatibility/cga-color.json").read_text())
+        statements, expected, redraws = [], [], []
+        for case in reference["cases"]:
+            # Keep the reference's palette/mode sequence. Four single pixels
+            # replace its four stripes; the test compares the attribute map.
+            command = case["command"].replace("GOSUB 64000", ":".join(pixels(1)))
+            statements.extend([command, 'PRINT "SNAP"'])
+            expected.append({i: tuple(c * 100 // 255 for c in rgb)
+                             for i, rgb in enumerate(case["rgb"])})
+            redraws.append(command != "SCREEN 1")
+        self.check_program(statements, expected, "", redraws=redraws, same_pixels=True)
 
     def test_screen_1_defaults(self):
         self.check_program(
@@ -94,7 +127,7 @@ class GraphicsPalette(unittest.TestCase):
                     [OVERRIDES[mode], DEFAULTS[mode]], f"{values} {values}")
 
     def test_screen_changes_discard_palette_overrides(self):
-        for start, modes in [(1, [1]), (2, [2]), (1, [2, 1]), (2, [1, 2]),
+        for start, modes in [(1, [2, 1]), (2, [1, 2]),
                              (1, [0, 1]), (2, [0, 2])]:
             with self.subTest(start=start, modes=modes):
                 statements = [f"SCREEN {start}", "PALETTE 0,4", "PALETTE 1,1"]
@@ -105,6 +138,81 @@ class GraphicsPalette(unittest.TestCase):
                         statements.extend([*pixels(mode), 'PRINT "SNAP"'])
                         expected.append(DEFAULTS[mode])
                 self.check_program(statements, expected, "")
+
+    def test_same_screen_preserves_pixels_and_palette(self):
+        for mode in (1, 2):
+            expected = dict(DEFAULTS[mode])
+            expected[0] = RGBI[4]
+            self.check_program(
+                [f"SCREEN {mode}", *pixels(mode), "PALETTE 0,4", 'PRINT "SNAP"',
+                 f"SCREEN {mode}", 'PRINT "SNAP"', points(mode)],
+                [expected, expected], " ".join(map(str, DEFAULTS[mode])),
+                redraws=[True, False], same_pixels=True)
+
+    def test_color_background_palette_and_intensity(self):
+        self.check_program(
+            ["SCREEN 1", *pixels(1), 'PRINT "SNAP"',
+             "COLOR 17,0", 'PRINT "SNAP"', "COLOR ,1", 'PRINT "SNAP"',
+             "COLOR 1", 'PRINT "SNAP"', points(1), "PSET (4,0)", "PRINT POINT(4,0)"],
+            [DEFAULTS[1], palette(1, 10, 12, 14), palette(1, 11, 13, 15),
+             palette(1, 3, 5, 7)], "0 1 2 3 3", same_pixels=True)
+
+    def test_color_omissions_byte_arguments_and_expressions(self):
+        self.check_program(
+            ["SCREEN 1", *pixels(1), 'PRINT "SNAP"',
+             "COLOR ,", 'PRINT "SNAP"', "COLOR ,,", 'PRINT "SNAP"',
+             "COLOR 255,2", 'PRINT "SNAP"', "COLOR ,255,", 'PRINT "SNAP"',
+             "B%=17:P%=2:COLOR B%,P%", 'PRINT "SNAP"',
+             "DIM C%(2):C%(1)=1:COLOR C%(1),P%+1", 'PRINT "SNAP"',
+             "IF 1 THEN COLOR 16,0 ELSE COLOR 0,1", 'PRINT "SNAP"', points(1)],
+            [DEFAULTS[1], DEFAULTS[1], DEFAULTS[1], palette(15, 10, 12, 14),
+             palette(15, 11, 13, 15), palette(1, 10, 12, 14), palette(1, 3, 5, 7),
+             palette(0, 10, 12, 14)], "0 1 2 3",
+            redraws=[True, False, False, True, True, True, True, True], same_pixels=True)
+
+    def test_out_palette_bits_and_bios_shadow(self):
+        self.check_program(
+            ["SCREEN 1", *pixels(1), 'PRINT "SNAP"',
+             "OUT &H3D9,0", 'PRINT "SNAP"', "OUT &H3D9,16", 'PRINT "SNAP"',
+             "OUT &H3D9,32", 'PRINT "SNAP"', "OUT &H3D9,48", 'PRINT "SNAP"',
+             "OUT &H3D9,63", 'PRINT "SNAP"', "PRINT INP(&H3D9)",
+             "COLOR ,0", 'PRINT "SNAP"', "PRINT INP(&H3D9)", points(1)],
+            [DEFAULTS[1], palette(0, 2, 4, 6), palette(0, 10, 12, 14),
+             palette(0, 3, 5, 7), DEFAULTS[1], palette(15, 11, 13, 15),
+             palette(0, 10, 12, 14)], "63 16 0 1 2 3", same_pixels=True)
+
+    def test_palette_and_color_redraw_without_drawing(self):
+        self.check_program(
+            ["SCREEN 1", *pixels(1), 'PRINT "SNAP"',
+             "PALETTE 0,4", 'PRINT "SNAP"', "PALETTE 1,1", 'PRINT "SNAP"',
+             "COLOR ,0", 'PRINT "SNAP"', "PALETTE", 'PRINT "SNAP"', points(1)],
+            [DEFAULTS[1], palette(4, 11, 13, 15), palette(4, 1, 13, 15),
+             palette(0, 10, 12, 14), DEFAULTS[1]], "0 1 2 3", same_pixels=True)
+
+    def test_screen2_out_changes_foreground(self):
+        self.check_program(
+            ["SCREEN 2", *pixels(2), 'PRINT "SNAP"',
+             "OUT &H3D9,4", 'PRINT "SNAP"', "PALETTE", 'PRINT "SNAP"', points(2)],
+            [DEFAULTS[2], palette(0, 4), DEFAULTS[2]], "0 1", same_pixels=True)
+
+    def test_color_errors_match_reference(self):
+        # ERR=5 captured from the pinned Microsoft-source executable. Avoid
+        # ON ERROR here, so the native tests cannot use a whole-program fallback.
+        cases = [(1, ""), (1, "-1"), (1, "256"), (1, ",256"),
+                 (1, ",-1"), (1, ",0,1"), (1, ",,,"),
+                 (2, ""), (2, "1"), (2, ",1"), (2, "1,2,3")]
+        for mode, args in cases:
+            with self.subTest(mode=mode, args=args), tempfile.TemporaryDirectory(prefix="gw-color-error-") as temp:
+                source = Path(temp) / "error.bas"
+                source.write_text(f'10 SCREEN {mode}\n20 COLOR {args}\n30 PRINT "UNREACHED"\n')
+                subprocess.run([str(BUILD / "gwbasic-compile"), str(source), "-c", "--keep-c",
+                                "--runtime", str(REPO)], check=True, capture_output=True, timeout=30)
+                self.assertNotIn("gw_run_loop();", Path(str(source) + ".c").read_text())
+                for status, command in [(0, [str(BUILD / "gwbasic"), str(source)]),
+                                        (1, [str(source.with_suffix(""))])]:
+                    run = subprocess.run(command, capture_output=True, text=True, timeout=30)
+                    self.assertEqual(run.returncode, status)
+                    self.assertEqual(run.stdout.strip(), "Illegal function call in 20")
 
 
 if __name__ == "__main__":
