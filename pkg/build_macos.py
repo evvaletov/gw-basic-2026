@@ -154,8 +154,7 @@ def main():
             'Native compilation needs Apple Command Line Tools (xcode-select --install).\n'
             'The interpreter needs no Homebrew libraries. Audio output is disabled.\n'
             'These command-line binaries are not Developer ID signed or notarised.\n'
-            'BUILD.json records the source and build environment. The source release notes\n'
-            'predate these additional macOS archives.\n')
+            'BUILD.json records the source and build environment.\n')
         (package / 'BUILD.json').write_text(json.dumps(metadata, indent=2) + '\n')
         with tarfile.open(archive_path, 'w:gz') as archive:
             archive.add(package, arcname=name)
