@@ -48,19 +48,26 @@ static bool win_active;
 static bool win_screen;  /* WINDOW SCREEN flag */
 static double win_x1, win_y1, win_x2, win_y2;
 
+static void apply_cga_palette(uint8_t value)
+{
+    if (screen_mode == 1) {
+        palette_map[0] = value & 15;
+        int intensity = (value & 16) ? 8 : 0;
+        int select = (value & 32) ? 1 : 0;
+        for (int attr = 1; attr <= 3; attr++)
+            palette_map[attr] = 2 * attr + select + intensity;
+    } else if (screen_mode == 2) {
+        palette_map[0] = 0;
+        palette_map[1] = value & 15;
+    }
+}
+
 static void reset_palette(void)
 {
     for (int i = 0; i < 16; i++)
         palette_map[i] = i;
-
-    /* GW-BASIC SCREEN defaults: attributes are not RGBI color indexes. */
-    if (screen_mode == 1) {
-        palette_map[1] = 11;  /* light cyan */
-        palette_map[2] = 13;  /* light magenta */
-        palette_map[3] = 15;  /* high-intensity white */
-    } else if (screen_mode == 2) {
-        palette_map[1] = 15;  /* high-intensity white */
-    }
+    cga_bios_color = cga_color = screen_mode == 1 ? 0x30 : screen_mode == 2 ? 0x3f : 0;
+    apply_cga_palette(cga_color);
 }
 
 bool gfx_active(void) { return framebuf != NULL; }
@@ -100,7 +107,6 @@ void gfx_init(int mode)
     win_active = false;
     gfx_cls();
     reset_palette();
-    cga_bios_color = cga_color = (mode == 1) ? 0x30 : 0x3f;
 }
 
 void gfx_shutdown(void)
@@ -117,7 +123,6 @@ void gfx_shutdown(void)
     vp_active = false;
     win_active = false;
     reset_palette();
-    cga_bios_color = cga_color = 0;
 }
 
 void gfx_cls(void)
@@ -128,8 +133,12 @@ void gfx_cls(void)
             for (int x = vp_x1; x <= vp_x2; x++)
                 framebuf[(long)y * fb_width + x] = 0;
     } else {
+#ifdef _M_I86
         for (long i = 0; i < (long)fb_width * fb_height; i++)
             framebuf[i] = 0;
+#else
+        memset(framebuf, 0, (size_t)fb_width * fb_height);
+#endif
     }
 }
 
@@ -825,7 +834,6 @@ void gfx_palette_set(int attr, int color)
 void gfx_palette_reset(void)
 {
     reset_palette();
-    cga_bios_color = cga_color = screen_mode == 1 ? 0x30 : screen_mode == 2 ? 0x3f : 0;
     gfx_flush();
 }
 
@@ -834,16 +842,7 @@ uint8_t gfx_cga_color_in(void) { return cga_color; }
 void gfx_cga_color_out(uint8_t value)
 {
     cga_color = value;
-    if (screen_mode == 1) {
-        palette_map[0] = value & 15;
-        int intensity = (value & 16) ? 8 : 0;
-        int select = (value & 32) ? 1 : 0;
-        for (int attr = 1; attr <= 3; attr++)
-            palette_map[attr] = 2 * attr + select + intensity;
-    } else if (screen_mode == 2) {
-        palette_map[0] = 0;
-        palette_map[1] = value & 15;
-    }
+    apply_cga_palette(value);
     gfx_flush();
 }
 

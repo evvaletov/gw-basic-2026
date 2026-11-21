@@ -218,7 +218,7 @@ framebuffer and output through Sixel graphics. Use a terminal with Sixel support
 enabled to see the rendered image.
 Sixel rendering is available on POSIX. DOS builds retain framebuffer and palette
 state for graphics operations, but do not render pixels through the BIOS text
-display. The 16-bit build allocates the framebuffer outside the near heap.
+display.
 
 `SCREEN 1` starts with black, light cyan, light magenta and high-intensity white
 for attributes 0-3. `SCREEN 2` starts with black and high-intensity white for
@@ -250,9 +250,10 @@ For example, `COLOR 0,1` selects black with low-intensity cyan/magenta/white;
 
 Omitted arguments retain their previous settings: `COLOR ,0` changes only the
 palette selection. `COLOR ,` leaves the display unchanged. Bare `COLOR`, values
-outside the byte range, a third argument in mode 1, and any `COLOR` statement in
-mode 2 raise "Illegal function call". These forms are tested in the interpreter
-and native compiler. The native compiler uses the shared statement handler.
+outside the byte range after integer conversion, a third argument in mode 1,
+and any `COLOR` statement in mode 2 raise "Illegal function call". Expression
+errors, including integer overflow, can occur before this check.
+The interpreter and native compiler accept the same forms.
 
 `OUT &H3D9,value` writes the emulated CGA colour register. In mode 1, bits 0-3
 select the background, bit 4 selects intensity and bit 5 selects the palette.
@@ -263,8 +264,9 @@ returns the emulated latch; a physical CGA register is write-only.
 
 `COLOR`, `OUT &H3D9` and `PALETTE` redraw existing pixels immediately. The
 renderer combines these CGA controls with RGBI `PALETTE` remapping; this is not
-an EGA hardware emulation. A non-empty `COLOR` replaces custom palette mappings.
-Bare `PALETTE` restores both the mode's palette and its saved CGA settings.
+an EGA hardware emulation. `COLOR` with a supplied argument replaces the mappings
+for attributes 0-3. Bare `PALETTE` restores the mode's default palette and resets
+its saved CGA settings to their defaults.
 Repeating the current `SCREEN` mode preserves the image and palette; changing
 mode starts with its defaults. These changes require a current source build.
 
@@ -390,7 +392,7 @@ OUT &H61, INP(&H61) AND &HFC ' speaker off
 | `&H42`-`&H43` | 8253 PIT channel 2 | Speaker frequency divisor (1193180 / divisor Hz) |
 | `&H61` | PPI Port B | Bits 0-1 control speaker; both set = tone on, either clear = off |
 | `&H3D8` | CGA mode control | Mode register; writes with changed mode bits trigger `SCREEN` changes |
-| `&H3D9` | CGA color select | Background color (bits 0-3) and palette select (bit 5) |
+| `&H3D9` | CGA colour select | Mode 1 background (bits 0-3), intensity (bit 4), palette (bit 5); mode 2 foreground (bits 0-3) |
 | `&H201` | Game port | Returns `&HF0` (no joystick connected) |
 | `&H3F8`-`&H3FE` | COM1 serial | Minimal stub; LSR (`&H3FD`) returns `&H60` (transmitter ready) |
 | Default | -- | Reads return `&HFF` (floating bus), writes silently discarded |

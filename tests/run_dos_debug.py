@@ -17,8 +17,10 @@ SOURCE = '''5 DIM M%(2,3):M%(1,2)=17:M%(2,1)=29
 45 COLOR 17,0:COLOR ,1:SCREEN 1
 46 IF INP(&H3D9)<>49 OR POINT(4,5)<>2 THEN ERROR 5
 47 OUT &H3D9,63:PALETTE
+48 IF INP(&H3D9)<>48 THEN ERROR 5
 50 C%=POINT(4,5)
-55 SCREEN 2:PSET (639,199),1:IF POINT(639,199)<>1 THEN ERROR 5
+55 SCREEN 2:PSET (383,97),0:PSET (639,199),1
+56 IF POINT(383,97)<>0 OR POINT(639,199)<>1 THEN ERROR 5
 60 SCREEN 0:CLS:PRINT "GUEST SCREEN";A%;C%
 70 OPEN "R",#1,"FIELD.BIN",8
 75 FIELD #1,4 AS A$,4 AS B$
@@ -27,7 +29,7 @@ SOURCE = '''5 DIM M%(2,3):M%(1,2)=17:M%(2,1)=29
 90 OPEN "CHECK.TXT" FOR OUTPUT AS #2:PRINT #2,A%;C%:CLOSE #2:SYSTEM
 100 A%=A%+1:RETURN
 '''
-COMMANDS = "watch A%\nwatch C%\nwatch A$\nwatch M%(1,2)\nwatch M%(2,1)\n" + "checkpoint guest\ninspect file 1 0 8\nstep\n"*56
+COMMANDS = "watch A%\nwatch C%\nwatch A$\nwatch M%(1,2)\nwatch M%(2,1)\n" + "checkpoint guest\ninspect file 1 0 8\nstep\n"*64
 
 
 def main():

@@ -181,6 +181,29 @@ class GraphicsPalette(unittest.TestCase):
              palette(0, 3, 5, 7), DEFAULTS[1], palette(15, 11, 13, 15),
              palette(0, 10, 12, 14)], "63 16 0 1 2 3", same_pixels=True)
 
+    def test_color_fn_reads_current_globals(self):
+        self.check_program(
+            ["DEF FNB(X)=B%+X", "DEF FNP=P%", "B%=17:P%=0",
+             "SCREEN 1", *pixels(1), "COLOR FNB(0),FNP", 'PRINT "SNAP"',
+             "B%=0:P%=1:COLOR FNB(1),FNP", 'PRINT "SNAP"', points(1)],
+            [palette(1, 10, 12, 14), palette(1, 3, 5, 7)],
+            "0 1 2 3", same_pixels=True)
+
+    def test_color_trailing_comments(self):
+        self.check_program(
+            ["SCREEN 1", *pixels(1), "COLOR 17,0 ' comment: COLOR 0,1",
+             'PRINT "SNAP"', "COLOR ,1 ' keep background", 'PRINT "SNAP"',
+             "COLOR , ' unchanged", 'PRINT "SNAP"', points(1)],
+            [palette(1, 10, 12, 14), palette(1, 11, 13, 15), palette(1, 11, 13, 15)],
+            "0 1 2 3", redraws=[True, True, False], same_pixels=True)
+
+    def test_color_fractional_arguments(self):
+        self.check_program(
+            ["SCREEN 1", *pixels(1), "COLOR 255.4", 'PRINT "SNAP"',
+             "COLOR 0.5", 'PRINT "SNAP"', points(1)],
+            [palette(15, 11, 13, 15), palette(1, 3, 5, 7)],
+            "0 1 2 3", same_pixels=True)
+
     def test_palette_and_color_redraw_without_drawing(self):
         self.check_program(
             ["SCREEN 1", *pixels(1), 'PRINT "SNAP"',
@@ -200,7 +223,10 @@ class GraphicsPalette(unittest.TestCase):
         # ON ERROR here, so the native tests cannot use a whole-program fallback.
         cases = [(1, ""), (1, "-1"), (1, "256"), (1, ",256"),
                  (1, ",-1"), (1, ",0,1"), (1, ",,,"),
-                 (2, ""), (2, "1"), (2, ",1"), (2, "1,2,3")]
+                 (1, "1;2"), (1, "1,2,3,4"), (1, "255.5"),
+                 (1, "-0.5"), (1, "-0.6"),
+                 (2, ""), (2, "1"), (2, ",1"), (2, "1,2,3"),
+                 (1, "32768"), (1, "40000!")]
         for mode, args in cases:
             with self.subTest(mode=mode, args=args), tempfile.TemporaryDirectory(prefix="gw-color-error-") as temp:
                 source = Path(temp) / "error.bas"
@@ -212,7 +238,8 @@ class GraphicsPalette(unittest.TestCase):
                                         (1, [str(source.with_suffix(""))])]:
                     run = subprocess.run(command, capture_output=True, text=True, timeout=30)
                     self.assertEqual(run.returncode, status)
-                    self.assertEqual(run.stdout.strip(), "Illegal function call in 20")
+                    error = "Overflow" if args in ("32768", "40000!") else "Illegal function call"
+                    self.assertEqual(run.stdout.strip(), error + " in 20")
 
 
 if __name__ == "__main__":

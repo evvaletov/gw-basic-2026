@@ -2792,7 +2792,7 @@ inline_statement:
         while (1) {
             gw_skip_spaces();
             uint8_t next = gw_chrgot();
-            if (!next || next == ':' || next == TOK_ELSE) break;
+            if (!next || next == ':' || next == TOK_ELSE || next == TOK_SQUOTE) break;
             if (count == 3) gw_error(ERR_FC);
             if (next != ',') {
                 args[count] = gw_eval_int();
@@ -2801,7 +2801,7 @@ inline_statement:
             count++;
             gw_skip_spaces();
             next = gw_chrgot();
-            if (!next || next == ':' || next == TOK_ELSE) break;
+            if (!next || next == ':' || next == TOK_ELSE || next == TOK_SQUOTE) break;
             if (next != ',') gw_error(ERR_FC);
             gw_chrget();
         }

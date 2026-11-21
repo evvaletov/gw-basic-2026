@@ -543,5 +543,80 @@
     "basic_001.avi": "771ddd41a36646afc6c9df7cdaa9e51e65d92c6ba50e5520a5cba112fb821615"
   },
   "reference_build": "Microsoft GW-BASIC source build, JWasm 2023-10-03; not retail 3.23",
-  "manual": "https://ftpmirror.your.org/pub/misc/bitsavers/pdf/microsoft/gw-basic/410130013-320-R01-0686_Microsoft_GW-BASIC_Interpreter_Users_Reference_1986.pdf"
+  "manual": "https://ftpmirror.your.org/pub/misc/bitsavers/pdf/microsoft/gw-basic/410130013-320-R01-0686_Microsoft_GW-BASIC_Interpreter_Users_Reference_1986.pdf",
+  "argument_probe": {
+    "cases": [
+      {
+        "args": ",,,",
+        "error": 5,
+        "bios_colour": 48
+      },
+      {
+        "args": "1 2",
+        "error": 0,
+        "bios_colour": 44
+      },
+      {
+        "args": "1;2",
+        "error": 5,
+        "bios_colour": 48
+      },
+      {
+        "args": "1,2,3,4",
+        "error": 5,
+        "bios_colour": 48
+      },
+      {
+        "args": "32768",
+        "error": 6,
+        "bios_colour": 48
+      },
+      {
+        "args": "40000!",
+        "error": 6,
+        "bios_colour": 48
+      },
+      {
+        "args": "255.4",
+        "error": 0,
+        "bios_colour": 63
+      },
+      {
+        "args": "255.5",
+        "error": 5,
+        "bios_colour": 48
+      },
+      {
+        "args": "0.5",
+        "error": 0,
+        "bios_colour": 33
+      },
+      {
+        "args": "-0.5",
+        "error": 5,
+        "bios_colour": 48
+      },
+      {
+        "args": "-0.6",
+        "error": 5,
+        "bios_colour": 48
+      },
+      {
+        "args": "1 'blue: PRINT 999",
+        "error": 0,
+        "bios_colour": 33
+      },
+      {
+        "args": "1,0 'green: PRINT 999",
+        "error": 0,
+        "bios_colour": 1
+      }
+    ],
+    "source_sha256": "4baba09af982dbba22c3d0b0391c366202ede92c37fbc92d1dd7cd289d13c7bd",
+    "reference_exe_sha256": "3d83e8d2bbc71e8b79e20c6cfb7bceba36c4dd4bda2a7af4c415cab6b3f3203c",
+    "capture_source": "5 OPEN \"DATA.TXT\" FOR OUTPUT AS #1:ON ERROR GOTO 60000:DEF SEG=&H40\n100 SCREEN 0:SCREEN 1:E=0\n110 COLOR ,,,\n120 PRINT #1,0;E;PEEK(&H66)\n140 SCREEN 0:SCREEN 1:E=0\n150 COLOR 1 2\n160 PRINT #1,1;E;PEEK(&H66)\n180 SCREEN 0:SCREEN 1:E=0\n190 COLOR 1;2\n200 PRINT #1,2;E;PEEK(&H66)\n220 SCREEN 0:SCREEN 1:E=0\n230 COLOR 1,2,3,4\n240 PRINT #1,3;E;PEEK(&H66)\n260 SCREEN 0:SCREEN 1:E=0\n270 COLOR 32768\n280 PRINT #1,4;E;PEEK(&H66)\n300 SCREEN 0:SCREEN 1:E=0\n310 COLOR 40000!\n320 PRINT #1,5;E;PEEK(&H66)\n340 SCREEN 0:SCREEN 1:E=0\n350 COLOR 255.4\n360 PRINT #1,6;E;PEEK(&H66)\n380 SCREEN 0:SCREEN 1:E=0\n390 COLOR 255.5\n400 PRINT #1,7;E;PEEK(&H66)\n420 SCREEN 0:SCREEN 1:E=0\n430 COLOR 0.5\n440 PRINT #1,8;E;PEEK(&H66)\n460 SCREEN 0:SCREEN 1:E=0\n470 COLOR -0.5\n480 PRINT #1,9;E;PEEK(&H66)\n500 SCREEN 0:SCREEN 1:E=0\n510 COLOR -0.6\n520 PRINT #1,10;E;PEEK(&H66)\n540 SCREEN 0:SCREEN 1:E=0\n550 COLOR 1 'blue: PRINT 999\n560 PRINT #1,11;E;PEEK(&H66)\n580 SCREEN 0:SCREEN 1:E=0\n590 COLOR 1,0 'green: PRINT 999\n600 PRINT #1,12;E;PEEK(&H66)\n50000 SCREEN 0:CLOSE:SYSTEM\n60000 E=ERR:RESUME NEXT\n",
+    "transcript": " 0  5  48 \r\n 1  0  44 \r\n 2  5  48 \r\n 3  5  48 \r\n 4  6  48 \r\n 5  6  48 \r\n 6  0  63 \r\n 7  5  48 \r\n 8  0  33 \r\n 9  5  48 \r\n 10  5  48 \r\n 11  0  33 \r\n 12  0  1 \r\n",
+    "raw_transcript_sha256": "e75469741ccea95e38b8378498267ca9e6c0177cf3cf932f2bca05676cebbfca",
+    "limitation": "The 1 2 case records original digit concatenation to 12. The current tokenizer separates these literals; this existing lexical difference is outside the CGA change and is not replayed by the palette test."
+  }
 }

@@ -8,9 +8,13 @@ video. Each result appeared in at least two stable frames. The sequence covers
 background, intensity, odd/even palette selection, repeated SCREEN, direct
 register writes and the saved BIOS settings used by a subsequent COLOR.
 `python3 tests/test_graphics_palette.py` replays the commands in the interpreter
-and native executable, checking Sixel colours and immediate redraws without
-altering the pixel attributes. The fixture is a source-build reference, not
+and native executable, checking Sixel colours, immediate redraws and unchanged
+pixel attributes. The fixture is a source-build reference, not
 retail 3.23 or EGA coverage.
+Its argument probe records comma limits, integer conversion, fractional values
+and trailing comments. It also retains an existing lexical difference: the
+original joins `1 2` into the literal 12, while the current tokenizer separates
+the digits. That row is recorded but excluded from the palette comparison.
 
 `semantics.json` contains 124 programs and output captured from Microsoft
 GW-BASIC source build (JWasm, 2023-10-03) on 2026-11-06 and 2026-11-07.

@@ -88,8 +88,6 @@ static void cga_mode_out(uint8_t value)
         gfx_shutdown();     /* text mode */
 }
 
-/* --- CGA Color Select Register (port 0x3D9) --- */
-
 /* --- Game Port (port 0x201) --- */
 
 #define GAME_PORT_NO_JOYSTICK  0xF0  /* bits 4-7 set = no buttons */

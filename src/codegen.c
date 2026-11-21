@@ -1767,7 +1767,7 @@ static void skip_statement_tail(void)
         if (*tp == TOK_PREFIX_FD || *tp == TOK_PREFIX_FE || *tp == TOK_PREFIX_FF) {
             tp += 2; continue;
         }
-        if (*tp == ':' || *tp == TOK_ELSE || *tp == 0) break;
+        if (*tp == ':' || *tp == TOK_ELSE || *tp == TOK_SQUOTE || *tp == 0) break;
         tp++;
     }
 }
@@ -2483,7 +2483,8 @@ static void emit_stmt(void)
 
     /* COLOR */
     if (tok == TOK_COLOR) {
-        emit_delegate_stmt(tp, false);
+        /* FN arguments can read globals absent from the COLOR tokens. */
+        emit_delegate_stmt_ex(tp, false, true);
         return;
     }
 
