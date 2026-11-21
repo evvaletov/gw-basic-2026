@@ -223,7 +223,7 @@ from thirty-six listings against Microsoft GW-BASIC transcripts and compares six
 compiler modes with the interpreter. The other listings have build-audit
 coverage only. Awari and Checkers compile; Super Star Trek is rejected for an
 unspaced `TO` expression that Microsoft GW-BASIC also rejects.
-The v0.18.2 release contains the earlier suite of 53 cases from twenty-six listings.
+The v0.18.3 release includes this 76-case suite and the separately labelled ports.
 
 For complete Awari and Checkers games, run the separately labelled
 [playable ports](examples/ports/README.md). They include input checks, replay
