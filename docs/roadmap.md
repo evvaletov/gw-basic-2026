@@ -1,16 +1,17 @@
 # Roadmap
 
-## Scripted debug runs (20 November 2026)
+## Debug runs (21 November 2026)
 
-Implemented on the `debug-media` branch: statement step/continue, breakpoints,
+Integrated into main: statement step/continue, breakpoints,
 pure variable/constant-index watches, named inspection checkpoints and native
 file/FIELD views. The [debugger guide](debugger.md) includes the command contract
 and a FORTRAN text-exchange example. POSIX and both DOS targets are supported;
-AOT debugging, execution restoration and graphical inspectors remain future work.
-The coordinated next work is true next/finish plus interactive TUI controls,
-graphical source/device views, broader FORTRAN SAP/numerical coverage, media
-adapters/typed exchange, and a local packaged release. Existing distribution and
-other BASIC roadmap work below retains its own priorities.
+A POSIX terminal controller adds source, latest-value and event panes with
+interactive stepping, breakpoints and inspection. It runs in a second terminal
+so BASIC retains its keyboard and graphics display. The shared FORTRAN/BASIC
+v1 line protocol is unchanged. These features require a current source build;
+the v0.18.3 downloads predate them. Next/finish, AOT debugging, execution
+restoration and graphical inspectors remain future work.
 
 ## Current Features
 
@@ -113,7 +114,7 @@ round trips; expression INTEGER limits remain unchanged (`58ea19c`).
 The harness now fails on output mismatches and process errors, with separate
 limits for audio, timer, and compilation tests (git-bug `54f3aa6`).
 
-The curated compatibility suite checks 76 scripted cases from thirty-six original
+The curated compatibility suite checks 96 scripted cases from forty-six original
 listings against Microsoft GW-BASIC output and across six compiler modes.
 Hi-Lo, Bagels, Craps, Rock–Scissors–Paper and Dice include complete random
 games or simulations, retries and replay. Nim covers normal/misere endings,
@@ -123,7 +124,10 @@ solutions, losses, input retries and replay. Another twenty-three cases cover
 Chief, Cube, Hammurabi, Depth Charge, Gunner, Train, Bombs Away, Chemist, Boxing
 and Even Wins. These include a ten-year Hammurabi term, two five-target Gunner
 campaigns, complete Boxing matches and both Even Wins starting positions.
-Seventy-two cases end naturally; all 98 vendored listings remain unchanged.
+Twenty new cases cover Amazing, Bullseye, Buzzword, Number, Synonym, Word, War,
+Bowling, Digits and Pizza. They include a full shuffled deck, ten-frame bowling
+with one and four players, all ten vocabulary words, invalid-input recovery and
+replay. Ninety-two cases end naturally; all 98 vendored listings remain unchanged.
 Awari and
 Checkers have input checkpoints and expected original-listing failures: FOR
 without NEXT at lines 230 and 1340, respectively. These are documented dialect
@@ -176,8 +180,9 @@ A focused announcement is posted on SDF's RETRO bboard under `evv`, dated
 
 Version 0.18.3 provides refreshed Linux, DOS16, DOS32, Apple Silicon and Intel
 macOS downloads from the same release commit. Homebrew and the Arch recipe use
-the checksum-verified source archive. The original-program corpus remains at
-76 cases from 36 listings, with the playable ports tested separately.
+the checksum-verified source archive. That release contains 76 cases from
+36 listings; current main extends this to 96 cases from 46 listings. The
+playable ports are tested separately.
 
 Website publication and SDF synchronisation are automated through a persistent
 fifteen-minute service. Website updates require a successful Docs build at the
@@ -188,25 +193,47 @@ for deployment checks and recovery.
 
 Next priorities:
 
-1. Finish integration and validation of the scripted debugger, then add
-   interactive TUI controls for stepping, breakpoints and inspection
-   (git-bug `32a637c`).
-2. Extend scripted gameplay coverage beyond the 36 original listings already
-   covered, keeping adapted ports separate (git-bug `51679f0`).
-3. Complete original CGA `COLOR` background, palette/intensity selection and
+1. Complete original CGA `COLOR` background, palette/intensity selection and
    redraw behaviour (git-bug `1c9b047`).
-4. Enforce the drawing-attribute ranges for SCREEN 1 and SCREEN 2, with
+2. Enforce the drawing-attribute ranges for SCREEN 1 and SCREEN 2, with
    interpreter/native reference checks (git-bug `4d4aed0`).
-5. Complete the FreeDOS repository handoff through the existing maintainer
+3. Prepare an RPM spec and source package, validate Fedora/Enterprise Linux
+   builds, then publish a COPR pilot towards Fedora/EPEL inclusion (path below).
+4. Complete the FreeDOS repository handoff through the existing maintainer
    thread, using the validated FDNPKG route and any further requested checks
    (git-bug `ab8188c`).
+5. Add real step-over/finish semantics and use the debugger protocol for VS Code
+   integration (git-bug `32a637c`).
 
 AUR publication remains pending account registration. Homebrew and
 `gwbasickernel` on PyPI are live; directory requests await maintainers. HN stays
 deferred, and Lobsters needs an invitation and an eligible account. Broader
-gameplay coverage remains open for 62 listings. Later implementation work
+gameplay coverage remains open for 52 listings. Later implementation work
 includes VS Code completion/debugging (`32a637c`), C-style `PRINTF` / `FPRINTF`
 (`cd8750c`) and FORTRAN-style formatted `WRITE` (`a6e99af`).
+
+## Fedora and EPEL path
+
+The proposed route is **RPM/SRPM → COPR → Fedora review → EPEL branches**.
+No RPM, COPR project or official repository submission has been made yet.
+
+1. Write a spec for the interpreter and compiler, with explicit placement of
+   `libgwrt`, headers and compiler dependencies. Inventory licences across the
+   source package, including the core MIT code and the game corpus under the
+   Unlicense. Build from a pinned release source archive.
+2. Use clean Fedora and supported Enterprise Linux build roots. Check package
+   installation/removal, interpreter execution and native compilation, including
+   a reference-output case. Resolve missing dependencies and distribution policy
+   requirements before publishing packages.
+3. Publish an initial repository through [COPR](https://docs.copr.fedorainfracloud.org/user_documentation.html),
+   using a Fedora account and available Fedora/EPEL build targets. Keep its DNF
+   installation instructions separate from official Fedora/EPEL availability.
+4. Arrange ongoing package maintenance, submit the package for Fedora review,
+   then request and maintain the appropriate EPEL branches. Follow the
+   [EPEL package request process](https://docs.fedoraproject.org/en-US/epel/epel-package-request/)
+   in force at submission time. COPR success is useful build evidence; official
+   inclusion still depends on review, policy compliance and a maintainer.
+   Fedora describes the [Fedora-first route for new EPEL packages](https://fedoraproject.org/wiki/EPEL_Package_Maintainers).
 
 ## Longer-Term Plans
 

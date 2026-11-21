@@ -1,0 +1,54 @@
+                                DIGITS
+              CREATIVE COMPUTING  MORRISTOWN, NEW JERSEY
+
+
+
+THIS IS A GAME OF GUESSING.
+FOR INSTRUCTIONS, TYPE '1', ELSE TYPE '0'?
+TEN NUMBERS, PLEASE?
+MY GUESS      YOUR NO.      RESULT        NO. RIGHT
+
+   0              0          RIGHT         1
+   2              0          WRONG         1
+   2              0          WRONG         1
+   0              0          RIGHT         2
+   1              0          WRONG         2
+   1              0          WRONG         2
+   2              0          WRONG         2
+   2              0          WRONG         2
+   2              0          WRONG         2
+   2              0          WRONG         2
+
+TEN NUMBERS, PLEASE?
+MY GUESS      YOUR NO.      RESULT        NO. RIGHT
+
+   1              0          WRONG         2
+   2              0          WRONG         2
+   2              0          WRONG         2
+   2              0          WRONG         2
+   2              0          WRONG         2
+   2              0          WRONG         2
+   2              0          WRONG         2
+   2              0          WRONG         2
+   2              0          WRONG         2
+   1              0          WRONG         2
+
+TEN NUMBERS, PLEASE?
+MY GUESS      YOUR NO.      RESULT        NO. RIGHT
+
+   1              0          WRONG         2
+   1              0          WRONG         2
+   2              0          WRONG         2
+   2              0          WRONG         2
+   1              0          WRONG         2
+   1              0          WRONG         2
+   2              0          WRONG         2
+   2              0          WRONG         2
+   2              0          WRONG         2
+   2              0          WRONG         2
+
+I GUESSED LESS THAN 1/3 OF YOUR NUMBERS.
+YOU BEAT ME.  CONGRATULATIONS *****
+
+DO YOU WANT TO TRY AGAIN (1 FOR YES, 0 FOR NO)?
+THANKS FOR THE GAME.

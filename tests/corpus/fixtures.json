@@ -832,6 +832,238 @@
         "computer-first loss",
         "replay reset"
       ]
+    },
+    {
+      "id": "amazing-small",
+      "source": "amazing.bas",
+      "input": "inputs/amazing-small.txt",
+      "expected": "expected/amazing-small.txt",
+      "features": [
+        "complete maze",
+        "two-dimensional arrays",
+        "random traversal"
+      ]
+    },
+    {
+      "id": "amazing-retry",
+      "source": "amazing.bas",
+      "input": "inputs/amazing-retry.txt",
+      "expected": "expected/amazing-retry.txt",
+      "features": [
+        "invalid dimensions and retry",
+        "complete maze",
+        "ON GOTO"
+      ]
+    },
+    {
+      "id": "bullseye-solo",
+      "source": "bullseye.bas",
+      "input": "inputs/bullseye-solo.txt",
+      "expected": "expected/bullseye-solo.txt",
+      "features": [
+        "complete match",
+        "controlled throws",
+        "random scoring",
+        "player arrays"
+      ]
+    },
+    {
+      "id": "bullseye-multiple",
+      "source": "bullseye.bas",
+      "input": "inputs/bullseye-multiple.txt",
+      "expected": "expected/bullseye-multiple.txt",
+      "features": [
+        "complete match",
+        "throw validation",
+        "random scoring",
+        "player arrays"
+      ]
+    },
+    {
+      "id": "buzzword-quit",
+      "source": "buzzword.bas",
+      "input": "inputs/buzzword-quit.txt",
+      "expected": "expected/buzzword-quit.txt",
+      "features": [
+        "string DATA",
+        "random selection",
+        "exit"
+      ]
+    },
+    {
+      "id": "buzzword-replay",
+      "source": "buzzword.bas",
+      "input": "inputs/buzzword-replay.txt",
+      "expected": "expected/buzzword-replay.txt",
+      "features": [
+        "six phrases",
+        "replay",
+        "string arrays"
+      ]
+    },
+    {
+      "id": "number-jackpots",
+      "source": "number.bas",
+      "input": "inputs/number-jackpots.txt",
+      "expected": "expected/number-jackpots.txt",
+      "features": [
+        "complete win",
+        "jackpot and score arithmetic",
+        "DEF FN with RND",
+        "multiple rounds"
+      ]
+    },
+    {
+      "id": "number-retry",
+      "source": "number.bas",
+      "input": "inputs/number-retry.txt",
+      "expected": "expected/number-retry.txt",
+      "features": [
+        "complete win",
+        "jackpot and score arithmetic",
+        "DEF FN with RND",
+        "out-of-range retry"
+      ]
+    },
+    {
+      "id": "synonym-complete",
+      "source": "synonym.bas",
+      "input": "inputs/synonym-complete.txt",
+      "expected": "expected/synonym-complete.txt",
+      "features": [
+        "ten-word drill",
+        "RESTORE and random selection without repeats",
+        "correct answers"
+      ]
+    },
+    {
+      "id": "synonym-help",
+      "source": "synonym.bas",
+      "input": "inputs/synonym-help.txt",
+      "expected": "expected/synonym-help.txt",
+      "features": [
+        "ten-word drill",
+        "RESTORE and random selection without repeats",
+        "wrong answer and HELP retries"
+      ]
+    },
+    {
+      "id": "word-solved",
+      "source": "word.bas",
+      "input": "inputs/word-solved.txt",
+      "expected": "expected/word-solved.txt",
+      "features": [
+        "complete word game",
+        "exact match"
+      ]
+    },
+    {
+      "id": "word-retry-replay",
+      "source": "word.bas",
+      "input": "inputs/word-retry-replay.txt",
+      "expected": "expected/word-retry-replay.txt",
+      "features": [
+        "length retry",
+        "non-matching guess",
+        "two complete games",
+        "array and guess-count reset"
+      ]
+    },
+    {
+      "id": "war-full-deck",
+      "source": "war.bas",
+      "input": "inputs/war-full-deck.txt",
+      "expected": "expected/war-full-deck.txt",
+      "features": [
+        "all 52 cards",
+        "shuffle without duplicates",
+        "final score",
+        "win and loss rounds"
+      ]
+    },
+    {
+      "id": "war-retry-quit",
+      "source": "war.bas",
+      "input": "inputs/war-retry-quit.txt",
+      "expected": "expected/war-retry-quit.txt",
+      "features": [
+        "instructions retry",
+        "continue retry",
+        "two rounds",
+        "early exit"
+      ]
+    },
+    {
+      "id": "bowling-1-player",
+      "source": "bowling.bas",
+      "input": "inputs/bowling-1-player.txt",
+      "expected": "expected/bowling-1-player.txt",
+      "features": [
+        "ten frames",
+        "1 players",
+        "pin diagrams",
+        "score arrays",
+        "spares and gutters"
+      ]
+    },
+    {
+      "id": "bowling-4-player",
+      "source": "bowling.bas",
+      "input": "inputs/bowling-4-player.txt",
+      "expected": "expected/bowling-4-player.txt",
+      "features": [
+        "ten frames",
+        "4 players",
+        "pin diagrams",
+        "score arrays",
+        "strikes and spares"
+      ]
+    },
+    {
+      "id": "digits-zeros",
+      "source": "digits.bas",
+      "input": "inputs/digits-zeros.txt",
+      "expected": "expected/digits-zeros.txt",
+      "features": [
+        "thirty guesses",
+        "adaptive prediction tables",
+        "final score"
+      ]
+    },
+    {
+      "id": "digits-retry-replay",
+      "source": "digits.bas",
+      "input": "inputs/digits-retry-replay.txt",
+      "expected": "expected/digits-retry-replay.txt",
+      "features": [
+        "instructions",
+        "invalid digit retry",
+        "two thirty-guess games",
+        "table reset"
+      ]
+    },
+    {
+      "id": "pizza-deliveries",
+      "source": "pizza.bas",
+      "input": "inputs/pizza-deliveries.txt",
+      "expected": "expected/pizza-deliveries.txt",
+      "features": [
+        "five correct deliveries",
+        "grid coordinates",
+        "random destinations"
+      ]
+    },
+    {
+      "id": "pizza-retry-replay",
+      "source": "pizza.bas",
+      "input": "inputs/pizza-retry-replay.txt",
+      "expected": "expected/pizza-retry-replay.txt",
+      "features": [
+        "instructions retry",
+        "wrong address retry",
+        "ten deliveries",
+        "replay"
+      ]
     }
   ]
 }

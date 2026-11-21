@@ -30,9 +30,12 @@ POSIX, DOS16 and DOS32. Step/continue, line/token-offset breaks, pure typed
 watches, named inspection checkpoints and native file/FIELD views are available.
 The FORTRAN peer saves and loads typed tape/drum bundles and exports printable
 ASCII records; `examples/debug-media/read.bas` reads its exchange fixture.
-The contract and text fixture are kept in both repositories. Full execution
-restore, AOT/SAP instruction stepping, next/finish and rich interactive/graphical
-frontends are still follow-ups. This supersedes the plan-only status above.
+The contract and text fixture are kept in both repositories. On 21 November,
+the BASIC monitor was integrated into main with a POSIX terminal controller.
+It displays entry source, stops, watches and native inspection events in a
+second terminal, leaving the BASIC terminal available for input and graphics.
+Full execution restore, AOT/SAP instruction stepping, next/finish and graphical
+frontends remain follow-ups. The peer contract is unchanged.
 
 FIELD mappings describe native copies, not a new pointer-alias implementation.
 Inspection preserves those copy semantics and does not synchronise buffers.

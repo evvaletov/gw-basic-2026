@@ -3,6 +3,63 @@
 The interpreter has a scripted line monitor on POSIX, DOS16 and DOS32. It can
 step through statements and GOSUBs, stop at breakpoints, watch variables and
 constant-index array elements, and export named inspection checkpoints.
+The POSIX TUI uses this monitor from a second terminal. These features are
+available in current source builds; the v0.18.3 downloads predate them.
+
+## Interactive terminal controls
+
+Build the interpreter, then run this from the repository root in the terminal
+where the BASIC program should appear:
+
+```sh
+python3 tools/debug_tui.py run --session /tmp/gw-debug-1 tests/corpus/name.bas
+```
+
+In a second terminal, from the same repository:
+
+```sh
+python3 tools/debug_tui.py attach /tmp/gw-debug-1
+```
+
+The first terminal belongs to the BASIC program, including `INPUT`, keyboard
+events and Sixel graphics. The second shows the entry source, current line,
+token offset, GOSUB depth, latest inspected values and a scrollable event log.
+Use Python 3.8 or newer with its standard `curses` module on a POSIX host;
+the controller is tested on Linux. It does not run on DOS or Windows.
+
+| Key | Action |
+| --- | --- |
+| `s` / `c` | Step / continue |
+| `b` | Enter a line or line:offset breakpoint |
+| `w` / `u` | Add / remove a watch |
+| `i` | Inspect a reference, `state`, or `file NUMBER OFFSET COUNT` |
+| `p` | Name an inspection checkpoint |
+| `:` | Enter any monitor command, including `clear` and `capabilities` |
+| Up / Down | Scroll the recent events |
+| Escape | Cancel command entry |
+| `q` | Detach; BASIC resumes without further debugger stops |
+
+Commands are available at a stop. After stepping an `INPUT` statement, enter
+the answer in the program terminal. `q` and a controller interruption close
+the command channel; the interpreter processes EOF at its next stop and
+disables all breakpoints. Detachment does not terminate the BASIC program.
+Ctrl-C in the program terminal cancels the supervised run.
+
+Each run requires a new session directory. It contains a private command FIFO,
+an entry-source snapshot, the event log and the exit status. Only one controller
+can attach at a time. A finished session can be reopened for inspection; start
+a fresh run to debug again after detaching. The viewer retains the latest 120
+events and 16 values in memory; the complete log remains on disk until you
+remove the session directory. Keep both terminals at least 50 columns wide and
+the inspector at least 16 rows high.
+
+The source pane highlights a line; the displayed offset identifies the exact
+statement in token bytes. It is not a source-column highlight. The pane shows
+the saved entry file and does not follow `LOAD`, `CHAIN` or program edits.
+The controller sends the existing v1 line commands and never evaluates BASIC
+expressions or implements file/device semantics itself.
+
+## Scripted monitor
 
 ```sh
 build/gwbasic --debug-script examples/debug-media/commands.txt --debug-output trace.txt examples/debug-media/read.bas
@@ -60,11 +117,16 @@ The monitor supports the interpreter only. Compiled BASIC's runtime has no debug
 hook; source maps and instrumentation are future work. BASIC still has no drum,
 punch-card or cassette-image backend. External clocks, sound and event devices
 continue during pauses; debugging a timing-sensitive program can affect its
-behaviour. The current frontend is scripted text; interactive panes and richer
-graphical source/file views remain in the coordinated backlog.
+behaviour. Graphical source/file views, step-over and finish remain in the
+coordinated backlog. The shared v1 contract describes the underlying line
+monitor; the POSIX controller above is a separate frontend over that protocol.
 
 Run `python3 tests/test_debug.py` for the focused POSIX tests. After both DOS
 builds, `python3 tests/run_dos_debug.py` checks actual execution and guest screen
 preservation in FreeDOS/QEMU. It normally uses the pinned official boot floppy.
 On a QEMU build without floppy support, supply `--system-disk /path/to/freedos.qcow2`;
 the runner creates disposable overlays and verifies the base hash is unchanged.
+For the real terminal-controller tests, install `tests/requirements.txt` and
+run `python3 tests/test_debug_tui.py`. They exercise separate pseudo-terminals,
+guest input and Sixel output, calls, watches, file views, resizing, exclusive
+attachment, detachment, signal cleanup and terminal restoration.

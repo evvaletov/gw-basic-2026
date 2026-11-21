@@ -16,9 +16,9 @@ bash tests/run_corpus.sh --case plot --mode O2
 python3 tests/test_corpus.py
 ```
 
-`fixtures.json` selects 76 cases from thirty-six listings. Inputs are fixed.
+`fixtures.json` selects 96 cases from forty-six listings. Inputs are fixed.
 Random games use the original default RND sequence in a fresh process; no case
-uses the current date or RANDOMIZE. Seventy-two cases finish naturally with
+uses the current date or RANDOMIZE. Ninety-two cases finish naturally with
 `END`, two stop at documented input checkpoints, and two reproduce errors in
 the original listings. The vendored listing bytes remain unchanged.
 
@@ -58,6 +58,16 @@ the original listings. The vendored listing bytes remain unchanged.
 | Chemist | nine-life loss, correct dilution followed by errors | Arithmetic tolerance, random quantities, life counter |
 | Boxing | player and opponent wins | Three-round matches, full swings, jabs, cumulative scores |
 | Even Wins | player win, invalid moves and replay losses | Parity strategy, pile limits, both starting players, total reset |
+| Amazing | 2×2 maze, invalid dimensions then 8×6 maze | Two-dimensional arrays, random traversal, ON GOTO |
+| Bullseye | solo and three-player matches | Throw validation, random scoring, winner selection |
+| Buzzword | one phrase and six phrases | String DATA, random selection, replay and exit |
+| Number | two complete wins, one with an invalid guess | DEF FN with RND, jackpots, score arithmetic |
+| Synonym | two ten-word drills, wrong answers and HELP | RESTORE, random selection without repeats, vocabulary arrays |
+| Word | direct solution, invalid length, wrong guess and replay | Letter arrays, string matching, guess-count reset |
+| War | full deck and early exit with invalid answers | Shuffling without duplicates, win/loss rounds, final score |
+| Bowling | ten frames with one and four players | Pin diagrams, score arrays, strikes, spares and gutters |
+| Digits | thirty guesses and a two-game replay with invalid digits | Adaptive prediction tables, computer/player wins, table reset |
+| Pizza | five deliveries and ten with replay and wrong address | Grid coordinates, instructions and delivery retries |
 | Awari | three invalid inputs; first legal move | Input checkpoint; original error 26 at line 230 |
 | Checkers | opening with invalid input; computer capture | Input checkpoint; original error 26 at line 1340 |
 
@@ -87,7 +97,7 @@ C compiler. Python 3 and a POSIX host are required.
 ## Reference capture
 
 `expected/` contains captures from 2026-11-06, 2026-11-07, 2026-11-13 and
-2026-11-14 using a local
+2026-11-14 and 2026-11-21 using a local
 Microsoft GW-BASIC source build (JWasm, 2023-10-03) under DOSBox-X. The pinned
 executable is not retail 3.23; these captures do not establish retail identity. `reference.json` records executable, adapter, source, input, transformed
 source, and transcript hashes. The Microsoft executable is not distributed here.
@@ -124,7 +134,7 @@ correctness by themselves.
 
 File redirection does not reproduce terminal echo, screen width/wrapping,
 graphics, or sound. These cases do not establish complete gameplay coverage,
-identical floating-point arithmetic, or compatibility of the other 62 listings.
+identical floating-point arithmetic, or compatibility of the other 52 listings.
 
 ## Full build audit and remaining gaps
 

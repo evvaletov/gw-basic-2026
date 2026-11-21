@@ -6,7 +6,8 @@ before planning related work. It records the task-brainstorm decision, native
 runtime boundaries, TUI/graphical requirements and acceptance criteria.
 
 Preserve pre-existing uncommitted work, including the roadmap and learning
-arcade changes. The first scripted monitor and FORTRAN text exchange are implemented. Read
-`docs/debugger.md` and the shared `docs/debug-contract-v1.md`; richer interactive
-and graphical frontends remain planned. Do not add debug hooks to the compiled
+arcade changes. The scripted monitor, POSIX terminal controller and FORTRAN text
+exchange are implemented. Read `docs/debugger.md` and the shared
+`docs/debug-contract-v1.md`; graphical frontends and next/finish remain planned.
+Do not add debug hooks to the compiled
 runtime without explicit AOT instrumentation/source-map work.

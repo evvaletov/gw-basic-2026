@@ -218,12 +218,17 @@ Output mismatches, execution failures, and timeouts fail the suites. See
 [Development](docs/development.md) for timeout settings and test coverage.
 
 The [compatibility corpus](tests/corpus/README.md) contains 98 original BASIC
-Computer Games listings. The current runtime suite checks 76 scripted cases
-from thirty-six listings against Microsoft GW-BASIC transcripts and compares six
+Computer Games listings. The current runtime suite checks 96 scripted cases
+from forty-six listings against Microsoft GW-BASIC transcripts and compares six
 compiler modes with the interpreter. The other listings have build-audit
 coverage only. Awari and Checkers compile; Super Star Trek is rejected for an
 unspaced `TO` expression that Microsoft GW-BASIC also rejects.
-The v0.18.3 release includes this 76-case suite and the separately labelled ports.
+The v0.18.3 release includes the earlier 76-case suite and the separately labelled ports.
+
+Current source builds also include the [interpreter debugger](docs/debugger.md):
+scripted stepping and inspection on POSIX/DOS, plus a POSIX terminal controller
+for source, watches, breakpoints and file views. The controller leaves BASIC
+input and graphics in their own terminal.
 
 For complete Awari and Checkers games, run the separately labelled
 [playable ports](examples/ports/README.md). They include input checks, replay

@@ -176,8 +176,8 @@ int main(int argc, char **argv)
                    "  -f, --full         Use full terminal size (default: 25x80)\n"
                    "  -h, --help         Show this help\n"
                    "  --lpt DEVICE|FILE  Printer output destination (default: LPT1.TXT)\n"
-                   "  --debug-script FILE --debug-output NEWFILE  Scripted line monitor\n"
                    "                     Use LPT1 or /dev/lp0 for real hardware\n"
+                   "  --debug-script FILE --debug-output NEWFILE  Scripted line monitor\n"
                    "  -v, --version      Show version\n");
             return 0;
         }
