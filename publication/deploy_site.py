@@ -143,6 +143,7 @@ def recover(root, state):
     if inventory(root) != pending['before']['files']:
         raise RuntimeError('Rollback verification failed; keep pending.json and backup')
     save(state / 'current.json', pending['before'])
+    (backup / 'completed.json').unlink(missing_ok=True)
     journal.unlink()
     shutil.rmtree(backup)
 

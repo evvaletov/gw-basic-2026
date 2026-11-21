@@ -300,6 +300,37 @@ d.install(sys.stdin.buffer.read(),Path(sys.argv[2]),Path(sys.argv[3]))
         retry = deploy.install(self.archive(), self.root, self.state)
         self.assertEqual(Path(retry['backup']), backups[-1])
 
+    def test_interrupted_rollback_does_not_retain_an_aborted_completed_marker(self):
+        for version in range(5):
+            (self.payload / 'index.html').write_text('navigation ' + str(version))
+            deploy.install(self.archive(), self.root, self.state)
+        retained = set(self.state.glob('backup-*'))
+        (self.payload / 'index.html').write_text('aborted sixth publication')
+        code = '''import os,sys
+from pathlib import Path
+sys.path.insert(0,sys.argv[1])
+import deploy_site as d
+d.prepare=lambda *a: None
+root,state=Path(sys.argv[2]),Path(sys.argv[3])
+original=Path.unlink
+def stop_at_journal(path,*args,**kwargs):
+    if path==state/'pending.json':
+        if sys.argv[4]=='recover': original(path,*args,**kwargs)
+        os._exit(99)
+    return original(path,*args,**kwargs)
+Path.unlink=stop_at_journal
+if sys.argv[4]=='install': d.install(sys.stdin.buffer.read(),root,state)
+else: d.recover(root,state)
+'''
+        for operation in ('install', 'recover'):
+            process = subprocess.run([sys.executable, '-c', code, str(Path(deploy.__file__).parent),
+                                      str(self.root), str(self.state), operation], input=self.archive(), timeout=30)
+            self.assertEqual(process.returncode, 99)
+        self.assertFalse((self.state / 'pending.json').exists())
+        (self.payload / 'index.html').write_text('navigation 4')
+        self.assertEqual(deploy.install(self.archive(), self.root, self.state)['status'], 'unchanged')
+        self.assertEqual(set(self.state.glob('backup-*')), retained)
+
     def test_controller_installs_exact_artifact_and_verifies_public_bytes(self):
 
         def command(args, **kwargs):
