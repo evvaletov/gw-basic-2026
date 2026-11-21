@@ -71,6 +71,7 @@ def main():
         subprocess.run([sys.executable, "-m", "sphinx", "-W", "--keep-going", "-n",
                         "-d", doctrees, "-b", "html", str(DOCS),
                         str(args.output / "gwbasic")], check=True)
+    (args.output / 'gwbasic/.buildinfo').unlink(missing_ok=True)
     heading, body = (ARTICLE / "article.md").read_text(encoding="utf-8").split("\n", 1)
     if not heading.startswith("# "):
         parser.error("article.md must begin with a level-one title")
