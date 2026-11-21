@@ -254,6 +254,33 @@ d.install(sys.stdin.buffer.read(),Path(sys.argv[2]),Path(sys.argv[3]))
             deploy.install(self.archive(), self.root, self.state)
         self.assertEqual(len(list(self.state.glob('backup-*'))), 5)
 
+    def test_unchanged_retry_prunes_after_exit_at_commit_boundary(self):
+        for version in range(5):
+            (self.payload / 'index.html').write_text('navigation ' + str(version))
+            deploy.install(self.archive(), self.root, self.state)
+        (self.payload / 'index.html').write_text('sixth publication')
+        code = '''import os,sys
+from pathlib import Path
+sys.path.insert(0,sys.argv[1])
+import deploy_site as d
+d.prepare=lambda *a: None
+original=d.prune_backups
+calls=[]
+def stop_after_commit(state):
+    calls.append(1)
+    if len(calls)==2: os._exit(99)
+    original(state)
+d.prune_backups=stop_after_commit
+d.install(sys.stdin.buffer.read(),Path(sys.argv[2]),Path(sys.argv[3]))
+'''
+        process = subprocess.run([sys.executable, '-c', code, str(Path(deploy.__file__).parent),
+                                  str(self.root), str(self.state)], input=self.archive(), timeout=30)
+        self.assertEqual(process.returncode, 99)
+        self.assertFalse((self.state / 'pending.json').exists())
+        self.assertEqual(len(list(self.state.glob('backup-*'))), 6)
+        self.assertEqual(deploy.install(self.archive(), self.root, self.state)['status'], 'unchanged')
+        self.assertEqual(len(list(self.state.glob('backup-*'))), 5)
+
     def test_controller_installs_exact_artifact_and_verifies_public_bytes(self):
 
         def command(args, **kwargs):

@@ -147,6 +147,11 @@ def recover(root, state):
     shutil.rmtree(backup)
 
 
+def prune_backups(state):
+    for old in sorted(state.glob('backup-*'))[:-5]:
+        shutil.rmtree(old)
+
+
 def install(data, root, state):
     if root.stat().st_dev != state.stat().st_dev:
         raise ValueError('State and site must be on the same filesystem')
@@ -159,6 +164,7 @@ def install(data, root, state):
     for backup in state.glob('backup-*'):
         if not (backup / 'completed.json').exists():
             shutil.rmtree(backup)
+    prune_backups(state)
     before = json.loads((state / 'current.json').read_text())
     if inventory(root) != before['files']:
         raise ValueError('Managed live files changed outside deployment; reconcile first')
@@ -196,8 +202,7 @@ def install(data, root, state):
             if backup.exists():
                 shutil.rmtree(backup)
             raise
-        for old in sorted(state.glob('backup-*'))[:-5]:
-            shutil.rmtree(old)
+        prune_backups(state)
         return dict(status='installed', source_commit=meta['source_commit'], backup=str(backup))
 
 
