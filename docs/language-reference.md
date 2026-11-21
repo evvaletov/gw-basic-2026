@@ -217,6 +217,13 @@ Graphics mode is activated with `SCREEN 1` (320x200, 4 colors) or
 framebuffer and output through Sixel graphics. Use a terminal with Sixel support
 enabled to see the rendered image.
 
+`SCREEN 1` starts with black, light cyan, light magenta and high-intensity white
+for attributes 0-3. `SCREEN 2` starts with black and high-intensity white for
+attributes 0-1. The default drawing attribute is 3 in mode 1 and 1 in mode 2.
+`POINT` returns the stored attribute, regardless of its palette color.
+Drawing commands currently accept attributes outside these ranges; in mode 2
+they can render additional colors. Range handling is tracked in git-bug `4d4aed0`.
+
 ### Drawing Commands
 
 - `PSET (x,y), color` / `PRESET (x,y)` -- set/reset individual pixels
@@ -224,8 +231,10 @@ enabled to see the rendered image.
 - `CIRCLE (cx,cy), r [,color [,start, end [,aspect]]]` -- circles and arcs
 - `PAINT (x,y), fill, border` -- flood fill
 - `DRAW string` -- turtle graphics mini-language (U/D/L/R/E/F/G/H, M, C, S, B, N)
-- `POINT (x,y)` -- read pixel color
-- `COLOR fg, bg` -- set foreground/background colors
+- `POINT (x,y)` -- read the stored pixel attribute
+- `COLOR fg[,bg]` -- select drawing attribute `fg`. In graphics mode, `bg` is
+  accepted but ignored. The original `SCREEN 1` background/palette selection
+  is tracked in git-bug `1c9b047`.
 
 ### Sprite Capture and Blit (GET / PUT)
 
@@ -256,7 +265,9 @@ matching the original GW-BASIC representation.
   viewport.  Without `SCREEN`, Y increases upward (Cartesian); with `SCREEN`,
   Y increases downward.  Without arguments, resets to physical coordinates.
 - `PALETTE [attribute, color]` -- remap a color attribute to a different
-  physical color (0-15).  Without arguments, resets to the default CGA palette.
+  physical RGBI color (0-15). Without arguments, restores the current screen
+  mode's default palette. Entering a screen mode also resets its palette.
+  Palette changes are displayed by the next drawing command.
 - `PMAP(coordinate, function)` -- convert between logical and physical
   coordinates.  Function 0/1 = logical→physical X/Y; 2/3 = physical→logical X/Y.
 

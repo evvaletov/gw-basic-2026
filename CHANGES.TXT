@@ -1,6 +1,13 @@
 GW-BASIC 2026 -- Change History
 ================================
 
+Unreleased
+  - Correct the Sixel defaults for SCREEN 1 to black, light cyan, light magenta
+    and high-intensity white, and SCREEN 2 to black and high-intensity white.
+    PALETTE with no arguments restores the current mode's defaults. Add
+    interpreter/native regressions for colour output, palette overrides,
+    resets, mode changes and unchanged POINT attribute values.
+
 v0.18.2
   - Store the complete source in SOURCE/GWBASIC/SOURCE.TGZ so the installed
     FreeDOS package uses 8.3 names. Add DOS installation/source notes.
