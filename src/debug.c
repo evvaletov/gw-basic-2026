@@ -6,6 +6,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#ifndef __MSDOS__
+#include <signal.h>
+#endif
 
 /* Fixed tables keep the monitor small on 16-bit DOS. Inspection does not call
    the evaluator, PTRGET, array_element, string allocation or file readers. */
@@ -16,21 +19,42 @@ static char watches[SLOTS][80];
 static struct { unsigned line; int offset; } breaks[SLOTS];
 static unsigned long stops;
 
+#ifndef __MSDOS__
+/* Let debugger-owned writes report EFBIG, so the documented I/O failure path
+   can close files and restore the terminal before exit(2). Guest execution
+   keeps its original signal mask and dispositions. */
+static void block_log_limit(sigset_t *previous) {
+    sigset_t blocked;
+    sigemptyset(&blocked);
+    sigaddset(&blocked, SIGXFSZ);
+    sigprocmask(SIG_BLOCK, &blocked, previous);
+}
+#endif
+
 static void close_debug(void) {
+#ifndef __MSDOS__
+    sigset_t previous;
+    block_log_limit(&previous);
+#endif
     int bad = 0;
     if (commands && fclose(commands)) bad = 1;
     if (out) { if (ferror(out)) bad = 1; if (fclose(out)) bad = 1; }
     commands = out = NULL;
     if (bad && !io_failed) {
-        fputs("gwbasic: debugger I/O failure\n", stderr);
         if (gw_hal) gw_hal->shutdown();
+        fputs("gwbasic: debugger I/O failure\n", stderr);
         fflush(NULL);
+        /* Already in an atexit handler; do not invoke the handlers again. */
         _exit(2);
     }
+#ifndef __MSDOS__
+    sigprocmask(SIG_SETMASK, &previous, NULL);
+#endif
 }
 
 static void io_error(void) {
     io_failed = 1;
+    if (gw_hal) gw_hal->shutdown();
     fputs("gwbasic: debugger I/O failure\n", stderr);
     exit(2);
 }
@@ -53,8 +77,15 @@ void gw_debug_open(const char *script, const char *output) {
         fputs("cannot create debug output (must be a new file)\n", stderr); exit(1);
     }
     if (atexit(close_debug)) { fputs("cannot register debugger cleanup\n", stderr); exit(1); }
+#ifndef __MSDOS__
+    sigset_t previous;
+    block_log_limit(&previous);
+#endif
     fputs("debug-v1 engine=basic-interpreter frontend=line\n", out);
     flush_debug();
+#ifndef __MSDOS__
+    sigprocmask(SIG_SETMASK, &previous, NULL);
+#endif
 }
 
 static int reference(const char *s, char name[GW_NAME_SIZE], gw_valtype_t *type,
@@ -268,7 +299,15 @@ static void monitor(void) {
 }
 
 void gw_debug_stop(void) {
+    if (!commands) return;
     int saved_errno = errno;
+#ifndef __MSDOS__
+    sigset_t previous;
+    block_log_limit(&previous);
+#endif
     monitor();
+#ifndef __MSDOS__
+    sigprocmask(SIG_SETMASK, &previous, NULL);
+#endif
     errno = saved_errno;
 }

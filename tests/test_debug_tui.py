@@ -24,7 +24,7 @@ ENV = dict(os.environ, TERM="xterm-256color", PULSE_SERVER="unix:/tmp/gwbasic-no
 
 
 class Terminal:
-    def __init__(self, command, cwd, file_limit=None):
+    def __init__(self, command, cwd, file_limit=None, ignore_file_signal=False):
         self.master, self.slave = pty.openpty()
         self.screen = pyte.Screen(100, 28)
         self.stream = pyte.Stream(self.screen)
@@ -36,7 +36,7 @@ class Terminal:
             os.setsid()
             fcntl.ioctl(0, termios.TIOCSCTTY, 0)
             if file_limit is not None:
-                signal.signal(signal.SIGXFSZ, signal.SIG_IGN)
+                signal.signal(signal.SIGXFSZ, signal.SIG_IGN if ignore_file_signal else signal.SIG_DFL)
                 resource.setrlimit(resource.RLIMIT_FSIZE, (file_limit, file_limit))
         self.process = subprocess.Popen(command, stdin=self.slave, stdout=self.slave,
                                         stderr=self.slave, cwd=cwd, env=ENV,
@@ -97,8 +97,8 @@ class DebugTUI(unittest.TestCase):
         self.session = self.work / "session"
         self.terminals = []
 
-    def terminal(self, command, file_limit=None):
-        terminal = Terminal(command, self.work, file_limit)
+    def terminal(self, command, file_limit=None, ignore_file_signal=False):
+        terminal = Terminal(command, self.work, file_limit, ignore_file_signal)
         self.terminals.append(terminal)
         self.addCleanup(terminal.close)
         return terminal
@@ -474,11 +474,28 @@ sys.exit(app.main())
         source.write_text("10 PRINT 7:SYSTEM\n")
         script = self.work / "commands"
         script.write_text("continue\n")
+        for limit in (16, 64):
+            for ignored in (False, True):
+                with self.subTest(limit=limit, ignored=ignored):
+                    guest = self.terminal([str(BIN), "--debug-script", str(script), "--debug-output",
+                                           str(self.work / f"events-{limit}-{ignored}"), str(source)],
+                                          file_limit=limit, ignore_file_signal=ignored)
+                    self.wait(lambda: guest.process.poll() is not None, "log failure did not exit")
+                    self.assertEqual(guest.process.returncode, 2)
+                    self.assertEqual(guest.output.count(b"debugger I/O failure"), 1)
+                    self.assertEqual(termios.tcgetattr(guest.slave), guest.before)
+        source.write_text("10 END\n")
+        script.write_text("break 10\ncontinue\n")
         guest = self.terminal([str(BIN), "--debug-script", str(script), "--debug-output",
-                               str(self.work / "events"), str(source)], file_limit=64)
-        self.wait(lambda: guest.process.poll() is not None, "log failure did not exit")
+                               str(self.work / "events-editor"), str(source)], file_limit=120)
+        self.wait(lambda: b"Ok" in guest.output and not termios.tcgetattr(guest.slave)[3] & termios.ICANON,
+                  "first run did not reach the editor")
+        guest.send("RUN\r")
+        self.wait(lambda: guest.process.poll() is not None, "editor log failure did not exit")
         self.assertEqual(guest.process.returncode, 2)
         self.assertEqual(guest.output.count(b"debugger I/O failure"), 1)
+        self.assertGreaterEqual(guest.output.rfind(b"\x1b[?1049l"), 0)
+        self.assertGreater(guest.output.rfind(b"debugger I/O failure"), guest.output.rfind(b"\x1b[?1049l"))
         self.assertEqual(termios.tcgetattr(guest.slave), guest.before)
 
     def test_failed_terminal_setup_allows_retry(self):

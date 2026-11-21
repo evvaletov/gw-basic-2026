@@ -197,7 +197,7 @@ class Controller:
                 self.values.clear()
                 self.paused = self.fd is not None and not self.finished and not self.cancelling
                 if self.paused:
-                    self.message = "Paused before the highlighted line; offset counts token bytes"
+                    self.message = "Paused; offset counts token bytes"
             elif text.startswith("value "):
                 _, name, value = text.split(" ", 2)
                 name = name.upper()
@@ -231,7 +231,7 @@ class Controller:
         self.events.append("> " + command)
         if command.strip() in ("step", "continue"):
             self.paused = False
-            self.message = "Running; enter any BASIC input in the program terminal"
+            self.message = "Running; enter BASIC input in program terminal"
         if command.startswith("unwatch "):
             self.values.pop(command[8:].strip().upper(), None)
 
@@ -272,10 +272,10 @@ class Controller:
             for row, event in enumerate(visible, event_start + 1):
                 put(row, event)
             put(height - 3, self.message)
-            put(height - 2, "s step c cont b break w/u watch i inspect p snap :")
+            put(height - 2, "s step c cont b brk w/u watch i inspect p snap :")
         hint = "q close (read-only)" if self.finished else "q detach/resume | x cancel the BASIC run"
         if self.cancelling:
-            hint = "Waiting for BASIC to exit"
+            hint = "Waiting for BASIC; Ctrl-C closes inspector"
         put(height - 1, ":" + entry if entry is not None else hint)
         screen.refresh()
 
