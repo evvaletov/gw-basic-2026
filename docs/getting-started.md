@@ -504,4 +504,7 @@ lines and arrays.
 The 16-bit link disables OpenWatcom far-call rewriting (`OPTION NOFARCALLS`).
 With the same object files, the default rewrite produced layout-dependent
 FreeDOS/JemmEx faults; preserving far calls avoided them. The floating-point
-mode and 8 KiB stack remain unchanged. `build_dos.sh 16` and `Makefile.dos16` use this setting.
+mode remains unchanged. Both `build_dos.sh 16` and `Makefile.dos16` reserve a
+16 KiB stack for nested expression evaluation. Compared with the previous
+8 KiB stack, this leaves 8 KiB less near-heap space for program storage,
+arrays and the string collector's scratch buffer.

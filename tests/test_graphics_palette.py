@@ -346,6 +346,8 @@ class GraphicsPalette(unittest.TestCase):
             ('20 SCREEN 1:LINE (0,0)-(2,2),1,B:LINE (3,0)-(5,2),1,BF\n'
              '30 SCREEN 0:PRINT 17\n', "17"),
             ('20 SAVE "saved.bas",A:PRINT 17\n', "17"),
+            ('20 IF 0 THEN LOAD "saved.bas",R\n30 PRINT 17\n', "17"),
+            ('20 IF 0 THEN RUN "saved.bas",R\n30 PRINT 17\n', "17"),
             ('20 IF 0 THEN INPUT "Name";Q$\n30 PRINT 17\n', "17"),
             ('20 IF 0 THEN INPUT ;Q$\n30 PRINT 17\n', "17"),
             ('20 IF 0 THEN LINE INPUT "Name";Q$\n30 PRINT 17\n', "17"),
@@ -355,7 +357,8 @@ class GraphicsPalette(unittest.TestCase):
                 prefix = ("10 '$EXTERN Q() AS INTEGER\n11 '$EXTERN Output() AS INTEGER\n"
                           "12 '$EXTERN As() AS STRING\n13 '$EXTERN Seg() AS INTEGER\n"
                           "14 '$EXTERN B() AS INTEGER\n15 '$EXTERN BF() AS INTEGER\n"
-                          "16 '$EXTERN A() AS INTEGER\n17 '$EXTERN P() AS INTEGER\n")
+                          "16 '$EXTERN A() AS INTEGER\n17 '$EXTERN P() AS INTEGER\n"
+                          "18 '$EXTERN R() AS INTEGER\n")
                 self.assertEqual(self.run_hosted(prefix + source, host, ["-O0"]), expected)
 
     def test_foreign_calls_in_bounds_subscripts_and_fn_bodies(self):

@@ -605,7 +605,8 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
             assign_ctx = is_branch;
             multi_assign = false;
             as_clause = sprite_array = transfer_candidate = operand_seen = false;
-            qualifier_statement = qualifier_field = 0;
+            qualifier_statement = tok == TOK_RUN ? tok : 0;
+            qualifier_field = 0;
             continue;
         }
 
@@ -667,7 +668,8 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
                  (strcmp(full, "B") == 0 || strcmp(full, "BF") == 0)) ||
                 (qualifier_statement == TOK_SAVE && qualifier_field == 1 &&
                  (strcmp(full, "A") == 0 || strcmp(full, "P") == 0)) ||
-                (qualifier_statement == TOK_LOAD && qualifier_field == 1 && strcmp(full, "R") == 0) ||
+                ((qualifier_statement == TOK_LOAD || qualifier_statement == TOK_RUN) &&
+                 qualifier_field == 1 && strcmp(full, "R") == 0) ||
                 (qualifier_statement == XSTMT_CHAIN && qualifier_field == 2 && strcmp(full, "ALL") == 0)) {
                 operand_seen = false;
                 continue;

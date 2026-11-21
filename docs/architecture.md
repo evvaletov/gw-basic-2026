@@ -109,7 +109,8 @@ is active, it also tracks variable assignment vs. use context to detect
 uninitialized variables, GOTO to nonexistent lines, and unreachable code.
 
 Code generation (`codegen.c`) walks the token stream and emits C source:
-variables become `static int16_t var_A_int`, control flow uses `goto L_100`
+numeric variables become C statics such as `static int16_t var_A_int`, while
+scalar strings use shared runtime descriptors. Control flow uses `goto L_100`
 labels, and expressions are compiled inline using the same precedence-climbing
 structure as `eval.c`.  Optimizations include constant folding, dead code
 elimination and fast-path expression emission. Runtime stacks track active FOR
@@ -141,9 +142,10 @@ expressions and DEF FN bodies. Generated wrappers copy string arguments to
 bounded stack buffers and copy string results before those buffers expire.
 Expression frames register live string descriptors so collection, including
 `FRE("")`, relocates them with shared storage. Shared expression handlers and
-DEF FN saved parameters participate when linked into the runtime library. Error
-dispatch and shutdown discard roots whose C stack frames have unwound; host pool
-pins remain untouched. Shutdown clears the callback and shared state.
+DEF FN saved parameters participate in both the interpreter and the runtime
+library. Errors and Break restore saved bindings and clear temporary roots
+before leaving evaluator frames. Root cleanup leaves host pool pins untouched.
+Shutdown clears roots, the callback and shared state.
 Runtime-selected arrays use shared lookup even with `--inline-arrays`, and tagged
 arithmetic retains its checks under `--fast-math`.
 
