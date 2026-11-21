@@ -30,7 +30,9 @@ class DeploymentTests(unittest.TestCase):
         self.payload = self.base / 'payload'
         self.state.mkdir()
         for directory in (self.root, self.payload):
-            for name in deploy.PAGES + deploy.ASSETS + ('gwbasic/index.html', 'gwbasic/install.html', 'gwbasic/searchindex.js'):
+            for name in deploy.PAGES + deploy.ASSETS + ('gwbasic/index.html', 'gwbasic/install.html',
+                                                       'gwbasic/demos.html', 'gwbasic/language-reference.html',
+                                                       'gwbasic/searchindex.js'):
                 path = directory / name
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(name)
@@ -89,6 +91,17 @@ class DeploymentTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Required site files'):
             deploy.install(self.archive(), self.root, self.state)
         self.assert_restored()
+
+    def test_homepage_documentation_destinations_are_required(self):
+        for name in ('demos.html', 'language-reference.html'):
+            with self.subTest(name=name):
+                path = self.payload / 'gwbasic' / name
+                content = path.read_bytes()
+                path.unlink()
+                with self.assertRaisesRegex(ValueError, 'Required site files'):
+                    deploy.install(self.archive(), self.root, self.state)
+                path.write_bytes(content)
+                self.assert_restored()
 
     def test_reject_paths_links_and_unmanaged_files(self):
         for name, kind in (('../escape', tarfile.REGTYPE), ('/escape', tarfile.REGTYPE),
@@ -202,6 +215,20 @@ d.install(sys.stdin.buffer.read(),Path(sys.argv[2]),Path(sys.argv[3]))
         with self.assertRaisesRegex(ValueError, 'Symlink'):
             deploy.install(self.archive(), self.root, self.state)
 
+    def test_initialise_refuses_pending_recovery_without_a_baseline(self):
+        config = self.base / 'host.json'
+        config.write_text(json.dumps(dict(root=str(self.root), state=str(self.state))))
+        (self.state / 'current.json').unlink()
+        (self.state / 'pending.json').write_text('{}')
+        previous = os.umask(0o077)
+        try:
+            with patch.object(deploy, 'CONFIG', config), patch.object(sys, 'argv', ['deploy', '--initialise']):
+                with self.assertRaisesRegex(ValueError, 'recovery pending'):
+                    deploy.main()
+        finally:
+            os.umask(previous)
+        self.assertFalse((self.state / 'current.json').exists())
+
     def test_current_site_does_not_need_expired_ci_artifact(self):
         _, manifest = sync.package_site(self.payload, 'b' * 40, 123)
         deploy.save(self.state / 'website.json', manifest)
@@ -273,6 +300,8 @@ d.install(sys.stdin.buffer.read(),Path(sys.argv[2]),Path(sys.argv[3]))
         self.assertFalse((self.state / 'website.json').exists())
 
     def test_host_receipt_survives_failed_public_verification(self):
+        receipts = iter([dict(status='installed', source_commit='b' * 40, backup='/private/backup'),
+                         dict(status='unchanged', source_commit='b' * 40)])
         def command(args, **kwargs):
             if args[:3] == ['gh', 'run', 'list']:
                 return json.dumps([dict(databaseId=123, status='completed', conclusion='success', headSha='b' * 40)])
@@ -282,11 +311,12 @@ d.install(sys.stdin.buffer.read(),Path(sys.argv[2]),Path(sys.argv[3]))
             if args[:2] == ['git', 'ls-remote']:
                 return 'b' * 40 + '\trefs/heads/main\n'
             if args[0] == 'ssh':
-                return json.dumps(dict(status='installed', source_commit='b' * 40, backup='/private/backup')).encode()
+                return json.dumps(next(receipts)).encode()
             raise AssertionError(args)
         with patch.object(sync, 'run', side_effect=command), patch.object(sync, 'lease', no_lease), patch.object(sync, 'verify_public', side_effect=RuntimeError('HTTP mismatch')):
-            with self.assertRaisesRegex(RuntimeError, 'HTTP mismatch'):
-                sync.deploy_site(self.state, 'b' * 40)
+            for attempt in range(2):
+                with self.subTest(attempt=attempt), self.assertRaisesRegex(RuntimeError, 'HTTP mismatch'):
+                    sync.deploy_site(self.state, 'b' * 40)
         self.assertEqual(json.loads((self.state / 'last-install.json').read_text())['backup'], '/private/backup')
         self.assertFalse((self.state / 'website.json').exists())
 

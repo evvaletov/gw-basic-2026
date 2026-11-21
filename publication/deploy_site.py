@@ -117,7 +117,9 @@ def unpack(data, target):
     hashes = inventory(target)
     if hashes != meta['files'] or seen != set(hashes) | {'deployment.json'}:
         raise ValueError('Manifest does not match payload')
-    if not set(PAGES + ASSETS + ('gwbasic/index.html', 'gwbasic/install.html', 'gwbasic/searchindex.js')) <= set(hashes):
+    required_docs = ('gwbasic/index.html', 'gwbasic/install.html', 'gwbasic/demos.html',
+                     'gwbasic/language-reference.html', 'gwbasic/searchindex.js')
+    if not set(PAGES + ASSETS + required_docs) <= set(hashes):
         raise ValueError('Required site files are missing')
     if len(meta['source_commit']) != 40 or any(c not in '0123456789abcdef' for c in meta['source_commit']):
         raise ValueError('Invalid source commit')
@@ -137,7 +139,7 @@ def recover(root, state):
             prepare(docs, root / 'index.html')
             exchange(docs, root / 'gwbasic')
             for name in PAGES:
-                replace_file(backup / name, root / name, backup / 'index.html')
+                replace_file(backup / name, root / name, root / 'index.html')
     if inventory(root) != pending['before']['files']:
         raise RuntimeError('Rollback verification failed; keep pending.json and backup')
     save(state / 'current.json', pending['before'])

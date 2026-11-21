@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import select
 import shlex
+import shutil
 import socket
 import subprocess
 import tarfile
@@ -39,6 +40,7 @@ def ssh(state):
             '-o', 'StrictHostKeyChecking=yes',
             '-o', 'ControlMaster=no', '-o', 'ControlPath=none',
             '-o', 'GlobalKnownHostsFile=/dev/null', '-o', 'VerifyHostKeyDNS=no',
+            '-o', 'KnownHostsCommand=none',
             '-o', 'ClearAllForwardings=yes',
             '-o', 'UserKnownHostsFile=' + str(state / 'known_hosts'),
             '-o', 'ServerAliveInterval=15', '-o', 'ServerAliveCountMax=3']
@@ -178,7 +180,9 @@ def deploy_site(state, sha):
                 return dict(status='main-advanced', source_commit=sha)
             contact()
             receipt = json.loads(run(ssh(state) + [WEB_HOST, 'sudo -n -u apache /usr/local/libexec/gwbasic-deploy'], input=data))
-            save(state / 'last-install.json', dict(receipt, workflow_run=run_id))
+            last_install = state / 'last-install.json'
+            if receipt['status'] == 'installed' or not last_install.exists():
+                save(last_install, dict(receipt, workflow_run=run_id))
             contact()
             verify_public(manifest, contact)
             contact()
@@ -193,6 +197,8 @@ def main():
         raise ValueError('Set GWBASIC_LEASE_SCRIPT, GWBASIC_LEASE_HOST and GWBASIC_WEB_HOST')
     with (STATE / 'lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        for orphan in STATE.glob('site-*'):
+            shutil.rmtree(orphan)
         result = dict(started=time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()))
         errors = []
         try:

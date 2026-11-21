@@ -14,7 +14,7 @@ python publication/build_site.py --output build/valetov-site
 Choose a new or empty output directory for each build. The builder runs Sphinx
 with warnings treated as errors, then adds the home page, the compiler/Jupyter
 article and its downloadable evidence, robots.txt and a sitemap. Build caches
-stay outside the published directory. Search runs locally with Sphinx's JavaScript assets and index.
+stay outside the published directory. Search runs in the browser with Sphinx's JavaScript assets and index.
 
 The Docs workflow builds the assembled site once and uses its `gwbasic/`
 subtree for GitHub Pages. Successful `main` builds deploy Pages and upload
@@ -46,9 +46,10 @@ GWBASIC_LEASE_HOST=coordination-host
 GWBASIC_LEASE_SCRIPT=/path/to/resource_lease.py
 ```
 
-The coordinator runs the shared resource-lease helper. It returns JSON
-`ACQUIRED` on connection, `HELD` after `renew 300` or `status`, and releases on
-`release` or EOF. Publishers take `website/valetov.com`; mirror writers take
+The coordinator runs the shared resource-lease helper with `--resource`,
+`--owner` and `--expected-seconds` arguments. Its JSON `state` is `ACQUIRED` on
+connection and `HELD` after `renew 300` or `status`; it releases on `release` or
+EOF. Publishers take `website/valetov.com`; mirror writers take
 `repository/git.sdf.org/evv/gw-basic-2026`. Manual changes use the same leases.
 Both the publishing host and web host also take local file locks. The private
 bare source cache never reads or changes a developer checkout.
@@ -67,17 +68,20 @@ cat ~/.local/state/gwbasic-publication/status.json
 
 Each run records stage results and exits nonzero on failure. A mirror failure
 does not suppress a website check. `website.json` retains the last verified
-manifest; `last-install.json` records the host receipt before HTTPS verification.
+manifest; `last-install.json` records the host receipt before HTTPS verification
+and retains its backup path across unchanged retries.
 For unchanged source, four main pages are checked without downloading a CI
 artifact. A matching SDF mirror is checked without taking a transaction lease
 or pushing. Pending Docs runs defer publication; a failed run reports failure.
-No email or chat notification is sent.
+No email or chat notification is sent. If a Docs push run is cancelled, rerun
+that push run; a manual workflow dispatch does not qualify for publication.
 
 ## Web host setup and recovery
 
 Install `deploy_site.py` as root-owned `/usr/local/libexec/gwbasic-deploy` and
-make it executable. It runs as the existing `apache` site owner through
-`sudo -u apache`, with no root write access. A root-owned
+make it executable. The SSH login must be able to run
+`sudo -n -u apache /usr/local/libexec/gwbasic-deploy` non-interactively. The
+helper runs as the existing `apache` site owner, with no root write access. A root-owned
 `/etc/gwbasic-publication.json` selects two separate absolute paths on the same
 filesystem: `root` is the existing document root; `state` is a private directory
 outside it. Record the installed helper's hash, and review any future helper
@@ -122,8 +126,9 @@ under the lease and restart the service; its CI artifact must still be
 available. A new successful main build also permits a fresh deployment.
 
 An HTTPS verification failure leaves the newly installed files in place and
-reports failure. Inspect `last-install.json` and the service log before retrying
-or restoring a backup. Stop the timer for planned maintenance with
+reports failure. The timer retries automatically; stop it to hold the site for
+inspection. Read `last-install.json` and the service log before manually
+retrying or restoring a backup. Stop the timer for planned maintenance with
 `systemctl --user stop gwbasic-publication.timer`.
 
 The builder does not modify Apache or deploy files itself. Run

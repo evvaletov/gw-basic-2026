@@ -14,7 +14,8 @@ def main():
     args = parser.parse_args()
     data, manifest = package_site(args.site, '0' * 40, 0)
     with tempfile.TemporaryDirectory() as temp:
-        assert unpack(data, Path(temp)) == manifest
+        if unpack(data, Path(temp)) != manifest:
+            raise ValueError('Deployment manifest changed during validation')
     print('Validated deployment archive:', len(manifest['files']), 'files')
 
 
