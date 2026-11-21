@@ -273,6 +273,16 @@ class GraphicsPalette(unittest.TestCase):
             ["CLEAR 64", 'DEF FNA(S$)=FRE("")',
              'PRINT FNA(STRING$(40,65))'], [], "24")
 
+    def test_fn_saved_string_needs_no_duplicate_allocation(self):
+        for body, latch in [('7', 7), ('7+0*FRE("")', 7),
+                            ('7+0*FRE("")+1/0', 48)]:
+            with self.subTest(body=body):
+                self.check_program(
+                    ["CLEAR 64", "ON ERROR GOTO 60000", 'S$=STRING$(40,65)', 'DEF FNA(S$)=' + body,
+                     "SCREEN 1", 'COLOR FNA("X"),0',
+                     'PRINT INP(&H3D9);FRE("")'],
+                    [], f"{latch} 24", trap_errors=True)
+
     def test_hosted_entries_start_with_fresh_graphics(self):
         for error in (False, True):
             source = ('10 SCREEN 1\n20 PRINT POINT(5,5);INP(&H3D9)\n'

@@ -624,9 +624,9 @@ gw_value_t gw_eval_fn_call(void)
     GW_TEMP_BEGIN(); GW_TEMP_ROOT(&arg_val); GW_TEMP_ROOT(&frame.saved);
     if (fn->param_name[0] && has_arg) {
         frame.parameter = gw_var_find_or_create(fn->param_name, fn->param_type);
+        /* The rooted descriptor keeps the old allocation alive while the
+         * parameter owns the argument; rebinding needs no second copy. */
         frame.saved = frame.parameter->val;
-        if (fn->param_type == VT_STR && frame.saved.type == VT_STR)
-            frame.saved.sval = gw_str_copy(&frame.parameter->val.sval);
     }
     frame.outer = fn_calls;
     fn_calls = &frame;
