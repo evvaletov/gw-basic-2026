@@ -1,12 +1,21 @@
 GW-BASIC 2026 -- Change History
 ================================
 
-Unreleased
+v0.18.3
   - Correct the Sixel defaults for SCREEN 1 to black, light cyan, light magenta
     and high-intensity white, and SCREEN 2 to black and high-intensity white.
     PALETTE with no arguments restores the current mode's defaults. Add
     interpreter/native regressions for colour output, palette overrides,
     resets, mode changes and unchanged POINT attribute values.
+  - Expand original-listing reference coverage to 76 cases from 36 listings:
+    72 completed sessions, two input checkpoints and two expected errors.
+  - Add separately labelled playable Awari and Checkers ports, with ten
+    reference cases covering 60 completed games and two explicit quit paths.
+    Preserve all 98 vendored original listings byte for byte.
+  - Add tested Apple Silicon and Intel macOS 15 archives, a Homebrew formula,
+    an Arch package recipe and packaging for the gwbasickernel Jupyter kernel.
+  - Publish the compiler/Jupyter article and build the valetov.com subsite and
+    GitHub Pages documentation from shared sources.
 
 v0.18.2
   - Store the complete source in SOURCE/GWBASIC/SOURCE.TGZ so the installed

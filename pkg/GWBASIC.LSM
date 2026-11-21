@@ -1,7 +1,7 @@
 Begin3
 Title:           GW-BASIC 2026
-Version:         0.18.2
-Entered-date:    2026-11-13
+Version:         0.18.3
+Entered-date:    2026-11-21
 Description:     A portable C reimplementation of Microsoft GW-BASIC, using
                  the original 8088 assembly source (released by Microsoft
                  in 2020) as the authoritative reference.  Targets bug-
@@ -17,7 +17,7 @@ Maintained-by:   Eremey Valetov <evv@msu.edu>
 Primary-site:    https://github.com/evvaletov/gw-basic-2026
 Original-site:   https://github.com/microsoft/GW-BASIC
 Platforms:       FreeDOS 1.4 in QEMU (16-bit real mode and 32-bit DOS/4GW);
-                 Linux (interpreter and compiler). Other DOS and POSIX
-                 systems have not been validated for this release.
+                 Linux and macOS 15 (interpreter and compiler). Other DOS
+                 and POSIX systems have not been validated for this release.
 Copying-policy:  MIT License; vendored BASIC Computer Games listings: Unlicense
 End

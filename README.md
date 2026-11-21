@@ -69,7 +69,7 @@ GW-BASIC-style full-screen editor:
 
 ```
 $ build/gwbasic
-GW-BASIC 2026 0.18.2
+GW-BASIC 2026 0.18.3
 (C) Eremey Valetov 2026. MIT License.
 Based on Microsoft GW-BASIC assembly source.
 Ok
@@ -243,8 +243,8 @@ a DOS extender.  See [Getting Started](docs/getting-started.md) for details.
 
 ## Release archives
 
-The v0.18.2 [release notes](RELEASE_NOTES.md) describe the Linux and DOS archives,
-checksums, and validation limits. Additional macOS archives support Apple Silicon
+The [release notes](RELEASE_NOTES.md) describe the archives, checksums and
+validation limits. macOS archives support Apple Silicon
 (`arm64`) and Intel (`x86_64`) on macOS 15 or later. They contain the interpreter,
 native compiler, runtime and headers; audio output is disabled. See the
 [macOS download instructions](docs/getting-started.md#macos-binary-downloads).
