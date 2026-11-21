@@ -17,8 +17,8 @@ original joins `1 2` into the literal 12, while the current tokenizer separates
 the digits. That row is recorded but excluded from the palette comparison.
 The text probe checks accepted operands and errors. Its BIOS colour column is
 recorded only; text-mode border writes are not emulated by the port latch.
-The cumulative mode, extended-argument and mode-2 probes record latch values
-and error ordering; the FN-error probe checks restoration of a saved parameter.
+The cumulative mode, extended-argument and mode-2 probes record the BIOS colour
+byte and error outcomes; the FN-error probe checks restoration of a saved parameter.
 Mode-2 foreground selection through OUT and repeated SCREEN 2 image retention
 have model-based regression tests, without a pinned original visual capture.
 The replay replaces the capture's variable-colour LINE stripes with four PSET
