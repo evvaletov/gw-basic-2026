@@ -23,9 +23,11 @@ python3 tools/debug_tui.py attach /tmp/gw-debug-1
 
 The first terminal belongs to the BASIC program, including `INPUT`, keyboard
 events and Sixel graphics. The second shows the entry source, current line,
-token offset, GOSUB depth, latest inspected values and a scrollable event log.
+token offset, GOSUB depth, values at the current stop and a scrollable event log.
 Use Python 3.8 or newer with its standard `curses` module on a POSIX host;
 the controller is tested on Linux. It does not run on DOS or Windows.
+The source pane accepts ASCII files up to 1 MiB; tokenised saves and 8-bit
+listings must be converted before using this controller.
 
 | Key | Action |
 | --- | --- |
@@ -38,12 +40,13 @@ the controller is tested on Linux. It does not run on DOS or Windows.
 | Up / Down | Scroll the recent events |
 | Escape | Cancel command entry |
 | `q` | Detach; BASIC resumes without further debugger stops |
+| `x` | Cancel the BASIC run |
 
-Commands are available at a stop. After stepping an `INPUT` statement, enter
+Monitor commands are available at a stop. After stepping an `INPUT` statement, enter
 the answer in the program terminal. `q` and a controller interruption close
 the command channel; the interpreter processes EOF at its next stop and
 disables all breakpoints. Detachment does not terminate the BASIC program.
-Ctrl-C in the program terminal cancels the supervised run.
+Use `x` in the inspector to cancel, including while BASIC is paused.
 
 Each run requires a new session directory. It contains a private command FIFO,
 an entry-source snapshot, the event log and the exit status. Only one controller
@@ -52,6 +55,9 @@ read-only; start a fresh run to debug again. The viewer retains the latest 120
 events and 16 values in memory; the complete log remains on disk until you
 remove the session directory. Keep the inspector at least 50 columns wide and
 18 rows high.
+Only the most recent values that fit are visible. One-off inspections clear at
+the next stop; registered watches refresh automatically and earlier values
+remain in the event log.
 
 The source pane highlights a line; the displayed offset identifies the exact
 statement in token bytes. It is not a source-column highlight. The pane shows
@@ -114,11 +120,11 @@ execution, capture all memory or replay external effects. EOF resumes and
 turns off debugging. Unsupported commands produce debugger diagnostics.
 
 The monitor supports the interpreter only. Compiled BASIC's runtime has no debug
-hook; source maps and instrumentation are future work. BASIC still has no drum,
+hook; source maps and instrumentation are future work. BASIC has no drum,
 punch-card or cassette-image backend. External clocks, sound and event devices
 continue during pauses; debugging a timing-sensitive program can affect its
-behaviour. Graphical source/file views, step-over and finish remain in the
-coordinated backlog. The shared v1 contract describes the underlying line
+behaviour. Graphical source/file views, step-over and finish remain future work.
+The shared v1 contract describes the underlying line
 monitor; the POSIX controller above is a separate frontend over that protocol.
 
 Run `python3 tests/test_debug.py` for the focused POSIX tests. After both DOS

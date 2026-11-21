@@ -11,7 +11,7 @@
    the evaluator, PTRGET, array_element, string allocation or file readers. */
 #define SLOTS 16
 static FILE *commands, *out;
-static int stepping = 1, nw, nb;
+static int stepping = 1, nw, nb, io_failed;
 static char watches[SLOTS][80];
 static struct { unsigned line; int offset; } breaks[SLOTS];
 static unsigned long stops;
@@ -21,10 +21,16 @@ static void close_debug(void) {
     if (commands && fclose(commands)) bad = 1;
     if (out) { if (ferror(out)) bad = 1; if (fclose(out)) bad = 1; }
     commands = out = NULL;
-    if (bad) { fputs("gwbasic: debugger I/O failure\n", stderr); fflush(stderr); _exit(2); }
+    if (bad && !io_failed) {
+        fputs("gwbasic: debugger I/O failure\n", stderr);
+        if (gw_hal) gw_hal->shutdown();
+        fflush(NULL);
+        _exit(2);
+    }
 }
 
 static void io_error(void) {
+    io_failed = 1;
     fputs("gwbasic: debugger I/O failure\n", stderr);
     exit(2);
 }

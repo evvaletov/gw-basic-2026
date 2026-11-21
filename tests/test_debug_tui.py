@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import pty
 import re
+import resource
 import signal
 import struct
 import subprocess
@@ -23,7 +24,7 @@ ENV = dict(os.environ, TERM="xterm-256color", PULSE_SERVER="unix:/tmp/gwbasic-no
 
 
 class Terminal:
-    def __init__(self, command, cwd):
+    def __init__(self, command, cwd, file_limit=None):
         self.master, self.slave = pty.openpty()
         self.screen = pyte.Screen(100, 28)
         self.stream = pyte.Stream(self.screen)
@@ -31,8 +32,15 @@ class Terminal:
         self.before = termios.tcgetattr(self.slave)
         os.set_blocking(self.master, False)
         self.output = bytearray()
+        def controlling_terminal():
+            os.setsid()
+            fcntl.ioctl(0, termios.TIOCSCTTY, 0)
+            if file_limit is not None:
+                signal.signal(signal.SIGXFSZ, signal.SIG_IGN)
+                resource.setrlimit(resource.RLIMIT_FSIZE, (file_limit, file_limit))
         self.process = subprocess.Popen(command, stdin=self.slave, stdout=self.slave,
-                                        stderr=self.slave, cwd=cwd, env=ENV)
+                                        stderr=self.slave, cwd=cwd, env=ENV,
+                                        preexec_fn=controlling_terminal)
 
     def resize(self, rows, columns):
         fcntl.ioctl(self.slave, termios.TIOCSWINSZ, struct.pack("HHHH", rows, columns, 0, 0))
@@ -82,8 +90,8 @@ class DebugTUI(unittest.TestCase):
         self.session = self.work / "session"
         self.terminals = []
 
-    def terminal(self, command):
-        terminal = Terminal(command, self.work)
+    def terminal(self, command, file_limit=None):
+        terminal = Terminal(command, self.work, file_limit)
         self.terminals.append(terminal)
         self.addCleanup(terminal.close)
         return terminal
@@ -226,9 +234,11 @@ sys.exit(app.main())
         self.assertTrue((self.session / "session.json").exists())
         self.assertEqual(json.loads((self.session / "result.json").read_text())["returncode"], 130)
 
-    def test_detach_before_interpreter_opens_fifo(self):
+    def launch_waiting(self):
+        gate = self.work / "start-basic"
         delayed = self.work / "delayed-basic"
-        delayed.write_text("#!" + sys.executable + "\nimport os,sys,time\ntime.sleep(1)\n"
+        delayed.write_text("#!" + sys.executable + "\nimport os,sys,time\n"
+                           f"while not os.path.exists({str(gate)!r}): time.sleep(.02)\n"
                            f"os.execv({str(BIN)!r}, [{str(BIN)!r}, *sys.argv[1:]])\n")
         delayed.chmod(0o755)
         source = self.work / "main.bas"
@@ -238,12 +248,88 @@ sys.exit(app.main())
         self.wait(lambda: (self.session / "session.json").exists(), "session did not start")
         controller = self.terminal([sys.executable, str(TOOL), "attach", str(self.session)])
         self.wait(lambda: "Waiting for BASIC" in controller.text(), "controller did not wait for the FIFO")
+        return guest, controller, gate
+
+    def test_detach_before_interpreter_opens_fifo(self):
+        guest, controller, gate = self.launch_waiting()
         controller.send("q")
         self.wait(lambda: controller.process.poll() is not None, "early detach did not close")
+        gate.touch()
         self.wait(lambda: guest.process.poll() is not None, "early detach stranded BASIC at FIFO open")
         self.assertEqual(guest.process.returncode, 0)
         self.assertIn("resume eof", self.trace())
         self.assertIn(b"DETACHED", guest.output)
+
+    def test_killed_controller_before_interpreter_opens_fifo(self):
+        guest, controller, gate = self.launch_waiting()
+        controller.process.kill()
+        controller.process.wait(timeout=5)
+        gate.touch()
+        self.wait(lambda: guest.process.poll() is not None, "controller crash stranded BASIC at FIFO open")
+        self.assertEqual(guest.process.returncode, 0)
+        self.assertIn("resume eof", self.trace())
+        self.assertIn(b"DETACHED", guest.output)
+
+    def test_cancel_at_stop_terminates_guest_and_restores_both_terminals(self):
+        guest, controller = self.launch('10 PRINT "MUST NOT EXECUTE":SYSTEM\n')
+        controller.send("x")
+        self.wait(lambda: guest.process.poll() is not None and controller.process.poll() is not None,
+                  "cancel did not terminate the run")
+        self.assertEqual(guest.process.returncode, 130)
+        self.assertEqual(controller.process.returncode, 0)
+        self.assertNotIn(b"MUST NOT EXECUTE", guest.output)
+        self.assertEqual(termios.tcgetattr(guest.slave), guest.before)
+        self.assertEqual(termios.tcgetattr(controller.slave), controller.before)
+
+    def test_terminate_runner_at_stop_restores_guest_terminal(self):
+        guest, controller = self.launch('10 PRINT "MUST NOT EXECUTE":SYSTEM\n')
+        guest.process.terminate()
+        self.wait(lambda: guest.process.poll() is not None, "runner did not terminate at stop")
+        self.assertEqual(guest.process.returncode, 130)
+        self.assertNotIn(b"MUST NOT EXECUTE", guest.output)
+        self.assertEqual(termios.tcgetattr(guest.slave), guest.before)
+        controller.send("q")
+        self.wait(lambda: controller.process.poll() is not None, "controller did not close")
+
+    def test_native_monitor_log_failure_restores_terminal(self):
+        source = self.work / "main.bas"
+        source.write_text("10 PRINT 7:SYSTEM\n")
+        script = self.work / "commands"
+        script.write_text("continue\n")
+        guest = self.terminal([str(BIN), "--debug-script", str(script), "--debug-output",
+                               str(self.work / "events"), str(source)], file_limit=64)
+        self.wait(lambda: guest.process.poll() is not None, "log failure did not exit")
+        self.assertEqual(guest.process.returncode, 2)
+        self.assertEqual(guest.output.count(b"debugger I/O failure"), 1)
+        self.assertEqual(termios.tcgetattr(guest.slave), guest.before)
+
+    def test_failed_terminal_setup_allows_retry(self):
+        source = self.work / "main.bas"
+        source.write_text("10 SYSTEM\n")
+        guest = self.terminal([sys.executable, str(TOOL), "run", "--binary", str(BIN),
+                               "--session", str(self.session), str(source)])
+        self.wait(lambda: (self.session / "session.json").exists(), "session did not start")
+        failed = subprocess.run([sys.executable, str(TOOL), "attach", str(self.session)],
+                                capture_output=True, env=dict(ENV, TERM="gwbasic-invalid-terminal"), timeout=5)
+        self.assertEqual(failed.returncode, 2)
+        self.assertFalse((self.session / "controller-started").exists())
+        self.assertFalse((self.session / "detached").exists())
+        controller = self.terminal([sys.executable, str(TOOL), "attach", str(self.session)])
+        self.wait(lambda: "PAUSED" in controller.text(), "valid terminal could not retry the attachment")
+        controller.send("q")
+        self.wait(lambda: guest.process.poll() is not None, "retried run did not finish")
+        self.assertEqual(guest.process.returncode, 0)
+
+    def test_one_off_inspections_expire_at_the_next_stop(self):
+        guest, controller = self.launch("10 A%=1\n20 A%=2\n30 SYSTEM\n")
+        self.command(controller, "inspect A%", "value A% default integer=0")
+        self.command(controller, "watch B%", "value B% default integer=0")
+        controller.send("s")
+        self.wait(lambda: "Stop 2 " in controller.text(), "next stop not displayed")
+        self.wait(lambda: any("B% default" in row for row in controller.screen.display[9:13]), "watch did not refresh")
+        self.assertFalse(any("A% default" in row for row in controller.screen.display[9:13]))
+        controller.send("q")
+        self.wait(lambda: guest.process.poll() is not None, "run did not finish")
 
     def test_last_duplicate_label_and_recent_values(self):
         guest, controller = self.launch('10 PRINT "OLD"\n10 PRINT "NEW"\n15 REM NOTE\f10 PRINT "FAKE"\n20 SYSTEM\n')

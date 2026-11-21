@@ -15,6 +15,7 @@ import signal
 import stat
 import subprocess
 import sys
+import termios
 
 
 def interrupted(signum, frame):
@@ -35,15 +36,16 @@ def run(args):
     session.mkdir(mode=0o700)  # A fresh directory prevents accidental log reuse.
     child = None
     result = 2
+    saved_terminal = termios.tcgetattr(sys.stdin) if sys.stdin.isatty() else None
 
-    previous = {sig: signal.signal(sig, interrupted) for sig in (signal.SIGTERM, signal.SIGHUP)}
+    previous = {sig: signal.signal(sig, interrupted) for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)}
     try:
         (session / "source.bas").write_bytes(source)
         os.mkfifo(session / "commands", 0o600)
         write_json(session / "session.json", {"source": str(args.source.absolute())})
         command = shlex.join([sys.executable, str(Path(__file__).resolve()), "attach", str(session)])
         print(f"Debugger: in another terminal run\n  {command}\n"
-              "Waiting for the controller; Ctrl-C cancels this run.", file=sys.stderr, flush=True)
+              "Waiting for the controller; x cancels there, q detaches.", file=sys.stderr, flush=True)
         child = subprocess.Popen([str(args.binary.absolute()), "--debug-script", str(session / "commands"),
                                   "--debug-output", str(session / "events"), str(session / "source.bas")])
         while True:
@@ -51,6 +53,19 @@ def run(args):
                 result = child.wait(timeout=.1)
                 break
             except subprocess.TimeoutExpired:
+                if (session / "cancel").exists():
+                    result = 130
+                    break
+                # A killed controller cannot publish its detach marker. The
+                # kernel lock establishes whether the first inspector is gone.
+                if (session / "controller-started").exists() and not (session / "events").exists():
+                    with (session / "controller.lock").open("a") as lock:
+                        try:
+                            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        except BlockingIOError:
+                            pass
+                        else:
+                            (session / "detached").touch()
                 # Detaching before the interpreter opens its FIFO still means
                 # resume: briefly connect a writer so fopen can return EOF.
                 if (session / "detached").exists() and not (session / "events").exists():
@@ -63,6 +78,8 @@ def run(args):
     except KeyboardInterrupt:
         result = 130
     finally:
+        for sig in previous:
+            signal.signal(sig, signal.SIG_IGN)
         if child and child.poll() is None:
             child.terminate()
             try:
@@ -70,10 +87,17 @@ def run(args):
             except subprocess.TimeoutExpired:
                 child.kill()
                 child.wait()
+        if saved_terminal is not None:
+            try:
+                termios.tcsetattr(sys.stdin, termios.TCSANOW, saved_terminal)
+            except termios.error as exc:
+                print(f"debugger: cannot restore program terminal: {exc}", file=sys.stderr)
+                result = 2
+        result = result if result >= 0 else 128 - result
         write_json(session / "result.json", {"returncode": result})
         for sig, handler in previous.items():
             signal.signal(sig, handler)
-    return result if result >= 0 else 128 - result
+    return result
 
 
 def printable(text):
@@ -92,15 +116,18 @@ class Controller:
         self.scroll = 0
         self.location = None
         self.paused = False
+        self.cancelling = False
+        self.started = False
+        self.notice = None
         self.finished = (session / "controller-started").exists()
         self.message = ("Read-only session; start a fresh run to debug again" if self.finished else
                         "Waiting for BASIC to open the command channel")
         self.source = [line.rstrip("\r") for line in (session / "source.bas").read_bytes().decode("ascii").split("\n")]
         self.rows = {int(m[1]): row for row, line in enumerate(self.source)
-                     if (m := re.match(r"\s*(\d+)", line))}
+                     if (m := re.match(r"[ \t]*(\d+)", line))}
 
     def close(self):
-        if not self.finished:
+        if self.started and not self.finished:
             (self.session / "detached").touch()
         if self.fd is not None:
             os.close(self.fd)  # EOF disables the monitor, including breakpoints.
@@ -110,14 +137,18 @@ class Controller:
 
     def poll(self):
         result = self.session / "result.json"
+        notice = None
         if result.exists():
             self.finished = True
             self.paused = False
             code = json.loads(result.read_text())["returncode"]
-            self.message = f"BASIC exited with status {code}; q closes the inspector"
+            notice = f"BASIC exited with status {code}; q closes the inspector"
         elif (self.session / "detached").exists():
             self.finished = True
-            self.message = "Controller detached; start a fresh session to debug again"
+            self.paused = False
+            notice = "Controller detached; start a fresh session to debug again"
+        if notice is not None and notice != self.notice:
+            self.message = self.notice = notice
         if self.fd is None and not self.finished:
             try:
                 self.fd = os.open(self.session / "commands", os.O_WRONLY | os.O_NONBLOCK)
@@ -149,7 +180,8 @@ class Controller:
             stop = re.fullmatch(r"stop (\d+) line=(\d+) offset=(\d+) depth=(\d+)", text)
             if stop:
                 self.location = tuple(int(x) for x in stop.groups())
-                self.paused = self.fd is not None and not self.finished
+                self.values.clear()
+                self.paused = self.fd is not None and not self.finished and not self.cancelling
                 if self.paused:
                     self.message = "Paused before the highlighted line; offset counts token bytes"
             elif text.startswith("value "):
@@ -204,7 +236,8 @@ class Controller:
             put(0, "Resize to 50x18 or larger; q detaches")
             put(1, self.message)
         else:
-            put(0, "GW-BASIC debugger   " + ("VIEW ONLY" if self.finished else "PAUSED" if self.paused else "RUNNING / WAITING"), curses.A_BOLD)
+            status = "VIEW ONLY" if self.finished else "CANCELLING" if self.cancelling else "PAUSED" if self.paused else "RUNNING / WAITING"
+            put(0, "GW-BASIC debugger   " + status, curses.A_BOLD)
             location = self.location
             put(1, f"Stop {location[0]}  line {location[1]}  token offset {location[2]}  GOSUB depth {location[3]}" if location else "No stop yet")
             put(2, "Entry source (initial snapshot)")
@@ -213,7 +246,7 @@ class Controller:
             for row, line in enumerate(self.source[start:start + 5], 3):
                 put(row, ("> " if start + row - 3 == current else "  ") + line,
                     curses.A_REVERSE if start + row - 3 == current else 0)
-            put(8, "Latest values (up to 16; :inspect state / :inspect file N OFFSET COUNT)", curses.A_BOLD)
+            put(8, "Values at this stop (up to 16; :inspect state / :inspect file N OFFSET COUNT)", curses.A_BOLD)
             value_rows = min(len(self.values), max(1, (height - 15) // 3))
             for row, (name, value) in enumerate(list(self.values.items())[-value_rows:], 9):
                 put(row, name + " " + value)
@@ -226,7 +259,10 @@ class Controller:
                 put(row, event)
             put(height - 3, self.message)
             put(height - 2, "s step | c continue | b break | w/u watch | i inspect | p checkpoint | : command | q detach")
-        put(height - 1, ":" + entry if entry is not None else "q detaches and resumes BASIC without further stops")
+        hint = "q close (read-only)" if self.finished else "q detach/resume | x cancel the BASIC run"
+        if self.cancelling:
+            hint = "Waiting for BASIC to exit"
+        put(height - 1, ":" + entry if entry is not None else hint)
         screen.refresh()
 
     def interact(self, screen):
@@ -238,10 +274,13 @@ class Controller:
         # A later controller may inspect the log but must not replay a stale
         # stop as live control after the first controller exits or crashes.
         (self.session / "controller-started").touch()
+        self.started = True
         entry = None
         prefixes = {"b": "break ", "w": "watch ", "u": "unwatch ", "i": "inspect ", "p": "checkpoint ", ":": ""}
         while True:
             self.poll()
+            if self.cancelling and self.finished:
+                return
             self.draw(screen, entry)
             try:
                 key = screen.get_wch()
@@ -258,8 +297,13 @@ class Controller:
                     entry = entry[:-1]
                 elif isinstance(key, str) and 32 <= ord(key) < 127 and len(entry) < 254:
                     entry += key
-            elif key == "q":
+            elif key == "q" and not self.cancelling:
                 return
+            elif key == "x" and not self.finished:
+                (self.session / "cancel").touch()
+                self.cancelling = True
+                self.paused = False
+                self.message = "Cancelling the BASIC run"
             elif key in ("s", "c"):
                 self.send("step" if key == "s" else "continue")
                 self.scroll = 0
@@ -285,6 +329,10 @@ def attach(args):
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             raise ValueError("this session already has a controller") from None
+        if (session / "controller-started").exists():
+            # Reopening is read-only. Mark the departed live controller even
+            # if this viewer acquires the lock before the supervisor checks it.
+            (session / "detached").touch()
         controller = Controller(session)
         previous = {sig: signal.signal(sig, interrupted)
                     for sig in (signal.SIGTERM, signal.SIGHUP)}
