@@ -1,4 +1,5 @@
 #include "gwbasic.h"
+#include "debug.h"
 #include "tui.h"
 #include "graphics.h"
 #include "virmem.h"
@@ -984,6 +985,8 @@ inline_statement:
 
     if (tok == 0 || tok == ':')
         return;
+
+    gw_debug_stop();
 
     /* Trace */
     if (gw.trace_on && gw.cur_line_num != LINE_DIRECT) {

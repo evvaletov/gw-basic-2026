@@ -418,6 +418,7 @@ Notes and constraints:
   string pool and the callee retains ownership of its own buffer.
 - For Fortran callees, declare the routine `bind(c)` with a matching name.
 
+(dos-setup)=
 ## Building for DOS / FreeDOS
 
 GW-BASIC 2026 cross-compiles to DOS using OpenWatcom V2 (`wcc` / `wcc386`).

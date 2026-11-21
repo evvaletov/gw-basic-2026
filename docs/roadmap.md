@@ -1,5 +1,17 @@
 # Roadmap
 
+## Scripted debug runs (20 November 2026)
+
+Implemented on the `debug-media` branch: statement step/continue, breakpoints,
+pure variable/constant-index watches, named inspection checkpoints and native
+file/FIELD views. The [debugger guide](debugger.md) includes the command contract
+and a FORTRAN text-exchange example. POSIX and both DOS targets are supported;
+AOT debugging, execution restoration and graphical inspectors remain future work.
+The coordinated next work is true next/finish plus interactive TUI controls,
+graphical source/device views, broader FORTRAN SAP/numerical coverage, media
+adapters/typed exchange, and a local packaged release. Existing distribution and
+other BASIC roadmap work below retains its own priorities.
+
 ## Current Features
 
 ### Interpreter and Platform Support

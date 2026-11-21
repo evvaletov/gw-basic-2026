@@ -60,6 +60,9 @@ getting-started
 demos
 vscode
 language-reference
+debugger
+debug-contract-v1
+fortran-debug-media-handoff
 architecture
 development
 roadmap

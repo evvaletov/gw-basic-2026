@@ -35,6 +35,7 @@ python3 tests/test_corpus.py             # corpus harness failure checks
 bash tests/run_tests.sh                 # interpreter programs
 bash tests/run_compiler_tests.sh        # native executables
 python3 tests/test_interactive.py        # terminal input and prompt behavior
+python3 tests/test_debug.py
 python3 tests/test_runtime_types.py      # runtime DEFTYPE, FFI and hosted cleanup
 python3 tests/test_compiler_regressions.py  # compiler option combinations
 python3 tests/test_compiler_paths.py        # literal GCC paths and launch failures

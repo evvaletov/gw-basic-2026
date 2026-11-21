@@ -119,19 +119,22 @@ def prepare(work, boot, binary, extender, case):
 
 
 class VM:
-    def __init__(self, qemu, work, output, timeout):
+    def __init__(self, qemu, work, output, timeout, system_disk=None):
         self.work, self.output = work, output
         self.deadline = time.monotonic() + timeout
         self.proc = self.sock = self.fp = None
         self.log = (output / "qemu.log").open("wb")
         sockpath = work / "qmp.sock"
         try:
+            drives = (["-drive", f"file={system_disk},format=qcow2,if=ide,index=0",
+                       "-drive", f"file={work}/data.img,format=raw,if=ide,index=1", "-boot", "c"]
+                      if system_disk else
+                      ["-drive", f"file={work}/boot.img,format=raw,if=floppy,index=0",
+                       "-drive", f"file={work}/data.img,format=raw,if=ide,index=0", "-boot", "a"])
             self.proc = subprocess.Popen([
                 qemu, "-machine", "pc", "-accel", "tcg", "-cpu", "max", "-m", "32",
-                "-nodefaults", "-device", "VGA",
-                "-drive", f"file={work}/boot.img,format=raw,if=floppy,index=0",
-                "-drive", f"file={work}/data.img,format=raw,if=ide,index=0",
-                "-boot", "a", "-display", "none", "-serial", "null", "-monitor", "none",
+                "-nodefaults", "-device", "VGA", *drives,
+                "-display", "none", "-serial", "null", "-monitor", "none",
                 "-qmp", f"unix:{sockpath},server=on,wait=off", "-nic", "none", "-no-reboot"],
                 stdout=self.log, stderr=subprocess.STDOUT)
             end = min(self.deadline, time.monotonic() + 10)

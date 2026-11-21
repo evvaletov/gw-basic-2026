@@ -20,6 +20,7 @@ pkg_check_modules(PULSEAUDIO libpulse-simple)
 # Source files
 set(SOURCES
     src/main.c
+    src/debug.c
     src/tokens.c
     src/tokenizer.c
     src/error.c

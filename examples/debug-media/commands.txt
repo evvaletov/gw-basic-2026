@@ -1,0 +1,8 @@
+capabilities
+watch A$
+watch B$
+break 40
+continue
+inspect file 1 0 16
+checkpoint imported
+continue

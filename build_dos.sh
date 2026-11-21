@@ -32,7 +32,7 @@ INTERP_C=(
     src/math_transcend.c src/strings.c src/print.c
     src/fileio.c src/program_io.c src/print_using.c
     src/graphics.c src/virmem.c src/portio.c src/strpool.c
-    src/sound.c src/tui.c platform/hal_dos.c
+    src/sound.c src/tui.c src/debug.c platform/hal_dos.c
 )
 
 case "${1:-16}" in

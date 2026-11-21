@@ -20,7 +20,7 @@ INTERP_OBJS = &
     src/math_transcend.obj src/strings.obj src/print.obj &
     src/fileio.obj src/program_io.obj src/print_using.obj &
     src/graphics.obj src/virmem.obj src/portio.obj src/strpool.obj &
-    src/sound.obj src/tui.obj platform/hal_dos.obj
+    src/sound.obj src/tui.obj src/debug.obj platform/hal_dos.obj
 
 # Runtime library (for compiled programs)
 GWRT_OBJS = &

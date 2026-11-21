@@ -33,6 +33,7 @@ jobs:
           python3 tests/test_tokenizer.py --sanitize
           python3 tests/test_line_numbers.py
           python3 tests/test_dos_runtime.py
+          python3 tests/test_debug.py
 
       - name: Graphics palette regressions
         run: python3 tests/test_graphics_palette.py
@@ -207,13 +208,18 @@ jobs:
           python3 tests/run_dos_runtime.py \
             --dos16 .ci-stash/gwbasic16.exe --dos32 .ci-stash/gwbasic.exe \
             --dos4gw "$WATCOM/binw/dos4gw.exe" --output build/dos-runtime
+          python3 tests/run_dos_debug.py \
+            --dos16 .ci-stash/gwbasic16.exe --dos32 .ci-stash/gwbasic.exe \
+            --dos4gw "$WATCOM/binw/dos4gw.exe"
 
       - name: Upload DOS runtime evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: dos-runtime-evidence
-          path: build/dos-runtime/
+          path: |
+            build/dos-runtime/
+            build/dos-debug/
           if-no-files-found: warn
 
       - name: Upload DOS artifacts
