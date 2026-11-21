@@ -26,7 +26,7 @@ build/gwbasic-compile build/squares.bas -c --keep-c --runtime .
 build/squares
 ```
 
-The executable prints the same table of squares as the interpreter. `build/squares.c` contains the generated C.
+The executable prints the same table of squares as the interpreter. `build/squares.bas.c` contains the generated C.
 
 ### Notebook graphics
 
@@ -35,6 +35,10 @@ The executable prints the same table of squares as the interpreter. `build/squar
 ![Executed BASIC notebook with a SCREEN 1 program and its concentric circles](docs/images/notebook-graphics.png)
 
 See [Reproducing the demos](docs/demos.md) for installation, commands, capture details and limitations.
+
+[Compiling GW-BASIC and drawing in Jupyter](https://valetov.com/articles/gw-basic-2026/)
+walks through the generated C and the notebook's Sixel-to-PNG output, with examples
+run against v0.18.2.
 
 ## Building
 
