@@ -336,6 +336,9 @@ class GraphicsPalette(unittest.TestCase):
             ('20 SCREEN 1:LINE (0,0)-(2,2),1,B:LINE (3,0)-(5,2),1,BF\n'
              '30 SCREEN 0:PRINT 17\n', "17"),
             ('20 SAVE "saved.bas",A:PRINT 17\n', "17"),
+            ('20 IF 0 THEN INPUT "Name";Q$\n30 PRINT 17\n', "17"),
+            ('20 IF 0 THEN INPUT ;Q$\n30 PRINT 17\n', "17"),
+            ('20 IF 0 THEN LINE INPUT "Name";Q$\n30 PRINT 17\n', "17"),
         ]
         for source, expected in cases:
             with self.subTest(source=source):
@@ -359,6 +362,12 @@ class GraphicsPalette(unittest.TestCase):
             ('20 S$="abc":MID$(S$,Getn,1)="X":PRINT S$\n', "aXc"),
             ('20 OPEN "R",#1,"field.bin",4\n30 FIELD #1,Getn AS S$\n'
              '40 LSET S$="XY":PRINT S$:CLOSE\n', "XY"),
+            ('20 OPEN "R",#1,"record.bin",4:FIELD #1,4 AS S$\n'
+             '30 LSET S$="DATA":PUT (1),Getn:LSET S$="XXXX"\n'
+             '40 GET #1,2:PRINT S$:CLOSE\n', "DATA"),
+            ('20 OPEN "R",#1,"record.bin",4:FIELD #1,4 AS S$\n'
+             '30 LSET S$="DATA":PUT #1,2:LSET S$="XXXX"\n'
+             '40 GET (INSTR("1,2","1")),Getn:PRINT S$:CLOSE\n', "DATA"),
         ]:
             with self.subTest(body=body):
                 source = "10 '$EXTERN Getn() AS INTEGER\n" + body
@@ -369,6 +378,13 @@ class GraphicsPalette(unittest.TestCase):
         host = ('#include "gwrt.h"\nint palette_entry(int,char**);'
                 'const char *As(void){return "x";}int main(void){return palette_entry(0,NULL);}\n')
         self.assertEqual(self.run_hosted(source, host, ["-O0"]), "RENAMED")
+        source = ("10 '$EXTERN Q() AS INTEGER\n"
+                  "20 DEF FNA(Q)=Q+1\n30 PRINT FNA(3)\n")
+        host = ('#include "gwrt.h"\nint palette_entry(int,char**);'
+                'int16_t Q(void){return 40;}int main(void){return palette_entry(0,NULL);}\n')
+        for prefix in ("", "5 IF 0 THEN DEFINT Z\n"):
+            with self.subTest(runtime_types=bool(prefix)):
+                self.assertEqual(self.run_hosted(prefix + source, host, ["-O0"]), "41")
 
     def test_foreign_integer_error_releases_string_arguments(self):
         source = ("10 '$EXTERN Mix(STRING,INTEGER) AS INTEGER\n"
@@ -421,8 +437,13 @@ class GraphicsPalette(unittest.TestCase):
                     self.assertEqual(run.stdout.strip(), error + " in 20")
 
     def test_text_color_output(self):
-        self.check_program(["SCREEN 0", "COLOR 7,0", 'PRINT "OK"'], [],
-                           "\x1b[37m\x1b[40mOK")
+        reference = json.loads((REPO / "tests/compatibility/cga-color.json").read_text())
+        for row in reference["text_probe"]["cases"]:
+            if row["error"]:
+                continue
+            with self.subTest(args=row["args"]):
+                prefix = "\x1b[37m\x1b[40m" if row["args"] == "7,0" else ""
+                self.check_program(["SCREEN 0", "COLOR " + row["args"], 'PRINT "OK"'], [], prefix + "OK")
 
     def test_recorded_probe_latches_after_success_and_error(self):
         reference = json.loads((REPO / "tests/compatibility/cga-color.json").read_text())

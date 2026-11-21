@@ -9,8 +9,8 @@
  * This reimplementation follows the same model.  The pool is a flat char
  * buffer.  gw_str_alloc() bumps a pointer; gw_str_free() is a no-op (just
  * nulls the descriptor).  Compaction runs at statement boundaries — at that
- * point the roots are the variable table and array storage. Both evaluators
- * register live expression temporaries so explicit FRE collection can move
+ * point the roots are the variable table and array storage. The shared
+ * evaluator and tagged native code register temporaries so FRE can move
  * them safely during evaluation.
  */
 

@@ -331,6 +331,10 @@ static void mark_extern_operands(analysis_t *a, uint8_t *p, uint8_t *end,
 
 static void scan_tokens(analysis_t *a, program_line_t *line)
 {
+    /* A declared foreign name is callable in value positions, including FN
+     * bodies. Storage names (assignments, input/read lists, loop variables,
+     * MID$/FIELD targets and sprite arrays) and syntax words do not call it.
+     * Parenthesis depth keeps their subscripts and other operands as values. */
     uint8_t *p = line->tokens;
     uint8_t *end = line->tokens + line->len;
     uint16_t line_num = line->num;
@@ -341,7 +345,7 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
     bool multi_assign = false;
     int paren_depth = 0;
     bool as_clause = false, as_destination = false, operand_seen = false;
-    bool sprite_array = false;
+    bool sprite_array = false, transfer_candidate = false;
     int qualifier_statement = 0, qualifier_field = 0;
 
     while (p < end && *p) {
@@ -353,21 +357,30 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
         /* Colon = statement separator; next variable is assignment target */
         if (tok == ':') {
             p++; assign_ctx = true; multi_assign = false; paren_depth = 0;
-            as_clause = sprite_array = operand_seen = false;
+            as_clause = sprite_array = transfer_candidate = operand_seen = false;
             qualifier_statement = qualifier_field = 0;
             continue;
         }
 
         /* Subscripts are values even within READ/INPUT/SWAP destinations. */
         if (tok == '(') { p++; paren_depth++; assign_ctx = operand_seen = false; continue; }
-        if (tok == ')') { p++; if (paren_depth) paren_depth--; assign_ctx = false; operand_seen = true; continue; }
+        if (tok == ')') {
+            p++; if (paren_depth) paren_depth--;
+            if (!paren_depth) transfer_candidate = false;
+            assign_ctx = false; operand_seen = true;
+            continue;
+        }
         if (tok == ',') {
+            /* A coordinate pair has a comma in its outer parentheses.
+             * A parenthesised file number, including nested calls, does not. */
+            if (transfer_candidate && paren_depth == 1) sprite_array = true;
             p++; assign_ctx = (multi_assign || sprite_array) && paren_depth == 0;
             if (!paren_depth && qualifier_statement) qualifier_field++;
             if (!paren_depth) sprite_array = false;
             operand_seen = false;
             continue;
         }
+        if (tok == ';' && multi_assign && !paren_depth) { p++; continue; }
 
         /* Skip constants */
         if (is_constant(tok)) { skip_constant(&p); assign_ctx = false; operand_seen = true; continue; }
@@ -591,7 +604,7 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
             /* THEN/ELSE can also introduce an assignment rather than a line. */
             assign_ctx = is_branch;
             multi_assign = false;
-            as_clause = sprite_array = operand_seen = false;
+            as_clause = sprite_array = transfer_candidate = operand_seen = false;
             qualifier_statement = qualifier_field = 0;
             continue;
         }
@@ -726,7 +739,7 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
             if (tok == TOK_PREFIX_FE && (p[1] == XSTMT_GET || p[1] == XSTMT_PUT)) {
                 uint8_t *next = p + 2;
                 while (next < end && *next == ' ') next++;
-                sprite_array = next < end && *next == '(';
+                transfer_candidate = next < end && *next == '(';
             }
             /* COMMON — variables receive values from CHAIN, treat as assigned */
             if (tok == TOK_PREFIX_FE && p[1] == XSTMT_COMMON) {
