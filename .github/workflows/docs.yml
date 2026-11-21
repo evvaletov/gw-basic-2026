@@ -65,7 +65,6 @@ jobs:
         with:
           name: valetov-static-site
           path: build/valetov-site
-          include-hidden-files: true
           if-no-files-found: error
 
       - uses: actions/upload-pages-artifact@v3

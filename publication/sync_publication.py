@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import select
 import shlex
+import socket
 import subprocess
 import tarfile
 import tempfile
@@ -22,7 +23,9 @@ REPO = 'evvaletov/gw-basic-2026'
 ORIGIN = 'https://github.com/' + REPO + '.git'
 SDF = 'ssh://git@git.sdf.org:2222/evv/gw-basic-2026.git'
 STATE = Path.home() / '.local/state/gwbasic-publication'
-LEASE = '/home/evaletov/.claude-skills-shared/browser-workflow/scripts/resource_lease.py'
+LEASE = os.environ.get('GWBASIC_LEASE_SCRIPT', '')
+LEASE_HOST = os.environ.get('GWBASIC_LEASE_HOST', '')
+WEB_HOST = os.environ.get('GWBASIC_WEB_HOST', '')
 REFS = ('refs/heads/main', 'refs/tags/v*', 'refs/bugs/*', 'refs/identities/*')
 
 
@@ -31,11 +34,12 @@ def run(args, **kwargs):
 
 
 def ssh(state):
-    return ['ssh', '-F', str(Path.home() / '.ssh/config'), '-x',
+    return ['ssh', '-F', str(Path.home() / '.ssh/config'), '-x', '-a',
             '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=15',
             '-o', 'StrictHostKeyChecking=yes',
             '-o', 'ControlMaster=no', '-o', 'ControlPath=none',
             '-o', 'GlobalKnownHostsFile=/dev/null', '-o', 'VerifyHostKeyDNS=no',
+            '-o', 'ClearAllForwardings=yes',
             '-o', 'UserKnownHostsFile=' + str(state / 'known_hosts'),
             '-o', 'ServerAliveInterval=15', '-o', 'ServerAliveCountMax=3']
 
@@ -43,8 +47,8 @@ def ssh(state):
 @contextmanager
 def lease(state, resource):
     command = shlex.join(['python3', LEASE, '--resource', resource,
-                          '--owner', 'gwbasic-publication-asteroid01', '--expected-seconds', '300'])
-    process = subprocess.Popen(ssh(state) + ['starfield01', command], stdin=subprocess.PIPE,
+                          '--owner', 'gwbasic-publication-' + socket.gethostname(), '--expected-seconds', '300'])
+    process = subprocess.Popen(ssh(state) + [LEASE_HOST, command], stdin=subprocess.PIPE,
                                stdout=subprocess.PIPE, text=True)
 
     def response():
@@ -96,14 +100,19 @@ def sync_refs(state):
     if 'refs/heads/main' not in wanted:
         raise RuntimeError('Canonical main is missing')
     env = dict(os.environ, GIT_SSH_COMMAND=shlex.join(ssh(state)))
+    def remote_refs():
+        return {name: sha for sha, name in
+                (line.split() for line in run(['git', 'ls-remote', SDF, *REFS], env=env, text=True).splitlines())}
+    actual = remote_refs()
+    if all(actual.get(name) == sha for name, sha in wanted.items()):
+        return dict(status='verified-current', source_commit=wanted['refs/heads/main'], refs=len(wanted))
     with lease(state, 'repository/git.sdf.org/evv/gw-basic-2026') as contact:
         contact()
         # No forced updates, deletion or unrelated branches. Divergence fails.
         run(['git', '-C', repository, 'push', '--atomic', SDF,
              *[name + ':' + name for name in sorted(wanted)]], env=env)
         contact()
-        actual = {name: sha for sha, name in
-                  (line.split() for line in run(['git', 'ls-remote', SDF, *REFS], env=env, text=True).splitlines())}
+        actual = remote_refs()
         if any(actual.get(name) != sha for name, sha in wanted.items()):
             raise RuntimeError('SDF readback differs from canonical refs')
     return dict(status='synchronised', source_commit=wanted['refs/heads/main'], refs=len(wanted))
@@ -168,7 +177,8 @@ def deploy_site(state, sha):
             if current != sha:
                 return dict(status='main-advanced', source_commit=sha)
             contact()
-            receipt = json.loads(run(ssh(state) + ['zurichaws', 'sudo -n -u apache /usr/local/libexec/gwbasic-deploy'], input=data))
+            receipt = json.loads(run(ssh(state) + [WEB_HOST, 'sudo -n -u apache /usr/local/libexec/gwbasic-deploy'], input=data))
+            save(state / 'last-install.json', dict(receipt, workflow_run=run_id))
             contact()
             verify_public(manifest, contact)
             contact()
@@ -179,6 +189,8 @@ def deploy_site(state, sha):
 def main():
     os.umask(0o077)
     STATE.mkdir(parents=True, exist_ok=True)
+    if not all((LEASE, LEASE_HOST, WEB_HOST)):
+        raise ValueError('Set GWBASIC_LEASE_SCRIPT, GWBASIC_LEASE_HOST and GWBASIC_WEB_HOST')
     with (STATE / 'lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         result = dict(started=time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()))

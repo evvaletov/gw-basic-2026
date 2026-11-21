@@ -14,106 +14,122 @@ python publication/build_site.py --output build/valetov-site
 Choose a new or empty output directory for each build. The builder runs Sphinx
 with warnings treated as errors, then adds the home page, the compiler/Jupyter
 article and its downloadable evidence, robots.txt and a sitemap. Build caches
-stay outside the published directory. Search uses Sphinx's local JavaScript
-assets and index; no database or external search service is needed.
+stay outside the published directory. Search runs locally with Sphinx's JavaScript assets and index.
 
-The Docs workflow builds both copies and uploads `valetov-static-site`.
-Successful `main` builds deploy GitHub Pages. The publication service on
-asteroid01 checks every fifteen minutes for a successful Docs push run at the
-current GitHub `main` commit. It downloads that run's static artifact and sends
-it to the existing valetov.com Apache host, then compares every public file
-with the artifact's SHA-256 manifest. It also synchronises `main`, `v*` release
-tags, `refs/bugs/*` and `refs/identities/*` from GitHub to SDF. It never pushes
-developer branches, forces divergent refs or deletes remote refs.
+The Docs workflow builds the assembled site once and uses its `gwbasic/`
+subtree for GitHub Pages. Successful `main` builds deploy Pages and upload
+`valetov-static-site`. The publication service checks every fifteen minutes
+for a successful Docs push run at the current GitHub `main` commit. It sends
+that artifact to the existing Apache host, then compares every public file
+with its SHA-256 manifest. It also synchronises `main`, `v*` release tags,
+`refs/bugs/*` and `refs/identities/*` from GitHub to SDF. Pushes are atomic and
+reject divergent refs. Existing remote refs are retained.
 
-The service uses the owner's existing `gh` login and SSH configuration on
-asteroid01. It requires that host, the sf01 coordination authority and the
-destination hosts to be online. A persistent systemd user timer catches up
-after downtime. No account credentials are copied to GitHub Actions. SSH host
-keys are pinned in `~/.local/state/gwbasic-publication/known_hosts`; a changed
-key stops the operation until the host identity has been checked.
+The service uses the owner's existing `gh` login and SSH configuration on the
+publishing host. It requires that host and the destinations to be online;
+changes also require the coordination host. A persistent systemd user timer
+catches up after downtime. Credentials stay on the publishing host. SSH host
+keys are pinned in `~/.local/state/gwbasic-publication/known_hosts`; check host
+identity before replacing a changed key.
 
-## Operating the service
+## Installation and operation
 
-The installed scripts are reviewed copies in `~/.local/lib/gwbasic-publication/`;
-they do not update themselves from the repository. The systemd units are
-`gwbasic-publication.service` and `gwbasic-publication.timer`. Check or run them:
+Install reviewed copies of `sync_publication.py` and `deploy_site.py` in
+`~/.local/lib/gwbasic-publication/`, and the two systemd units in
+`~/.config/systemd/user/`. They do not update themselves from the repository.
+Configure the existing host aliases and coordination helper in the private
+`~/.config/gwbasic-publication.env` file:
+
+```ini
+GWBASIC_WEB_HOST=web-host
+GWBASIC_LEASE_HOST=coordination-host
+GWBASIC_LEASE_SCRIPT=/path/to/resource_lease.py
+```
+
+The coordinator runs the shared resource-lease helper. It returns JSON
+`ACQUIRED` on connection, `HELD` after `renew 300` or `status`, and releases on
+`release` or EOF. Publishers take `website/valetov.com`; mirror writers take
+`repository/git.sdf.org/evv/gw-basic-2026`. Manual changes use the same leases.
+Both the publishing host and web host also take local file locks. The private
+bare source cache never reads or changes a developer checkout.
+
+After installing host keys and checking authentication from the user manager,
+enable the timer. The user manager needs lingering enabled for unattended runs.
 
 ```sh
-systemctl --user status gwbasic-publication.timer gwbasic-publication.service
+systemctl --user daemon-reload
+systemctl --user enable --now gwbasic-publication.timer
 systemctl --user start gwbasic-publication.service
+systemctl --user status gwbasic-publication.timer gwbasic-publication.service
 journalctl --user -u gwbasic-publication.service -n 50 --no-pager
 cat ~/.local/state/gwbasic-publication/status.json
 ```
 
-Each run writes its stage results and failures to `status.json` and exits
-nonzero on failure. A mirror failure does not suppress a website check.
-The last verified website manifest remains in `website.json`; unchanged source
-has four main pages checked over HTTPS without requiring an unexpired CI artifact. Pending Docs
-runs defer publication; a failed Docs run is reported as a failure. No email
-or chat notification is sent. Stop the timer for planned maintenance:
+Each run records stage results and exits nonzero on failure. A mirror failure
+does not suppress a website check. `website.json` retains the last verified
+manifest; `last-install.json` records the host receipt before HTTPS verification.
+For unchanged source, four main pages are checked without downloading a CI
+artifact. A matching SDF mirror is checked without taking a transaction lease
+or pushing. Pending Docs runs defer publication; a failed run reports failure.
+No email or chat notification is sent.
+
+## Web host setup and recovery
+
+Install `deploy_site.py` as root-owned `/usr/local/libexec/gwbasic-deploy` and
+make it executable. It runs as the existing `apache` site owner through
+`sudo -u apache`, with no root write access. A root-owned
+`/etc/gwbasic-publication.json` selects two separate absolute paths on the same
+filesystem: `root` is the existing document root; `state` is a private directory
+outside it. Record the installed helper's hash, and review any future helper
+update alongside the CI archive validator.
+
+The helper bounds gzip expansion before reading tar metadata. It accepts
+regular static files only, rejecting configuration files and executable
+suffixes. It preserves favicons, sibling articles and the hashes of the five
+historical article downloads. A fresh subsite directory replaces the old one
+atomically, removing stale generated pages. Four navigation/article pages are
+replaced individually. Files receive readable modes and the existing home
+page's SELinux label. Check the exchange operation, modes and labels on the
+actual destination filesystem before the first live run.
+
+After checking the existing site's evidence hashes, initialise its baseline:
 
 ```sh
-systemctl --user stop gwbasic-publication.timer
+sudo -u apache /usr/local/libexec/gwbasic-deploy --initialise
 ```
 
-`sync_publication.py` takes short central resource leases on sf01 for
-`website/valetov.com` and `repository/git.sdf.org/evv/gw-basic-2026`. Manual
-publishers must take the same lease. Both asteroid01 and the web host also take local file locks.
-The private bare source cache never reads or changes a developer checkout.
+This refuses an existing baseline or pending recovery. A failed installation
+rolls back and verifies the restored manifest. An interrupted transaction is
+restored on the next invocation before a new payload is considered. Private
+staging remnants and unfinished backups are then removed. The five most recent
+completed deployment backups remain in the configured state directory.
 
-## Host installation and recovery
+A failed rollback retains `pending.json` and its backup for inspection. Do not
+edit managed files while recovery is pending. Power-loss recovery is not
+guaranteed; inspect saved state and live files after a host or disk failure.
+Out-of-band edits stop publication. After reviewing a deliberate manual update,
+archive `current.json` outside the active state path and initialise again under
+the website lease. Keep the old record; do not reset a baseline to bypass an
+unexplained mismatch.
 
-The server helper `deploy_site.py` is installed as root-owned
-`/usr/local/libexec/gwbasic-deploy` on `zurichaws`, and runs as the existing
-`apache` owner of the site through `sudo -u apache`. It needs no root write
-access. It reads a bounded gzip tar from stdin and accepts only regular static
-files under the managed paths; configuration files and executable suffixes
-are rejected. Its state
-and five most recent backups are in `/data/var/www/gwbasic-publication/`,
-outside the document root. Installation records the reviewed existing site
-once with `sudo -u apache /usr/local/libexec/gwbasic-deploy --initialise`. This refuses
-to overwrite an existing baseline. The caller uploads static files only;
-updating the installed helper or timer requires a separate reviewed install.
+For manual rollback, stop the timer and take the website lease. Preserve the
+current files, restore a completed backup's `gwbasic/` directory and four pages,
+verify their hashes against its `baseline.json`, and restore that record as
+`current.json`. Keep the timer stopped while retaining an older publication:
+the local `website.json` cache otherwise reports HTTPS mismatches at the same
+main SHA. To deliberately republish current main, move that local cache aside
+under the lease and restart the service; its CI artifact must still be
+available. A new successful main build also permits a fresh deployment.
 
-Deployment checks the saved live manifest before making changes, exchanges the
-whole `gwbasic/` directory atomically, then replaces the article page and root
-navigation files. It applies the home page's SELinux label and sets readable
-file modes.
-Favicons and sibling articles are outside its write set. The five historical
-article downloads must retain their existing hashes. Stale generated subsite
-files disappear with the directory exchange.
+An HTTPS verification failure leaves the newly installed files in place and
+reports failure. Inspect `last-install.json` and the service log before retrying
+or restoring a backup. Stop the timer for planned maintenance with
+`systemctl --user stop gwbasic-publication.timer`.
 
-A failed installation rolls back from the backup and checks the restored
-manifest. If the process is interrupted, `pending.json` identifies the backup;
-the next invocation restores that transaction before considering a new one.
-Do not edit the managed paths while recovery is pending. A failed rollback
-keeps the journal and backup and requires inspection. Power-loss recovery is
-not guaranteed; inspect the saved state and live files after a host or disk
-failure. Out-of-band edits to
-managed files stop automatic publication; reconcile the live files and saved
-baseline under the central lease before resuming. After reviewing a deliberate
-manual update, archive `current.json` outside the active state path, then run
-`--initialise` as apache to record the approved files. Keep the archived record;
-do not reset a baseline merely to bypass an unexplained mismatch.
-
-For a manual rollback to an earlier successful publication, stop the timer,
-take the website lease, preserve the current managed files, and restore the
-chosen backup's `gwbasic/` directory and four pages. Verify their hashes against
-its `baseline.json`, then restore that record as `current.json` under the same
-lease. Keep the timer stopped while retaining an older publication: the local
-`website.json` cache otherwise reports HTTPS mismatches for the same main SHA.
-To deliberately republish the current build, move that local cache aside under
-the lease and restart the service; its CI artifact must still be available. A
-new successful main build also permits a fresh deployment.
-
-An HTTPS verification failure is reported after installation and leaves the
-new files in place for inspection. It does not automatically roll them back.
-Inspect the service log and host receipt before retrying or restoring a backup.
-
-The builder does not modify Apache or deploy files itself. Run the deployment
-recovery, archive-validation and real-Git mirror tests locally with
-`python3 tests/test_publication.py`; the Docs workflow runs the same checks.
+The builder does not modify Apache or deploy files itself. Run
+`python3 tests/test_publication.py` for recovery, validation and real-Git mirror
+checks, and `python3 publication/check_site_archive.py build/valetov-site` to
+validate a real build. The Docs workflow runs both.
 
 The earlier `publication/compiler-jupyter/build_site.py` command forwards to
 this builder, so article updates also retain the project subsite. Article source

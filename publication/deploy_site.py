@@ -16,8 +16,7 @@ import tarfile
 import tempfile
 import time
 
-ROOT = Path('/data/var/www/html/public_com')
-STATE = Path('/data/var/www/gwbasic-publication')
+CONFIG = Path('/etc/gwbasic-publication.json')
 PAGES = ('articles/gw-basic-2026/index.html', 'sitemap.xml', 'robots.txt', 'index.html')
 ASSETS = tuple('articles/gw-basic-2026/' + name for name in
                ('examples.ipynb', 'graphics.png', 'squares-output.txt', 'squares.bas.c', 'verification.json'))
@@ -70,17 +69,17 @@ def exchange(first, second):
 def prepare(path, reference):
     for item in [path, *path.rglob('*')] if path.is_dir() else [path]:
         os.chmod(item, 0o755 if item.is_dir() else 0o644)
-        # The helper runs as apache, which already owns the managed site.
     subprocess.run(['chcon', '-R', '--reference=' + str(reference), str(path)], check=True,
                    stdout=subprocess.DEVNULL)
 
 
-def replace_file(source, target):
-    fd, name = tempfile.mkstemp(prefix='.gwbasic-new-', dir=target.parent)
+def replace_file(source, target, reference):
+    fd, name = tempfile.mkstemp(prefix='page-', dir=source.parent)
     os.close(fd)
     temp = Path(name)
     try:
         shutil.copy2(source, temp)
+        prepare(temp, reference)
         os.replace(temp, target)
     finally:
         temp.unlink(missing_ok=True)
@@ -100,9 +99,8 @@ def unpack(data, target):
             name = entry.name
             parts = PurePosixPath(name).parts
             static = (name.startswith('gwbasic/') and
-                      (name == 'gwbasic/.buildinfo' or
-                       (not any(part.startswith('.') for part in parts) and
-                        PurePosixPath(name).suffix.lower() in STATIC_SUFFIXES)))
+                      not any(part.startswith('.') for part in parts) and
+                      PurePosixPath(name).suffix.lower() in STATIC_SUFFIXES)
             allowed = name in PAGES + ASSETS or name == 'deployment.json' or static
             if (not entry.isfile() or not parts or '..' in parts or name.startswith('/')
                     or str(PurePosixPath(name)) != name or name in seen or not allowed):
@@ -119,7 +117,7 @@ def unpack(data, target):
     hashes = inventory(target)
     if hashes != meta['files'] or seen != set(hashes) | {'deployment.json'}:
         raise ValueError('Manifest does not match payload')
-    if not set(PAGES + ASSETS + ('gwbasic/index.html', 'gwbasic/searchindex.js')) <= set(hashes):
+    if not set(PAGES + ASSETS + ('gwbasic/index.html', 'gwbasic/install.html', 'gwbasic/searchindex.js')) <= set(hashes):
         raise ValueError('Required site files are missing')
     if len(meta['source_commit']) != 40 or any(c not in '0123456789abcdef' for c in meta['source_commit']):
         raise ValueError('Invalid source commit')
@@ -132,13 +130,14 @@ def recover(root, state):
         return
     pending = json.loads(journal.read_text())
     backup = state / pending['backup']
-    with tempfile.TemporaryDirectory(prefix='restore-', dir=state) as temp:
-        docs = Path(temp) / 'gwbasic'
-        shutil.copytree(backup / 'gwbasic', docs, copy_function=shutil.copy2)
-        prepare(docs, root / 'index.html')
-        exchange(docs, root / 'gwbasic')
-        for name in PAGES:
-            replace_file(backup / name, root / name)
+    if inventory(root) != pending['before']['files']:
+        with tempfile.TemporaryDirectory(prefix='restore-', dir=state) as temp:
+            docs = Path(temp) / 'gwbasic'
+            shutil.copytree(backup / 'gwbasic', docs, copy_function=shutil.copy2)
+            prepare(docs, root / 'index.html')
+            exchange(docs, root / 'gwbasic')
+            for name in PAGES:
+                replace_file(backup / name, root / name, backup / 'index.html')
     if inventory(root) != pending['before']['files']:
         raise RuntimeError('Rollback verification failed; keep pending.json and backup')
     save(state / 'current.json', pending['before'])
@@ -146,8 +145,18 @@ def recover(root, state):
     shutil.rmtree(backup)
 
 
-def install(data, root=ROOT, state=STATE):
+def install(data, root, state):
+    if root.stat().st_dev != state.stat().st_dev:
+        raise ValueError('State and site must be on the same filesystem')
     recover(root, state)
+    # A killed process cannot run TemporaryDirectory cleanup. The host lock
+    # makes these private, reserved paths unambiguously orphaned on re-entry.
+    for pattern in ('stage-*', 'restore-*'):
+        for orphan in state.glob(pattern):
+            shutil.rmtree(orphan)
+    for backup in state.glob('backup-*'):
+        if not (backup / 'completed.json').exists():
+            shutil.rmtree(backup)
     before = json.loads((state / 'current.json').read_text())
     if inventory(root) != before['files']:
         raise ValueError('Managed live files changed outside deployment; reconcile first')
@@ -160,8 +169,6 @@ def install(data, root=ROOT, state=STATE):
             save(state / 'current.json', meta)
             return dict(status='unchanged', source_commit=meta['source_commit'])
         prepare(payload / 'gwbasic', root / 'index.html')
-        for name in PAGES:
-            prepare(payload / name, root / 'index.html')
         backup = state / ('backup-' + str(time.time_ns()))
         backup.mkdir(mode=0o700)
         try:
@@ -176,10 +183,11 @@ def install(data, root=ROOT, state=STATE):
             save(state / 'pending.json', dict(backup=backup.name, before=before))
             exchange(payload / 'gwbasic', root / 'gwbasic')
             for name in PAGES:
-                replace_file(payload / name, root / name)
+                replace_file(payload / name, root / name, root / 'index.html')
             if inventory(root) != meta['files']:
                 raise RuntimeError('Published files differ from manifest')
             save(state / 'current.json', meta)
+            save(backup / 'completed.json', dict(source_commit=meta['source_commit']))
             (state / 'pending.json').unlink()
         except BaseException:
             recover(root, state)
@@ -196,22 +204,26 @@ def main():
     parser.add_argument('--initialise', action='store_true', help='Record the reviewed existing live files once')
     args = parser.parse_args()
     os.umask(0o077)
-    STATE.mkdir(mode=0o700, parents=True, exist_ok=True)
-    with (STATE / 'lock').open('a') as lock:
+    config = json.loads(CONFIG.read_text())
+    root, state = Path(config['root']), Path(config['state'])
+    if not root.is_absolute() or not state.is_absolute() or root in state.parents or state in root.parents or root == state:
+        raise ValueError('Site and state must be separate absolute paths')
+    state.mkdir(mode=0o700, parents=True, exist_ok=True)
+    with (state / 'lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         if args.initialise:
-            if (STATE / 'current.json').exists():
-                raise ValueError('Already initialised')
-            files = inventory(ROOT)
+            if (state / 'current.json').exists() or (state / 'pending.json').exists():
+                raise ValueError('Already initialised or recovery pending')
+            files = inventory(root)
             if not set(PAGES + ASSETS + ('gwbasic/index.html',)) <= set(files):
                 raise ValueError('Existing site is incomplete')
-            save(STATE / 'current.json', dict(source_commit=None, files=files))
+            save(state / 'current.json', dict(source_commit=None, files=files))
             print(json.dumps(dict(status='initialised', files=len(files))))
         else:
             data = sys.stdin.buffer.read(LIMIT + 1)
             if len(data) > LIMIT:
                 raise ValueError('Compressed archive exceeds limit')
-            print(json.dumps(install(data)))
+            print(json.dumps(install(data, root, state)))
 
 
 if __name__ == '__main__':

@@ -4,8 +4,10 @@ from contextlib import contextmanager
 import io
 import gzip
 import json
+import os
 from pathlib import Path
 import subprocess
+import shutil
 import sys
 import tarfile
 import tempfile
@@ -82,6 +84,12 @@ class DeploymentTests(unittest.TestCase):
             deploy.install(bad, self.root, self.state)
         self.assert_restored()
 
+    def test_install_page_is_required_for_idle_verification(self):
+        (self.payload / 'gwbasic/install.html').unlink()
+        with self.assertRaisesRegex(ValueError, 'Required site files'):
+            deploy.install(self.archive(), self.root, self.state)
+        self.assert_restored()
+
     def test_reject_paths_links_and_unmanaged_files(self):
         for name, kind in (('../escape', tarfile.REGTYPE), ('/escape', tarfile.REGTYPE),
                            ('gwbasic/link', tarfile.SYMTYPE), ('favicon.svg', tarfile.REGTYPE),
@@ -115,11 +123,11 @@ class DeploymentTests(unittest.TestCase):
         original = deploy.replace_file
         calls = []
 
-        def fail_once(source, target):
+        def fail_once(source, target, reference):
             calls.append(target)
             if len(calls) == 2:
                 raise OSError('injected file replacement failure')
-            original(source, target)
+            original(source, target, reference)
 
         with patch.object(deploy, 'replace_file', side_effect=fail_once):
             with self.assertRaisesRegex(OSError, 'injected'):
@@ -145,6 +153,48 @@ class DeploymentTests(unittest.TestCase):
         self.assertTrue((self.state / 'pending.json').exists())
         deploy.recover(self.root, self.state)
         self.assert_restored()
+
+    def test_abrupt_process_exit_recovers_and_removes_private_orphans(self):
+        code = '''import os,sys
+from pathlib import Path
+sys.path.insert(0,sys.argv[1])
+import deploy_site as d
+d.prepare=lambda *a: None
+def stop(*a): os._exit(99)
+d.replace_file=stop
+d.install(sys.stdin.buffer.read(),Path(sys.argv[2]),Path(sys.argv[3]))
+'''
+        process = subprocess.run([sys.executable, '-c', code,
+                                  str(Path(deploy.__file__).parent), str(self.root), str(self.state)],
+                                 input=self.archive(), timeout=30)
+        self.assertEqual(process.returncode, 99)
+        self.assertTrue(list(self.state.glob('stage-*')))
+        # Refuse the next payload after recovery, leaving the restored site observable.
+        (self.payload / deploy.ASSETS[0]).write_text('unreviewed change')
+        with self.assertRaisesRegex(ValueError, 'Historical article'):
+            deploy.install(self.archive(), self.root, self.state)
+        self.assert_restored()
+        self.assertFalse(list(self.state.glob('stage-*')))
+        self.assertFalse(list(self.state.glob('backup-*')))
+
+    def test_exchange_failure_before_any_change_clears_transaction(self):
+        with patch.object(deploy, 'exchange', side_effect=OSError('unsupported exchange')):
+            with self.assertRaisesRegex(OSError, 'unsupported'):
+                deploy.install(self.archive(), self.root, self.state)
+        self.assert_restored()
+        self.assertFalse((self.state / 'pending.json').exists())
+
+    def test_prepare_makes_site_readable_under_private_umask(self):
+        self.prepare.stop()
+        previous = os.umask(0o077)
+        try:
+            with patch.object(deploy.subprocess, 'run'):
+                deploy.install(self.archive(), self.root, self.state)
+        finally:
+            os.umask(previous)
+        self.assertEqual((self.root / 'gwbasic').stat().st_mode & 0o777, 0o755)
+        for name in deploy.PAGES + ('gwbasic/index.html', 'gwbasic/searchindex.js'):
+            self.assertEqual((self.root / name).stat().st_mode & 0o777, 0o644, name)
 
     def test_reject_symlinked_managed_directory(self):
         (self.root / 'gwbasic').rename(self.root / 'elsewhere')
@@ -178,7 +228,6 @@ class DeploymentTests(unittest.TestCase):
         self.assertEqual(len(list(self.state.glob('backup-*'))), 5)
 
     def test_controller_installs_exact_artifact_and_verifies_public_bytes(self):
-        import shutil
 
         def command(args, **kwargs):
             if args[:3] == ['gh', 'run', 'list']:
@@ -201,10 +250,10 @@ class DeploymentTests(unittest.TestCase):
             cached = json.loads((self.state / 'website.json').read_text())
             self.assertEqual(cached['files'], deploy.inventory(self.payload))
             self.assertEqual(result['verified_files'], len(cached['files']))
+            self.assertEqual(json.loads((self.state / 'last-install.json').read_text())['status'], 'installed')
             self.assertEqual(sync.deploy_site(self.state, 'b' * 40)['status'], 'verified-current')
 
     def test_main_advance_after_artifact_download_defers_install(self):
-        import shutil
         calls = []
 
         def command(args, **kwargs):
@@ -221,6 +270,24 @@ class DeploymentTests(unittest.TestCase):
         with patch.object(sync, 'run', side_effect=command), patch.object(sync, 'lease', no_lease):
             self.assertEqual(sync.deploy_site(self.state, 'b' * 40)['status'], 'main-advanced')
         self.assert_restored()
+        self.assertFalse((self.state / 'website.json').exists())
+
+    def test_host_receipt_survives_failed_public_verification(self):
+        def command(args, **kwargs):
+            if args[:3] == ['gh', 'run', 'list']:
+                return json.dumps([dict(databaseId=123, status='completed', conclusion='success', headSha='b' * 40)])
+            if args[:3] == ['gh', 'run', 'download']:
+                shutil.copytree(self.payload, args[-1], dirs_exist_ok=True)
+                return b''
+            if args[:2] == ['git', 'ls-remote']:
+                return 'b' * 40 + '\trefs/heads/main\n'
+            if args[0] == 'ssh':
+                return json.dumps(dict(status='installed', source_commit='b' * 40, backup='/private/backup')).encode()
+            raise AssertionError(args)
+        with patch.object(sync, 'run', side_effect=command), patch.object(sync, 'lease', no_lease), patch.object(sync, 'verify_public', side_effect=RuntimeError('HTTP mismatch')):
+            with self.assertRaisesRegex(RuntimeError, 'HTTP mismatch'):
+                sync.deploy_site(self.state, 'b' * 40)
+        self.assertEqual(json.loads((self.state / 'last-install.json').read_text())['backup'], '/private/backup')
         self.assertFalse((self.state / 'website.json').exists())
 
     def test_public_verification_quotes_names_and_rejects_wrong_bytes(self):
