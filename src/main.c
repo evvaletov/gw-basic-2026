@@ -1,4 +1,5 @@
 #include "gwbasic.h"
+#include "debug.h"
 #include "tui.h"
 #include "sound.h"
 #include "portio.h"
@@ -166,6 +167,7 @@ int main(int argc, char **argv)
     int interactive = isatty(fileno(stdin));
 
     const char *filename = NULL;
+    const char *debug_script = NULL, *debug_output = NULL;
     bool fullscreen = false;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
@@ -175,6 +177,7 @@ int main(int argc, char **argv)
                    "  -h, --help         Show this help\n"
                    "  --lpt DEVICE|FILE  Printer output destination (default: LPT1.TXT)\n"
                    "                     Use LPT1 or /dev/lp0 for real hardware\n"
+                   "  --debug-script FILE --debug-output NEWFILE  Scripted line monitor\n"
                    "  -v, --version      Show version\n");
             return 0;
         }
@@ -190,10 +193,19 @@ int main(int argc, char **argv)
             gw_lpt_set_path(argv[++i]);
             continue;
         }
+        if (!strcmp(argv[i], "--debug-script") || !strcmp(argv[i], "--debug-output")) {
+            const char *opt = argv[i];
+            if (++i == argc) { fputs("missing debug filename\n", stderr); return 1; }
+            if (!strcmp(opt, "--debug-script")) debug_script = argv[i];
+            else debug_output = argv[i];
+            continue;
+        }
         if (argv[i][0] != '-') {
             filename = argv[i];
         }
     }
+
+    gw_debug_open(debug_script, debug_output);
 
     /* Load file: auto-detects binary vs ASCII, then RUN */
     if (filename) {

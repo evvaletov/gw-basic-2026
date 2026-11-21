@@ -60,6 +60,8 @@ getting-started
 demos
 vscode
 language-reference
+debugger
+debug-contract-v1
 architecture
 development
 roadmap

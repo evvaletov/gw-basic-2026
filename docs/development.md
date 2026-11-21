@@ -35,6 +35,7 @@ python3 tests/test_corpus.py             # corpus harness failure checks
 bash tests/run_tests.sh                 # interpreter programs
 bash tests/run_compiler_tests.sh        # native executables
 python3 tests/test_interactive.py        # terminal input and prompt behavior
+python3 tests/test_debug.py
 python3 tests/test_runtime_types.py      # runtime DEFTYPE, FFI and hosted cleanup
 python3 tests/test_compiler_regressions.py  # compiler option combinations
 python3 tests/test_compiler_paths.py        # literal GCC paths and launch failures
@@ -135,14 +136,19 @@ the larger local semantic matrices remain useful release checks.
 
 ### Compatibility Testing
 
-The curated corpus has 53 scripted cases from twenty-six original *BASIC
+`python3 tests/test_debug.py` checks the scripted interpreter monitor.
+After installing `tests/requirements.txt`, `python3 tests/test_debug_tui.py`
+checks the controller in separate pseudo-terminals. After both DOS builds,
+`python3 tests/run_dos_debug.py` checks the monitor and guest screen in FreeDOS.
+
+The curated corpus has 96 scripted cases from forty-six original *BASIC
 Computer Games* listings. Each interpreter run and each of six compiler modes
 must match a checked-in Microsoft GW-BASIC transcript. Compiled output must also
 match the interpreter. Normalization converts CRLF to LF and removes trailing
 spaces and tabs; leading spaces and blank lines remain significant.
 
 ```bash
-# Run one case, or leave off --case to run all 53.
+# Run one case, or leave off --case to run all 96.
 bash tests/run_corpus.sh --case plot --report corpus-matrix.json
 
 # Transpile and compile all 98 listings without executing them.

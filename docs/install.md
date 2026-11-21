@@ -15,7 +15,7 @@ Compare your download with the matching checksum file on the release page.
 | Source | [gwbasic-0.18.3-source.tar.gz](https://github.com/evvaletov/gw-basic-2026/releases/download/v0.18.3/gwbasic-0.18.3-source.tar.gz) |
 
 See the [macOS download instructions](getting-started.md#macos-binary-downloads)
-and [DOS setup](getting-started.md#building-for-dos-freedos) for platform details.
+and {ref}`DOS setup <dos-setup>` for platform details.
 The 16-bit DOS build needs no extender; the 32-bit build uses DOS/4GW.
 The macOS builds have audio disabled and are not notarised.
 You can also [build from source](getting-started.md#building).

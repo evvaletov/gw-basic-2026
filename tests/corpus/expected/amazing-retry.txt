@@ -1,0 +1,24 @@
+                           AMAZING PROGRAM
+              CREATIVE COMPUTING  MORRISTOWN, NEW JERSEY
+
+
+
+
+WHAT ARE YOUR WIDTH AND LENGTH? MEANINGLESS DIMENSIONS.  TRY AGAIN.
+WHAT ARE YOUR WIDTH AND LENGTH?
+
+
+
+.  .--.--.--.--.--.--.--.
+I                 I     I
+:  :  :  :--:--:  :--:  .
+I  I  I        I        I
+:  :  :  :--:--:--:--:--.
+I  I  I           I     I
+:  :  :--:--:--:  :  :  .
+I  I     I     I  I  I  I
+:  :--:--:  :  :  :  :  .
+I           I  I  I  I  I
+:  :--:--:--:  :  :  :  .
+I           I  I     I  I
+:--:--:--:--:  :--:--:--.

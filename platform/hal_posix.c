@@ -10,13 +10,16 @@
 #include <signal.h>
 
 static struct termios orig_termios;
-static int raw_mode = 0;
-static int termios_saved = 0;
+static volatile sig_atomic_t raw_mode;
+static volatile sig_atomic_t termios_saved;
 static int cursor_row = 0;
 static int cursor_col = 0;
 static int pending_char = -1;
 static int terminal_cols = 80, terminal_rows = 25;
 static bool output_tty;
+static volatile sig_atomic_t tui_terminal_active;
+static void posix_tui_leave(void);
+static void terminal_restore_for_signal(void);
 
 /* BASIC strings remain bytes. Render the high half of CP437 as UTF-8,
  * one terminal cell per BASIC byte, independently of the process locale. */
@@ -280,27 +283,93 @@ static void posix_set_width(int cols)
     (void)cols;
 }
 
+/* Restore only terminal state this HAL owns, and borrow only default signal
+ * dispositions. The raw terminal and editor screen share this cleanup guard. */
+static const int terminal_signals[] = {SIGTERM, SIGHUP, SIGINT, SIGQUIT};
+static struct sigaction terminal_previous[4];
+static volatile sig_atomic_t terminal_installed[4];
+static const char tui_reset[] = "\033[?1049l\033[0m\033[0 q\033[?25h";
+
+static void terminal_signal(int number)
+{
+    terminal_restore_for_signal();
+    for (int i = 0; i < 4; i++)
+        if (terminal_signals[i] == number) {
+            sigaction(number, &terminal_previous[i], NULL);
+            raise(number);
+            return;
+        }
+}
+
+static void terminal_block_signals(sigset_t *previous)
+{
+    sigset_t blocked;
+    sigemptyset(&blocked);
+    for (int i = 0; i < 4; i++) sigaddset(&blocked, terminal_signals[i]);
+    sigprocmask(SIG_BLOCK, &blocked, previous);
+}
+
+/* Call with terminal signals blocked while acquiring or releasing ownership. */
+static void terminal_guard_begin(void)
+{
+    struct sigaction action;
+    memset(&action, 0, sizeof(action));
+    action.sa_handler = terminal_signal;
+    sigemptyset(&action.sa_mask);
+    for (int i = 0; i < 4; i++) sigaddset(&action.sa_mask, terminal_signals[i]);
+    for (int i = 0; i < 4; i++) {
+        if (!terminal_installed[i] &&
+            sigaction(terminal_signals[i], NULL, &terminal_previous[i]) == 0 &&
+            terminal_previous[i].sa_handler == SIG_DFL &&
+            sigaction(terminal_signals[i], &action, NULL) == 0) terminal_installed[i] = 1;
+    }
+}
+
+static void terminal_guard_end(void)
+{
+    if (raw_mode || tui_terminal_active) return;
+    for (int i = 0; i < 4; i++) {
+        if (terminal_installed[i]) {
+            struct sigaction current;
+            if (sigaction(terminal_signals[i], NULL, &current) == 0 && current.sa_handler == terminal_signal)
+                sigaction(terminal_signals[i], &terminal_previous[i], NULL);
+            terminal_installed[i] = 0;
+        }
+    }
+}
+
 static void posix_enable_raw(void)
 {
     if (raw_mode || !isatty(STDIN_FILENO))
         return;
-    if (tcgetattr(STDIN_FILENO, &orig_termios) != 0) return;
+    sigset_t previous;
+    terminal_block_signals(&previous);
+    if (tcgetattr(STDIN_FILENO, &orig_termios) != 0) {
+        sigprocmask(SIG_SETMASK, &previous, NULL);
+        return;
+    }
     termios_saved = 1;
     struct termios raw = orig_termios;
     cfmakeraw(&raw);
     raw.c_oflag |= OPOST;  /* keep output processing (newline translation) */
     raw.c_cc[VMIN] = 0;
     raw.c_cc[VTIME] = 0;
-    tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
-    raw_mode = 1;
+    terminal_guard_begin();
+    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == 0) raw_mode = 1;
+    else terminal_guard_end();
+    sigprocmask(SIG_SETMASK, &previous, NULL);
 }
 
 static void posix_disable_raw(void)
 {
     if (!raw_mode)
         return;
+    sigset_t previous;
+    terminal_block_signals(&previous);
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios);
     raw_mode = 0;
+    terminal_guard_end();
+    sigprocmask(SIG_SETMASK, &previous, NULL);
 }
 
 /* Only borrow default termination dispositions while ordinary input is raw.
@@ -312,10 +381,19 @@ static volatile sig_atomic_t input_installed[4];
 static volatile sig_atomic_t input_guard_active;
 static struct termios input_saved;
 
+static void terminal_restore_for_signal(void)
+{
+    if (raw_mode && termios_saved)
+        tcsetattr(STDIN_FILENO, TCSANOW, &orig_termios);
+    else if (input_guard_active)
+        tcsetattr(STDIN_FILENO, TCSANOW, &input_saved);
+    if (tui_terminal_active)
+        (void)write(STDOUT_FILENO, tui_reset, sizeof(tui_reset) - 1);
+}
+
 static void input_signal(int number)
 {
-    if (input_guard_active)
-        tcsetattr(STDIN_FILENO, TCSANOW, raw_mode && termios_saved ? &orig_termios : &input_saved);
+    terminal_restore_for_signal();
     for (int i = 0; i < 4; i++)
         if (input_signals[i] == number) {
             sigaction(number, &input_previous[i], NULL);
@@ -342,7 +420,8 @@ static void input_guard_end(void)
 static void input_exit_restore(void)
 {
     input_guard_end();
-    if (raw_mode && termios_saved) tcsetattr(STDIN_FILENO, TCSANOW, &orig_termios);
+    if (tui_terminal_active) posix_tui_leave();
+    posix_disable_raw();
 }
 
 static bool input_guard_begin(const struct termios *saved)
@@ -554,14 +633,27 @@ static const int ansi_bg[8]  = {40,44,42,46,41,45,43,47};
 
 static void posix_tui_enter(void)
 {
+    if (tui_terminal_active) return;
+    sigset_t previous;
+    terminal_block_signals(&previous);
+    terminal_guard_begin();
+    tui_terminal_active = true;
     printf("\033[?1049h\033[2J\033[H");
     fflush(stdout);
+    sigprocmask(SIG_SETMASK, &previous, NULL);
 }
 
 static void posix_tui_leave(void)
 {
-    printf("\033[?1049l\033[0 q\033[?25h");
+    if (!tui_terminal_active) return;
+    sigset_t previous;
+    terminal_block_signals(&previous);
+    fputs(tui_reset, stdout);
     fflush(stdout);
+    posix_disable_raw();
+    tui_terminal_active = false;
+    terminal_guard_end();
+    sigprocmask(SIG_SETMASK, &previous, NULL);
 }
 
 static void posix_render_run(int row, int col,
@@ -605,11 +697,9 @@ static void posix_init(void)
 static void posix_shutdown(void)
 {
     input_guard_end();
+    if (tui_terminal_active) posix_tui_leave();
     input_editing = false;
-    if (raw_mode) {
-        tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios);
-        raw_mode = 0;
-    }
+    posix_disable_raw();
 }
 
 static hal_ops_t posix_hal = {
