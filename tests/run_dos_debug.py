@@ -8,7 +8,10 @@ import tempfile
 
 import run_dos_runtime as dos
 
-SOURCE = '''5 DIM M%(2,3):M%(1,2)=17:M%(2,1)=29
+SOURCE = '''1 CLEAR 64:DEF FNA(S$)=FRE("")
+2 IF FNA(STRING$(40,65))<>24 THEN ERROR 5
+3 CLEAR 8192
+5 DIM M%(2,3):M%(1,2)=17:M%(2,1)=29
 10 CLS:PRINT "GUEST SCREEN"
 20 A%=1:GOSUB 100
 30 SCREEN 1
@@ -30,7 +33,7 @@ SOURCE = '''5 DIM M%(2,3):M%(1,2)=17:M%(2,1)=29
 90 OPEN "CHECK.TXT" FOR OUTPUT AS #2:PRINT #2,A%;C%:CLOSE #2:SYSTEM
 100 A%=A%+1:RETURN
 '''
-COMMANDS = "watch A%\nwatch C%\nwatch A$\nwatch M%(1,2)\nwatch M%(2,1)\n" + "checkpoint guest\ninspect file 1 0 8\nstep\n"*64
+COMMANDS = "watch A%\nwatch C%\nwatch A$\nwatch M%(1,2)\nwatch M%(2,1)\n" + "checkpoint guest\ninspect file 1 0 8\nstep\n"*80
 
 
 def main():
@@ -100,7 +103,7 @@ def main():
             assert "checkpoint guest" in log
             report[mode] = {"status": "passed", "binary_sha256": dos.digest(binary),
                             "checks": ["calls", "watches", "checkpoints", "FIELD bytes", "graphics POINT",
-                                       "CGA colour state", "same-mode pixels", "full-size framebuffers",
+                                       "CGA colour state", "same-mode pixels", "full-size framebuffers", "FN string ownership",
                                        "guest screen", "normal/debug equivalence"]}
             print("PASS DOS"+mode+" debug and screen preservation", flush=True)
     if args.system_disk:

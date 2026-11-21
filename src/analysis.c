@@ -340,6 +340,9 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
     bool assign_ctx = true;  /* start of line = statement start */
     bool multi_assign = false;
     int paren_depth = 0;
+    bool as_clause = false, as_destination = false, operand_seen = false;
+    bool sprite_array = false;
+    int qualifier_statement = 0, qualifier_field = 0;
 
     while (p < end && *p) {
         uint8_t tok = *p;
@@ -348,21 +351,33 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
         if (tok == ' ') { p++; continue; }
 
         /* Colon = statement separator; next variable is assignment target */
-        if (tok == ':') { p++; assign_ctx = true; multi_assign = false; paren_depth = 0; continue; }
+        if (tok == ':') {
+            p++; assign_ctx = true; multi_assign = false; paren_depth = 0;
+            as_clause = sprite_array = operand_seen = false;
+            qualifier_statement = qualifier_field = 0;
+            continue;
+        }
 
         /* Subscripts are values even within READ/INPUT/SWAP destinations. */
-        if (tok == '(') { p++; paren_depth++; assign_ctx = false; continue; }
-        if (tok == ')') { p++; if (paren_depth) paren_depth--; assign_ctx = false; continue; }
-        if (tok == ',') { p++; assign_ctx = multi_assign && paren_depth == 0; continue; }
+        if (tok == '(') { p++; paren_depth++; assign_ctx = operand_seen = false; continue; }
+        if (tok == ')') { p++; if (paren_depth) paren_depth--; assign_ctx = false; operand_seen = true; continue; }
+        if (tok == ',') {
+            p++; assign_ctx = (multi_assign || sprite_array) && paren_depth == 0;
+            if (!paren_depth && qualifier_statement) qualifier_field++;
+            if (!paren_depth) sprite_array = false;
+            operand_seen = false;
+            continue;
+        }
 
         /* Skip constants */
-        if (is_constant(tok)) { skip_constant(&p); assign_ctx = false; continue; }
+        if (is_constant(tok)) { skip_constant(&p); assign_ctx = false; operand_seen = true; continue; }
 
         /* Skip string literals (preserve assign_ctx for INPUT "prompt", var) */
         if (tok == '"') {
             p++;
             while (p < end && *p && *p != '"') p++;
             if (p < end && *p == '"') p++;
+            operand_seen = true;
             continue;
         }
 
@@ -372,6 +387,7 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
             tok == TOK_DEFDBL || tok == TOK_DEFSTR) {
             while (p < end && *p && *p != ':' && *p != TOK_ELSE) p++;
             assign_ctx = false;
+            operand_seen = false;
             continue;
         }
 
@@ -386,6 +402,11 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
                 assign_ctx = false;
                 continue;
             }
+            char name[GW_NAME_SIZE];
+            if (next < end && gw_scan_name(&next, name) && strcmp(name, "SEG") == 0) {
+                p = next; assign_ctx = operand_seen = false;
+                continue;
+            }
         }
         if (tok == TOK_FN) {
             char name[GW_NAME_SIZE];
@@ -394,6 +415,7 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
             gw_scan_name(&p, name);
             if (p < end && (*p == '$' || *p == '%' || *p == '!' || *p == '#')) p++;
             assign_ctx = false;
+            operand_seen = true;
             continue;
         }
 
@@ -502,9 +524,10 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
             continue;
         }
 
-        /* FOR — next variable is the loop variable (assigned) */
-        if (tok == TOK_FOR) {
+        /* FOR/NEXT name loop storage; NEXT can name several nested loops. */
+        if (tok == TOK_FOR || tok == TOK_NEXT) {
             p++; assign_ctx = true;
+            multi_assign = tok == TOK_NEXT;
             continue;
         }
 
@@ -520,6 +543,14 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
         /* LINE (as in LINE INPUT) — next token is INPUT, assign context */
         if (tok == TOK_LINE) {
             p++; assign_ctx = true;
+            uint8_t *next = p;
+            while (next < end && *next == ' ') next++;
+            if (next < end && *next != TOK_INPUT) qualifier_statement = TOK_LINE;
+            continue;
+        }
+        if (tok == TOK_SAVE || tok == TOK_LOAD) {
+            p++; assign_ctx = false;
+            qualifier_statement = tok;
             continue;
         }
 
@@ -560,6 +591,8 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
             /* THEN/ELSE can also introduce an assignment rather than a line. */
             assign_ctx = is_branch;
             multi_assign = false;
+            as_clause = sprite_array = operand_seen = false;
+            qualifier_statement = qualifier_field = 0;
             continue;
         }
 
@@ -616,6 +649,23 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
                 p++;
             }
             full[fi] = 0;
+            /* Literal statement qualifiers are not callable operands. */
+            if ((qualifier_statement == TOK_LINE && qualifier_field == 2 &&
+                 (strcmp(full, "B") == 0 || strcmp(full, "BF") == 0)) ||
+                (qualifier_statement == TOK_SAVE && qualifier_field == 1 &&
+                 (strcmp(full, "A") == 0 || strcmp(full, "P") == 0)) ||
+                (qualifier_statement == TOK_LOAD && qualifier_field == 1 && strcmp(full, "R") == 0) ||
+                (qualifier_statement == XSTMT_CHAIN && qualifier_field == 2 && strcmp(full, "ALL") == 0)) {
+                operand_seen = false;
+                continue;
+            }
+            /* FIELD's AS introduces storage; NAME's AS separates filenames. */
+            if (as_clause && !paren_depth && operand_seen && strcmp(full, "AS") == 0) {
+                assign_ctx = as_destination;
+                if (!as_destination) as_clause = false;
+                operand_seen = false;
+                continue;
+            }
             /* A declared extern is a function call, not a variable — don't add
              * it to the census.  Its argument expressions are scanned normally
              * by the surrounding loop. */
@@ -625,6 +675,7 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
                 if (p < end && (*p == '$' || *p == '%' || *p == '!' || *p == '#'))
                     p++;
                 assign_ctx = false;
+                operand_seen = true;
                 continue;
             }
             if (!gw_scan_name(&name_start, name)) continue;
@@ -644,11 +695,39 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
                 analysis_add_var(a, name, type);
             }
             assign_ctx = false;
+            operand_seen = true;
             continue;
         }
 
         /* Extended tokens (0xFD, 0xFE, 0xFF prefix) — skip the prefix byte */
         if (tok == TOK_PREFIX_FD || tok == TOK_PREFIX_FE || tok == TOK_PREFIX_FF) {
+            bool begins_as_clause = tok == TOK_PREFIX_FE &&
+                (p[1] == XSTMT_FIELD || p[1] == XSTMT_NAME);
+            if (tok == TOK_PREFIX_FE && p[1] == XSTMT_CHAIN)
+                qualifier_statement = XSTMT_CHAIN;
+            /* MID$ assignment's first operand names storage, including arrays.
+             * Consume its opening parenthesis before visiting that name. */
+            if (tok == TOK_PREFIX_FF && p[1] == FUNC_MID && assign_ctx) {
+                p += 2;
+                while (p < end && *p == ' ') p++;
+                if (p < end && *p == '(') { p++; paren_depth++; }
+                operand_seen = false;
+                continue;
+            }
+            if (tok == TOK_PREFIX_FE && (p[1] == XSTMT_LSET || p[1] == XSTMT_RSET)) {
+                p += 2; assign_ctx = true; multi_assign = false;
+                continue;
+            }
+            if (begins_as_clause) {
+                as_clause = true;
+                as_destination = p[1] == XSTMT_FIELD;
+                operand_seen = false;
+            }
+            if (tok == TOK_PREFIX_FE && (p[1] == XSTMT_GET || p[1] == XSTMT_PUT)) {
+                uint8_t *next = p + 2;
+                while (next < end && *next == ' ') next++;
+                sprite_array = next < end && *next == '(';
+            }
             /* COMMON — variables receive values from CHAIN, treat as assigned */
             if (tok == TOK_PREFIX_FE && p[1] == XSTMT_COMMON) {
                 p += 2;
@@ -658,14 +737,14 @@ static void scan_tokens(analysis_t *a, program_line_t *line)
             }
             p += 2;
             assign_ctx = false;
+            if (!begins_as_clause) operand_seen = true;
             continue;
         }
 
-        /* Everything else: single byte token.
-         * Commas preserve assign_ctx (they separate items in INPUT, READ, etc.) */
+        /* Operators and statement keywords introduce value operands. */
         p++;
-        if (tok != ',')
-            assign_ctx = false;
+        assign_ctx = false;
+        operand_seen = false;
     }
 }
 

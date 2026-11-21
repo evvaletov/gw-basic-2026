@@ -631,6 +631,8 @@ gw_value_t gw_eval_fn_call(void)
     frame.outer = fn_calls;
     fn_calls = &frame;
     if (frame.parameter) gw_var_assign(frame.parameter, &arg_val);
+    /* Assignment transfers string ownership to the parameter descriptor. */
+    if (arg_val.type == VT_STR) gw_str_free(&arg_val.sval);
 
     /* Evaluate the body expression */
     gw.text_ptr = fn->body_text;

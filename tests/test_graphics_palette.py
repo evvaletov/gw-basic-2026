@@ -265,6 +265,14 @@ class GraphicsPalette(unittest.TestCase):
              "SCREEN 1", 'COLOR VAL(FNB$("1")),0',
              'PRINT S$;INP(&H3D9)'], [], "SAVED 1")
 
+    def test_fn_string_argument_has_one_collector_owner(self):
+        self.check_program(
+            ['DEF FNA(S$)=FRE("")', 'A=FNA("")',
+             'B=FNA(STRING$(20,65))', "PRINT A-B"], [], "20")
+        self.check_program(
+            ["CLEAR 64", 'DEF FNA(S$)=FRE("")',
+             'PRINT FNA(STRING$(40,65))'], [], "24")
+
     def test_hosted_entries_start_with_fresh_graphics(self):
         for error in (False, True):
             source = ('10 SCREEN 1\n20 PRINT POINT(5,5);INP(&H3D9)\n'
@@ -317,10 +325,24 @@ class GraphicsPalette(unittest.TestCase):
             ('20 Q=42\n30 PRINT 17\n', "17"),
             ('20 DEF FNA(Q)=17\n30 PRINT FNA(42)\n', "17"),
             ('20 OPEN "x" FOR OUTPUT AS #1\n30 CLOSE:PRINT 17\n', "17"),
+            ('20 FOR Q=1 TO 2:PRINT 42:NEXT Q\n', "42 42"),
+            ('20 Q$="12":MID$(Q$,1)="X":PRINT 17\n', "17"),
+            ('20 Q$="12":LSET Q$="X":RSET Q$="X":PRINT 17\n', "17"),
+            ('20 OPEN "R",#1,"field.bin",4\n30 FIELD #1,4 AS Q$\n40 CLOSE:PRINT 17\n', "17"),
+            ('20 DIM Q%(10):SCREEN 1:PSET (0,0),1\n30 GET (0,0)-(0,0),Q%\n'
+             '40 PUT (1,1),Q%:SCREEN 0:PRINT 17\n', "17"),
+            ('20 OPEN "x" FOR OUTPUT AS #1:CLOSE\n30 NAME "x" AS "y":PRINT 17\n', "17"),
+            ('20 DEF SEG=&H40:PRINT 17\n', "17"),
+            ('20 SCREEN 1:LINE (0,0)-(2,2),1,B:LINE (3,0)-(5,2),1,BF\n'
+             '30 SCREEN 0:PRINT 17\n', "17"),
+            ('20 SAVE "saved.bas",A:PRINT 17\n', "17"),
         ]
         for source, expected in cases:
             with self.subTest(source=source):
-                prefix = "10 '$EXTERN Q() AS INTEGER\n11 '$EXTERN Output() AS INTEGER\n"
+                prefix = ("10 '$EXTERN Q() AS INTEGER\n11 '$EXTERN Output() AS INTEGER\n"
+                          "12 '$EXTERN As() AS STRING\n13 '$EXTERN Seg() AS INTEGER\n"
+                          "14 '$EXTERN B() AS INTEGER\n15 '$EXTERN BF() AS INTEGER\n"
+                          "16 '$EXTERN A() AS INTEGER\n17 '$EXTERN P() AS INTEGER\n")
                 self.assertEqual(self.run_hosted(prefix + source, host, ["-O0"]), expected)
 
     def test_foreign_calls_in_bounds_subscripts_and_fn_bodies(self):
@@ -333,6 +355,20 @@ class GraphicsPalette(unittest.TestCase):
         for flags in (["-O0"], ["-O3", "--safe", "--inline-arrays"]):
             with self.subTest(flags=flags):
                 self.assertEqual(self.run_hosted(source, host, flags), "17 2")
+        for body, expected in [
+            ('20 S$="abc":MID$(S$,Getn,1)="X":PRINT S$\n', "aXc"),
+            ('20 OPEN "R",#1,"field.bin",4\n30 FIELD #1,Getn AS S$\n'
+             '40 LSET S$="XY":PRINT S$:CLOSE\n', "XY"),
+        ]:
+            with self.subTest(body=body):
+                source = "10 '$EXTERN Getn() AS INTEGER\n" + body
+                self.assertEqual(self.run_hosted(source, host, ["-O0"]), expected)
+        source = ("10 '$EXTERN As() AS STRING\n"
+                  '20 OPEN "x" FOR OUTPUT AS #1:CLOSE\n'
+                  '30 NAME As AS "y":PRINT "RENAMED"\n')
+        host = ('#include "gwrt.h"\nint palette_entry(int,char**);'
+                'const char *As(void){return "x";}int main(void){return palette_entry(0,NULL);}\n')
+        self.assertEqual(self.run_hosted(source, host, ["-O0"]), "RENAMED")
 
     def test_foreign_integer_error_releases_string_arguments(self):
         source = ("10 '$EXTERN Mix(STRING,INTEGER) AS INTEGER\n"
