@@ -143,14 +143,17 @@ static void file_info(int number, int start, int count) {
     }
 }
 
-static int bounded_numbers(const char *s) {
-    while (*s) {
-        if (*s == ' ') { s++; continue; }
+static int file_request(const char *s, int values[3]) {
+    for (int i = 0; i < 3; i++) {
+        while (*s == ' ') s++;
         size_t n = strspn(s, "0123456789");
         if (!n || n > 4) return 0;
-        s += n;
+        values[i] = 0;
+        while (n--) values[i] = values[i] * 10 + (*s++ - '0');
+        if (*s && *s != ' ') return 0;
     }
-    return 1;
+    while (*s == ' ') s++;
+    return !*s;
 }
 
 static void state(void) {
@@ -249,9 +252,9 @@ static void monitor(void) {
         } else if (!strcmp(p, "inspect")) {
             if (!strcmp(arg, "state")) state();
             else if (!strncmp(arg, "file ", 5)) {
-                int number, start, count, used = 0;
-                if (bounded_numbers(arg+5) && sscanf(arg+5, "%d %d %d %n", &number, &start, &count, &used) == 3 && used && !arg[5+used] &&
-                    number >= 1 && number <= 15 && start >= 0 && count >= 1 && count <= 64) file_info(number, start, count);
+                int request[3];
+                if (file_request(arg+5, request) && request[0] >= 1 && request[0] <= 15 &&
+                    request[2] >= 1 && request[2] <= 64) file_info(request[0], request[1], request[2]);
                 else fputs("error file-request (file NUMBER OFFSET COUNT)\n", out);
             } else value(arg);
         } else if (!strcmp(p, "checkpoint") || !strcmp(p, "snapshot")) {
