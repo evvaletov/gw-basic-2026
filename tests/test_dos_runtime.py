@@ -5,10 +5,12 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
 import run_dos_runtime as runner
+import run_dos_strings as strings
 
 
 class RuntimeHarnessTests(unittest.TestCase):
@@ -68,6 +70,39 @@ class RuntimeHarnessTests(unittest.TestCase):
                 self.assertEqual((Path(tmp) / "dos16/HIGH.TXT").read_text(), "partial guest output\n")
                 self.assertEqual(report["targets"]["16"]["captured_files"],
                                  ["OUT.TXT", "HIGH.TXT", "O11.TXT", "I0.TXT", "I1.TXT", "I2.TXT", "R2.TXT"])
+
+    def test_string_runner_rejects_stale_output_on_repeat(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp)
+            binary = output / "basic.exe"
+            binary.write_bytes(b"test binary")
+            args = SimpleNamespace(output=output, dos16=binary, dos4gw=binary,
+                                   qemu="qemu", timeout=10)
+            with patch.object(strings, "CASES", [("TIDY.B", "editor")]), \
+                 patch.object(strings, "EXPECTED", {"TIDY.B": {"TIDY.ASM": b"converted"}}), \
+                 patch.object(runner, "prepare", return_value="partition"), \
+                 patch.object(runner, "run", return_value=b""), \
+                 patch.object(runner, "VM") as vm, \
+                 patch.object(strings.subprocess, "run") as capture:
+                vm.return_value.wait.return_value = ["C:\\S0>"]
+                capture.return_value = subprocess.CompletedProcess([], 0, stdout=b"converted")
+                strings.run_target(args, "16", b"boot")
+                capture.return_value = subprocess.CompletedProcess([], 1, stdout=b"")
+                with self.assertRaisesRegex(AssertionError, "differs from expected bytes"):
+                    strings.run_target(args, "16", b"boot")
+            self.assertFalse((output / "dos16/S0/TIDY.ASM").exists())
+            self.assertEqual(json.loads((output / "dos16/report.json").read_text())["status"], "failed")
+
+    def test_string_runner_waits_for_complete_error(self):
+        from unittest.mock import Mock
+        vm = Mock()
+        def inspect(predicate, name, timeout):
+            self.assertFalse(predicate(["Ok", "Out of mem"]))
+            self.assertFalse(predicate(["Ok", "Out of memory in 0"]))
+            self.assertTrue(predicate(["Ok", "Out of memory in 0", "Ok"]))
+            self.assertTrue(predicate(["C:\\S0>"]))
+        vm.wait.side_effect = inspect
+        strings.wait_result(vm, "C:\\S0>", "error")
 
 
 if __name__ == "__main__":

@@ -74,7 +74,6 @@ gw_value_t gwrt_fn_tokens(const uint8_t *tokens);
 void gwrt_read_value(gw_value_t *target);
 void gwrt_expr_begin(void);
 void gwrt_expr_root(gw_value_t *value);
-void gwrt_collect_roots(char *pool, char *scratch, size_t *offset);
 void gwrt_expr_end(void);
 void gwrt_expr_unwind(void);
 

@@ -5,7 +5,8 @@
 #include <stdbool.h>
 
 #ifdef _M_I86
-/* Program lines, variables, and the GC scratch buffer share 64KB of near data. */
+/* Program lines, variables, and strings share 64 KiB of near data.
+ * The collector's temporary copy uses far memory. */
 #define STRPOOL_DEFAULT_SIZE  (8 * 1024)
 #define STRPOOL_GC_THRESHOLD  1024
 #else

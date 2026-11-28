@@ -19,6 +19,22 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Keep BASIC strings near, but put the collector's second buffer outside the
+ * 64 KiB data segment on DOS16. LOAD and file buffers can leave too little near
+ * heap to compact even an otherwise mostly empty 8 KiB string pool. */
+#ifdef _M_I86
+#include <malloc.h>
+typedef char __far *gc_buffer_t;
+#define gc_alloc _fmalloc
+#define gc_copy _fmemcpy
+#define gc_free _ffree
+#else
+typedef char *gc_buffer_t;
+#define gc_alloc malloc
+#define gc_copy memcpy
+#define gc_free free
+#endif
+
 static char *pool;
 static size_t pool_size;
 static size_t pool_used;
@@ -66,12 +82,12 @@ void gwrt_expr_unwind(void)
     root_count = root_capacity = frame_count = frame_capacity = 0;
 }
 
-void gwrt_collect_roots(char *pool, char *scratch, size_t *offset)
+static void collect_expression_roots(gc_buffer_t scratch, size_t *offset)
 {
     for (size_t i = 0; i < root_count; i++) {
         gw_value_t *value = expression_roots[i];
         if (value->type == VT_STR && value->sval.len && value->sval.data && strpool_owns(value->sval.data)) {
-            memcpy(scratch + *offset, value->sval.data, value->sval.len);
+            gc_copy(scratch + *offset, value->sval.data, value->sval.len);
             value->sval.data = pool + *offset;
             *offset += value->sval.len;
         }
@@ -80,6 +96,10 @@ void gwrt_collect_roots(char *pool, char *scratch, size_t *offset)
 
 void strpool_init(size_t size)
 {
+#ifdef _M_I86
+    /* Reserve DGROUP before far allocations can block its DOS memory block. */
+    _nheapgrow();
+#endif
     pool = malloc(size);
     if (!pool) { pool_size = 0; pool_used = 0; return; }
     pool_size = size;
@@ -99,9 +119,12 @@ void strpool_reset(size_t size)
     gwrt_expr_unwind();
     if (size == 0) size = pool_size;
     if (size != pool_size) {
-        free(pool);
-        pool = malloc(size);
-        pool_size = pool ? size : 0;
+        /* A failed CLEAR must leave a usable pool, rather than silently
+         * replacing it with zero bytes and failing at the next string. */
+        char *resized = realloc(pool, size);
+        if (!resized) gw_error(ERR_OM);
+        pool = resized;
+        pool_size = size;
     }
     pool_used = 0;
     pin_count = 0;
@@ -139,7 +162,7 @@ void strpool_unpin(void) { if (pin_count > 0) pin_count--; }
 void strpool_gc(void)
 {
     if (pin_count > 0) return;
-    char *tmp = malloc(pool_size);
+    gc_buffer_t tmp = gc_alloc(pool_size);
     if (!tmp) return;
 
     size_t offset = 0;
@@ -148,7 +171,7 @@ void strpool_gc(void)
         if (gw.vars[i].type == VT_STR) {
             gw_string_t *s = &gw.vars[i].val.sval;
             if (s->len > 0 && s->data && strpool_owns(s->data)) {
-                memcpy(tmp + offset, s->data, s->len);
+                gc_copy(tmp + offset, s->data, s->len);
                 s->data = pool + offset;
                 offset += s->len;
             }
@@ -160,7 +183,7 @@ void strpool_gc(void)
             for (int j = 0; j < gw.arrays[i].total_elements; j++) {
                 gw_string_t *s = &gw.arrays[i].data[j].sval;
                 if (s->len > 0 && s->data && strpool_owns(s->data)) {
-                    memcpy(tmp + offset, s->data, s->len);
+                    gc_copy(tmp + offset, s->data, s->len);
                     s->data = pool + offset;
                     offset += s->len;
                 }
@@ -169,8 +192,8 @@ void strpool_gc(void)
     }
 
     /* Evaluators register the addresses of their live descriptors. */
-    gwrt_collect_roots(pool, tmp, &offset);
-    memcpy(pool, tmp, offset);
+    collect_expression_roots(tmp, &offset);
+    gc_copy(pool, tmp, offset);
     pool_used = offset;
-    free(tmp);
+    gc_free(tmp);
 }
