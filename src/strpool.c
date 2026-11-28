@@ -121,8 +121,7 @@ void strpool_reset(size_t size)
     pool_used = 0;
     pin_count = 0;
     if (size != pool_size) {
-        /* A failed CLEAR must leave a usable pool, rather than silently
-         * replacing it with zero bytes and failing at the next string. */
+        /* Keep the existing pool usable if CLEAR cannot resize it. */
         char *resized = realloc(pool, size);
         if (!resized) gw_error(ERR_OM);
         pool = resized;
