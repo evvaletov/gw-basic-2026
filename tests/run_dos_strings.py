@@ -90,7 +90,12 @@ def run_target(args, bits, boot):
                         vm.command("BASIC")
                         vm.wait(lambda lines: "Ok" in lines and "1LIST" in lines[-1], f"editor-{index}")
                         if mode == "clear-before-load":
-                            vm.command("CLEAR ,12288")
+                            vm.command("CLEAR ,12288:PRINT FRE(0)")
+                            resized_screen = wait_result(vm, " 12288", f"resize-{index}")
+                            if " 12288" not in resized_screen:
+                                raise AssertionError(f"DOS{bits}: CLEAR before LOAD did not enlarge the pool")
+                            vm.wait(lambda lines: " 12288" in lines and
+                                    "Ok" in lines[lines.index(" 12288") + 1:], f"resize-ready-{index}")
                         vm.command('LOAD "' + source + '"')
                         if mode == "merge":
                             vm.command('MERGE "MERGE.GW"')
@@ -111,7 +116,7 @@ def run_target(args, bits, boot):
                     if prompt not in screen or any("NULL assignment" in line for line in screen):
                         raise AssertionError(f"DOS{bits} {source} ({mode}): guest error; see result-{index}.txt")
                     result = {"source": source, "mode": mode, "status": "ran"}
-                    if mode == "clear-in-program":
+                    if mode in ("clear-before-load", "clear-in-program"):
                         result["resize"] = "accepted" if resized else "out of memory; recovered with original pool"
                     report["cases"].append(result)
                     vm.command("CD ..")

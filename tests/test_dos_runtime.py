@@ -100,6 +100,7 @@ class RuntimeHarnessTests(unittest.TestCase):
             self.assertFalse(predicate(["Ok", "Out of mem"]))
             self.assertFalse(predicate(["Ok", "Out of memory in 0"]))
             self.assertTrue(predicate(["Ok", "Out of memory in 0", "Ok"]))
+            self.assertFalse(predicate(["C:\\S0>BASIC INVA86W.NEW"]))
             self.assertTrue(predicate(["C:\\S0>"]))
         vm.wait.side_effect = inspect
         strings.wait_result(vm, "C:\\S0>", "error")
