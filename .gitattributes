@@ -1,0 +1,4 @@
+# Preserve the supplied DOS fixtures, including CRLF and existing spaces.
+tests/fixtures/rugxulo/*.B -text whitespace=-blank-at-eol,cr-at-eol
+tests/fixtures/rugxulo/*.NEW -text whitespace=-blank-at-eol,cr-at-eol
+tests/fixtures/rugxulo/LICENSE.PD -text whitespace=cr-at-eol

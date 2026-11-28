@@ -161,6 +161,36 @@ int main(void) {
              '-lm', '-pthread', *self.libs, '-o', str(exe)], self.root)
         run([str(exe)], self.root)
 
+    def test_failed_pool_resize_preserves_storage(self):
+        host, exe = self.root/'resize.c', self.root/'resize'
+        host.write_text('''#include "gwrt.h"
+#include <stdlib.h>
+#include <string.h>
+static size_t rejected_size;
+void *test_realloc(void *p,size_t n) {
+ return n==rejected_size ? NULL : realloc(p,n);
+}
+int main(void) {
+ gwrt_init(); size_t capacity=strpool_free();
+ char *saved=strpool_alloc(4); memcpy(saved,"kept",4);
+ strpool_pin();
+ rejected_size=capacity+1;
+ if(setjmp(gw_error_jmp)==0) { strpool_reset(rejected_size); return 1; }
+ if(gw_errno!=ERR_OM || strpool_free()!=capacity || memcmp(saved,"kept",4)) return 2;
+ gw_string_t s=gw_str_from_cstr("usable");
+ if(s.len!=6 || memcmp(s.data,"usable",6)) return 3;
+ strpool_gc();
+ if(strpool_free()!=capacity) return 4;
+ gwrt_shutdown(); return 0;
+}
+''')
+        pool = self.root/'strpool.o'
+        run([*self.cc, '-Drealloc=test_realloc', '-I'+str(ROOT/'include'),
+             '-c', str(ROOT/'src/strpool.c'), '-o', str(pool)], self.root)
+        run([*self.cc, str(host), str(pool), str(BUILD/'libgwrt.a'), '-I'+str(ROOT/'include'),
+             '-lm', '-pthread', *self.libs, '-o', str(exe)], self.root)
+        run([str(exe)], self.root, allow_stderr=True)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)

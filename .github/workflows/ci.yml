@@ -212,6 +212,9 @@ jobs:
           python3 tests/run_dos_debug.py \
             --dos16 .ci-stash/gwbasic16.exe --dos32 .ci-stash/gwbasic.exe \
             --dos4gw "$WATCOM/binw/dos4gw.exe"
+          python3 tests/run_dos_strings.py \
+            --dos16 .ci-stash/gwbasic16.exe --dos32 .ci-stash/gwbasic.exe \
+            --dos4gw "$WATCOM/binw/dos4gw.exe"
 
       - name: Upload DOS runtime evidence
         if: always()
@@ -221,6 +224,7 @@ jobs:
           path: |
             build/dos-runtime/
             build/dos-debug/
+            build/dos-strings/
           if-no-files-found: warn
 
       - name: Upload DOS artifacts

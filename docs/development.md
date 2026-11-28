@@ -99,6 +99,14 @@ while an outer expression holds a temporary string.
 These checks cover stored graphics state; the DOS text HAL
 does not display the framebuffer.
 
+`python3 tests/run_dos_strings.py` runs Rugxulo's three public-domain string
+converters through the editor and command-line startup. It checks LOAD/MERGE,
+garbage collection under near-heap pressure, CLEAR resizing and recovery, and
+clean exit. Expected output comes from a small generated input; CI does not
+download or redistribute the original game's assembly source.
+An additional probe allocates a large array after collection to check that far
+allocations have not blocked growth of the near heap.
+
 The DOS cross-build job executes both binaries under FreeDOS in QEMU before
 uploading them for release packaging. Run the same checks locally after building
 both targets:
