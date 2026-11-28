@@ -9,8 +9,9 @@ of setting CLEAR ,12288. If the larger pool cannot fit after LOAD on DOS16,
 the test requires an Out of memory error at CLEAR, then removes that line and
 runs the converter using the retained pool. A separate allocation-failure test
 in test_runtime_types.py checks that failed resizing preserves the pool.
-All converted output files are compared byte for byte
-with independently specified expected text. No assembler is invoked.
+All converted output files are compared byte for byte with independently
+specified expected text. No assembler is invoked. A generated FRE-then-DIM
+probe checks that near memory remains available after far allocations.
 
 The original report used PSR Invaders 1.1's INVADERS.ASM. That separately licensed
 file is not included or downloaded by CI. Full-input acceptance testing should

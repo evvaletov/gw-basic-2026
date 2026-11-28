@@ -501,8 +501,10 @@ storage in its 64 KiB near-data segment. Garbage collection uses a temporary
 buffer in far memory. Other builds use a 32 KiB pool. Increasing the pool with
 `CLEAR` reduces memory available for program lines and arrays. A larger pool may
 not fit after `LOAD` has allocated program storage; `CLEAR` then reports
-`Out of memory` and retains the existing pool. The string-conversion examples
-in `tests/fixtures/rugxulo/` run with the default 8 KiB pool.
+`Out of memory` and retains the existing pool. Variables and arrays are cleared
+and files are closed even if resizing fails.
+The string-conversion examples in `tests/fixtures/rugxulo/` run with the default
+8 KiB pool.
 
 The 16-bit link disables OpenWatcom far-call rewriting (`OPTION NOFARCALLS`).
 With the same object files, the default rewrite produced layout-dependent

@@ -118,6 +118,8 @@ void strpool_reset(size_t size)
 {
     gwrt_expr_unwind();
     if (size == 0) size = pool_size;
+    pool_used = 0;
+    pin_count = 0;
     if (size != pool_size) {
         /* A failed CLEAR must leave a usable pool, rather than silently
          * replacing it with zero bytes and failing at the next string. */
@@ -126,8 +128,6 @@ void strpool_reset(size_t size)
         pool = resized;
         pool_size = size;
     }
-    pool_used = 0;
-    pin_count = 0;
 }
 
 bool strpool_owns(const char *p)

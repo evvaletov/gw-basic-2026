@@ -173,13 +173,14 @@ void *test_realloc(void *p,size_t n) {
 int main(void) {
  gwrt_init(); size_t capacity=strpool_free();
  char *saved=strpool_alloc(4); memcpy(saved,"kept",4);
+ strpool_pin();
  rejected_size=capacity+1;
  if(setjmp(gw_error_jmp)==0) { strpool_reset(rejected_size); return 1; }
- if(gw_errno!=ERR_OM || strpool_free()!=capacity-4 || memcmp(saved,"kept",4)) return 2;
- strpool_reset(0);
- if(strpool_free()!=capacity) return 3;
+ if(gw_errno!=ERR_OM || strpool_free()!=capacity || memcmp(saved,"kept",4)) return 2;
  gw_string_t s=gw_str_from_cstr("usable");
- if(s.len!=6 || memcmp(s.data,"usable",6)) return 4;
+ if(s.len!=6 || memcmp(s.data,"usable",6)) return 3;
+ strpool_gc();
+ if(strpool_free()!=capacity) return 4;
  gwrt_shutdown(); return 0;
 }
 ''')
